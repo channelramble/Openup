@@ -65,7 +65,7 @@ def adapt_prompts(source, backend):
     compatibility edits and this helper. Exact local matches prevent silently
     adapting a changed function layout.
     """
-    if backend not in {"bruteforce", "legacy"}:
+    if backend not in {"recover", "legacy"}:
         raise ValueError("Unknown backend for GUI prompt hooks.")
 
     def replace(before, after):
@@ -74,7 +74,7 @@ def adapt_prompts(source, backend):
             raise ValueError("Backend GUI prompt hook did not match exactly.")
         source = source.replace(before, after)
 
-    if backend == "bruteforce":
+    if backend == "recover":
         replace(
             'input() { echo "${color_Y}[Input] ${1}${color_N}"; }',
             _HELPERS + '''

@@ -15,16 +15,17 @@ from ios_timeout.cli import parser
 from ios_timeout.core import ResetError
 from ios_timeout.desktop_model import Settings, TerminalText, operation_arguments
 from ios_timeout import desktop_updates as updates
+from ios_timeout import legacy_names
 
 
-def desktop_zip(path, version="2.1.0", target="linux-x86_64", extra=None):
-    prefix = updates.code_prefix(target)
+def desktop_zip(path, version="2.1.0", target="linux-x86_64", extra=None, legacy=False):
+    prefix = updates.code_prefix(target, legacy)
     entries = {
         prefix + "desktop.py": b"# test fixture, never executed\n",
         prefix + "ios_timeout/gui.py": b"# GUI fixture\n",
-        updates.python_relative(target): b"# runtime fixture\n",
+        updates.python_relative(target, legacy=legacy): b"# runtime fixture\n",
     }
-    for required in updates.required_files(target):
+    for required in updates.required_files(target, legacy):
         entries.setdefault(required, b"# native launcher fixture\n")
     entries.update(extra or {})
     import hashlib
@@ -36,7 +37,8 @@ def desktop_zip(path, version="2.1.0", target="linux-x86_64", extra=None):
     entries["DESKTOP.json"] = json.dumps(manifest).encode()
     with zipfile.ZipFile(path, "w") as archive:
         for name, data in entries.items():
-            info = zipfile.ZipInfo(updates.bundle_name(target) + "/" + name)
+            name_root = legacy_names.SLUG if legacy else updates.bundle_name(target)
+            info = zipfile.ZipInfo(name_root + "/" + name)
             info.external_attr = (stat.S_IFREG | 0o644) << 16
             archive.writestr(info, data)
     return updates.file_hash(path)
@@ -98,7 +100,7 @@ class DesktopPlanningTests(unittest.TestCase):
         self.assertFalse(parsed.apply)
 
     def test_recovery_uses_bundled_armv6_for_3g_and_rejects_damaged_bundle(self):
-        args = operation_arguments("bruteforce", Settings(), apply=True)
+        args = operation_arguments("recover", Settings(), apply=True)
         self.assertIn("--apply", args)
         self.assertNotIn("--armv6-tools", args)
         self.assertEqual(parser().parse_args(args).model, "iPhone1,2")
@@ -108,8 +110,8 @@ class DesktopPlanningTests(unittest.TestCase):
                 side_effect=ResetError(problem),
             ):
                 with self.assertRaisesRegex(ResetError, problem):
-                    operation_arguments("bruteforce", Settings(), apply=True)
-        args = operation_arguments("bruteforce", Settings(), install_only=True)
+                    operation_arguments("recover", Settings(), apply=True)
+        args = operation_arguments("recover", Settings(), install_only=True)
         self.assertIn("--install-only", args)
         self.assertNotIn("--apply", args)
 
@@ -154,8 +156,36 @@ class DesktopPlanningTests(unittest.TestCase):
 
 
 class DesktopUpdateTests(unittest.TestCase):
+    def test_existing_installation_remains_available_for_explicit_rollback(self):
+        for target in sorted(updates.TARGETS):
+            with self.subTest(target=target), tempfile.TemporaryDirectory() as directory:
+                state = Path(directory)
+                archive = state / "legacy.zip"
+                digest = desktop_zip(archive, version="2.2.2", target=target, legacy=True)
+                old_root = state / "desktop-updates/versions" / ("2.2.2-" + target) / legacy_names.SLUG
+                updates.extract_archive(archive, old_root, "2.2.2", target, digest)
+                manifest = updates.verify_bundle(old_root, target, "2.2.2")
+                self.assertTrue(updates.legacy_layout(manifest, target))
+                self.assertEqual(updates.installed_root(state, "2.2.2", target), old_root)
+                pointer = state / "desktop-updates/active.json"
+                pointer.write_text(json.dumps({"current": "2.2.2", "previous": None}))
+                with patch.object(updates, "state_directory", return_value=state), \
+                     patch.object(updates, "target", return_value=target), \
+                     patch.object(updates.subprocess, "run") as launch:
+                    # Opening a new Openup must not silently run the older app.
+                    self.assertIsNone(updates.dispatch(state / "fresh-app", []))
+                    launch.assert_not_called()
+                    pointer.write_text(json.dumps({"current": "2.3.0", "previous": "2.2.2"}))
+                    self.assertTrue(updates.rollback(state))
+                    launch.return_value.returncode = 0
+                    self.assertEqual(updates.dispatch(state / "fresh-app", []), 0)
+                    expected = old_root / updates.python_relative(target, windowed=True, legacy=True)
+                    self.assertEqual(launch.call_args.args[0][0], str(expected))
+                    # An explicit rollback persists on the next ordinary launch.
+                    self.assertEqual(updates.dispatch(state / "fresh-app", []), 0)
+
     def downloaded_fixture(self, root, target="linux-x86_64", version="99.0.0"):
-        archive = root / f"Bruteforce-Legacy-iOS-{version}-{target}.zip"
+        archive = root / f"Openup-{version}-{target}.zip"
         digest = desktop_zip(archive, version=version, target=target)
         checksum = Path(str(archive) + ".sha256")
         checksum.write_text(f"{digest}  {archive.name}\n")
@@ -243,14 +273,14 @@ class DesktopUpdateTests(unittest.TestCase):
                 digest = desktop_zip(archive, target=target)
                 updates.extract_archive(archive, root / "bundle", "2.1.0", target, digest)
                 self.assertTrue((root / "bundle/DESKTOP.json").exists())
-                app = root / "bundle/Bruteforce Legacy iOS.app"
+                app = root / "bundle/Openup.app"
                 self.assertFalse((app / "DESKTOP.json").exists())
                 source = app / "Contents/Resources/app"
                 self.assertEqual(updates.find_bundle(source), root / "bundle")
 
     def test_intel_mac_update_selects_intel_package(self):
         releases = [{"tag_name": "v9.0.0", "assets": [
-            {"name": f"Bruteforce-Legacy-iOS-9.0.0-{target}.zip", "id": index + 1,
+            {"name": f"Openup-9.0.0-{target}.zip", "id": index + 1,
              "size": 20, "digest": "sha256:" + "a" * 64}
             for index, target in enumerate(("macos-arm64", "macos-x86_64"))
         ]}]
@@ -337,7 +367,7 @@ class DesktopUpdateTests(unittest.TestCase):
             updates.SafeRedirect().redirect_request(request, None, 302, "redirect", {}, "http://evil.invalid/file")
 
     def test_release_selection_requires_matching_platform_asset(self):
-        releases = [{"tag_name": "v9.0.0", "assets": [{"name": "Bruteforce-Legacy-iOS-9.0.0-windows-x86_64.zip",
+        releases = [{"tag_name": "v9.0.0", "assets": [{"name": "Openup-9.0.0-windows-x86_64.zip",
                      "id": 1, "size": 20, "digest": "sha256:" + "a" * 64}]}]
         with patch.object(updates, "open_github", return_value=io.BytesIO(json.dumps(releases).encode())):
             self.assertEqual(updates.check(platform_target="windows-x86_64")["version"], "9.0.0")

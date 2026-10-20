@@ -16,8 +16,8 @@ from . import __version__
 from .core import ResetError, read_local_file, secure_write
 from .host import host_lock, state_directory, sync_directory
 
-REPO = "channelramble/Bruteforce-Legacy-iOS"
-PREFIX = "Bruteforce-Legacy-iOS/"
+REPO = "channelramble/Openup"
+PREFIX = "Openup/"
 MAX_ARCHIVE = 128 * 1024 * 1024
 MAX_EXPANDED = 64 * 1024 * 1024
 
@@ -55,7 +55,7 @@ def get_releases():
 
 def asset_for(release):
     version = release["tag_name"][1:]
-    name = f"Bruteforce-Legacy-iOS-{version}.zip"
+    name = f"Openup-{version}.zip"
     assets = [asset for asset in release.get("assets", []) if asset.get("name") == name]
     if len(assets) != 1:
         raise ResetError(f"The release must contain exactly one {name} asset.")

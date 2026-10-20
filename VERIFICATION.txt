@@ -1,4 +1,43 @@
-Bruteforce Legacy iOS 2.2.2 — GUI updates and running-version visibility
+Openup 2.3.0 — branding, migration, and verified iBSS handoff
+Verification date: 2026-10-20
+
+The latest exported recovery session identifies app version 2.2.1. Both attempts
+reach verified patched S5L8900 DFU, complete iBSS upload, and fail to reach
+Recovery mode. A live USB query confirms CPID 8900 / BDID 04 / SRTG
+iBoot-636.66.3x / MODE DFU. No ramdisk startup is established.
+
+Controlled RAM-only tests on the connected 3G reproduced the same result with
+both the patched and original 4.2.1 iBSS, using the backend's irecovery 1.1.0.
+A comparison with Legacy iOS Kit's irecovery 1.3.1 also remained in DFU. Each
+session held the application lock and temporarily reserved the Mac device
+agents; all three agents were resumed afterward. No kernel or ramdisk was sent
+and no device filesystem operation was performed during these diagnostics.
+The Mac USB inventory showed the phone behind hubs. This is a possible factor,
+not a proven cause. Upstream recommends a direct adapter for S5L8900:
+https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/Troubleshooting
+
+The code now requires verified Recovery mode and matching board/chip identity
+after iBSS before continuing the boot chain. Timeout reports the actual mode
+in the GUI. Failed recovery commands stop later uploads. A USB-query process
+exit race found in the live diagnostic has been fixed. Simulated tests cover
+DFU timeout, verified Recovery handoff, wrong/missing identity, failed ramdisk
+commands, process cleanup, and redaction of unique device identifiers.
+
+Openup keeps existing state directories in place, verifies the prior package
+layout for rollback, and ignores stale older update selections when a newer app
+is opened. Explicit rollback persists. New package/app names require a one-time
+manual launch of the Openup download when migrating from 2.2.x. Original
+third-party names and legacy migration identifiers remain where required.
+
+Physical ramdisk boot remains unresolved. No raw user logs, unique identifiers,
+or Apple firmware are included in the source or release archives. Final package
+and updater verification is recorded with the release:
+https://github.com/channelramble/Openup/releases/tag/v2.3.0
+
+Historical records follow.
+============================================================
+
+Openup 2.2.2 — GUI updates and running-version visibility
 Verification date: 2026-10-20
 
 Both fourth-session reports identify the running app as 2.2.0. Read-only
@@ -17,12 +56,12 @@ as well as stock DFU entry. USB transitions in those tests are simulated.
 
 Physical recovery on the latest version remains unverified. Final packaged
 test and updater results are recorded with the release:
-https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.2.2
+https://github.com/channelramble/Openup/releases/tag/v2.2.2
 
 Historical records follow.
 ============================================================
 
-Bruteforce Legacy iOS 2.2.1 — countdown timing and Mac device handling
+Openup 2.2.1 — countdown timing and Mac device handling
 Verification date: 2026-10-20
 
 The third recovery log stops in stock DFU before the shared-image upload.
@@ -40,12 +79,12 @@ has not been reproduced with physical button input during this repair.
 
 The dark GUI and hidden terminal/input defaults remain. Active progress clears
 the stale response-waiting status. Final package tests and updater checks:
-https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.2.1
+https://github.com/channelramble/Openup/releases/tag/v2.2.1
 
 Historical records follow.
 ============================================================
 
-Bruteforce Legacy iOS 2.2.0 — dark GUI and 3G USB transition repair
+Openup 2.2.0 — dark GUI and 3G USB transition repair
 Verification date: 2026-10-20
 
 Reported failure and evidence:
@@ -92,12 +131,12 @@ Validation and limits:
   runtime inputs are unchanged. Native Windows/Linux USB, physical recovery,
   timer clearance and execution on actual Intel Monterey remain unverified.
   Final package checks, test totals, updater results and CI status:
-  https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.2.0
+  https://github.com/channelramble/Openup/releases/tag/v2.2.0
 
 Historical records follow.
 ============================================================
 
-Bruteforce Legacy iOS 2.1.0 — guided desktop workflow
+Openup 2.1.0 — guided desktop workflow
 Verification date: 2026-10-20
 
 Interface changes:
@@ -124,7 +163,7 @@ Scope and verification status:
   All six screens were rendered at 940x680 and 1120x800 with no horizontal
   overflow. The review action stays visible with Activity open at both sizes.
   Final results, exact test totals, package checks, updater results, and CI status:
-  https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.1.0
+  https://github.com/channelramble/Openup/releases/tag/v2.1.0
   Physical iPhone boot, timer reset, and passcode recovery remain unverified.
   Earlier verification records below do not establish current-release UI or
   package results.
@@ -132,7 +171,7 @@ Scope and verification status:
 Historical records follow.
 ============================================================
 
-Bruteforce Legacy iOS 2.0.2 — reported recovery failures
+Openup 2.0.2 — reported recovery failures
 Verification date: 2026-10-20
 
 Reported failures:
@@ -168,14 +207,14 @@ Limits:
   unverified. The fixes address the reproduced host-side defects.
   The included ARMv6 binaries and desktop runtime inputs are unchanged.
   Exact final test totals, package checks, updater results, and CI status:
-  https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.0.2
+  https://github.com/channelramble/Openup/releases/tag/v2.0.2
 
 Historical records follow. In particular, the v2.0.1 offline ramdisk assembly
 record describes that version's adapter hash; it did not cover the first WTF
 download or the timer backend's ambiguous-WTF identity branch.
 ============================================================
 
-Bruteforce Legacy iOS 2.0.1 — Intel Monterey and bundled 3G tools
+Openup 2.0.1 — Intel Monterey and bundled 3G tools
 Verification date: 2026-10-20
 
 Mac compatibility:
@@ -243,14 +282,14 @@ Remaining limits:
   Windows binaries are not Authenticode signed.
   USB drivers, WSL, and external backend system tools remain host requirements.
   Final package checks, exact test totals, and release-specific CI results:
-  https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.0.1
+  https://github.com/channelramble/Openup/releases/tag/v2.0.1
 
 Historical verification follows. These records describe the indicated older
 releases; the v2.0.1 findings above supersede their Mac compatibility claims
 and statements that compatible ARMv6 executables are unavailable.
 ============================================================
 
-Bruteforce Legacy iOS 2.0.0 — desktop GUI
+Openup 2.0.0 — desktop GUI
 Verification date: 2026-10-20
 
 Desktop implementation:
@@ -295,7 +334,7 @@ Update and distribution checks:
   The Linux launcher binary is paired with its source hash and rebuild script.
   Source archive tests check exclusions, provenance, checksums, and repeatability.
   Final published asset checks and release-specific CI results are recorded in:
-  https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.0.0
+  https://github.com/channelramble/Openup/releases/tag/v2.0.0
 
 Limits:
   macOS desktop binary: Apple Silicon, macOS 14 or newer. No Intel Mac binary.
@@ -314,7 +353,7 @@ Limits:
 Historical CLI verification (1.2.0) follows.
 ============================================================
 
-Bruteforce Legacy iOS 1.2.0
+Openup 1.2.0
 Verification date: 2026-10-20
 
 Environment:
@@ -329,7 +368,7 @@ Completed checks:
   .venv/bin/python check_dependencies.py
     All pinned dependency versions and native SSH imports passed.
   .venv/bin/python -m pip install --no-deps .
-    Built and installed bruteforce_legacy_ios-1.2.0-py3-none-any.whl.
+    Built and installed the 1.2.0 Python wheel.
   .venv/bin/python -m pip check
     No broken requirements found.
   bash -n Launch.command
@@ -337,16 +376,16 @@ Completed checks:
   ./Launch.command doctor
     Created its version-specific runtime environment, installed the locked
     dependencies, and executed successfully on macOS.
-  Installed bruteforce-legacy-ios --version
+  Installed openup --version
     Package installation completed; source CLI reports 1.2.0.
-  Installed bruteforce-legacy-ios reset --help
+  Installed openup reset --help
     Executed successfully from outside the source directory.
   git diff --check
     Passed.
   Release builder exercised by the automated suite:
     Repeated builds matched; entries, exclusions, revision metadata,
     checksums, ZIP integrity, and executable launcher permissions passed.
-  bruteforce --install-only with a fresh temporary checkout:
+  Recovery backend --install-only with a fresh temporary checkout:
     Downloaded commit 4949674b318767de83eb149e57bcc543a6453d6e.
     Checked the source hash, applied compatibility edits, and passed bash -n.
     No backend device or exploit workflow was executed.
@@ -392,7 +431,7 @@ Test coverage:
 Remote CI:
   .github/workflows/ci.yml is configured for macOS/Python 3.9 and 3.13,
   Linux/Python 3.13, and Windows/Python 3.13. Results are recorded by GitHub:
-  https://github.com/channelramble/Bruteforce-Legacy-iOS/actions/workflows/ci.yml
+  https://github.com/channelramble/Openup/actions/workflows/ci.yml
   Run 39432998022 for commit 9a81d186c759769449fc4e680d8b718120f4e2b9
   was blocked before any job steps started. GitHub reported failed account
   payments or a spending limit requiring an increase. No remote test passed

@@ -66,7 +66,7 @@ def action_copy(action, *, apply=False, install_only=False):
             "Transaction cleanup finished" if apply else "Cleanup preview finished",
             "Transaction cleanup stopped — review the result",
         )
-    if action == "bruteforce":
+    if action == "recover":
         if install_only:
             if apply:
                 raise ValueError("Choose either backend download or recovery.")

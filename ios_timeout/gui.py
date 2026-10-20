@@ -182,7 +182,7 @@ class MainWindow(QMainWindow):
         self.resize(1120, 800)
         self.setMinimumSize(940, 680)
         self.settings = Settings()
-        self.preferences = QSettings("channelramble", "Bruteforce Legacy iOS")
+        self.preferences = QSettings("channelramble", "Openup")
         self.busy = False
         self.operation_buttons = []
         self.task = None
@@ -234,7 +234,7 @@ class MainWindow(QMainWindow):
         nav = QVBoxLayout(sidebar)
         nav.setContentsMargins(16, 28, 16, 20)
         nav.setSpacing(7)
-        nav.addWidget(label("Bruteforce\nLegacy iOS", "brand"))
+        nav.addWidget(label("Openup", "brand"))
         nav.addWidget(label("Version " + __version__, "edition"))
         nav.addSpacing(28)
         self.nav_group = QButtonGroup(self)
@@ -249,7 +249,7 @@ class MainWindow(QMainWindow):
         nav.addStretch()
         nav.addWidget(label("Legacy iPhone recovery", "edition"))
         nav.addWidget(self.button("User guide ↗", lambda: QDesktopServices.openUrl(
-            QUrl("https://github.com/channelramble/Bruteforce-Legacy-iOS#readme")), operation=False))
+            QUrl("https://github.com/channelramble/Openup#readme")), operation=False))
         layout.addWidget(sidebar)
         workspace = QWidget()
         workspace.setObjectName("workspace")
@@ -710,7 +710,7 @@ class MainWindow(QMainWindow):
         body.addWidget(label("1  Connect your phone     →     2  Follow the prompts     →     3  Review the result", "muted"))
         self.armv6_notice = label("iPhone 3G tools are included. No separate tools folder is needed.", "notice")
         body.addWidget(self.armv6_notice)
-        body.addWidget(self.button("Start recovery…", lambda: self.start_operation("bruteforce", apply=True), primary=True),
+        body.addWidget(self.button("Start recovery…", lambda: self.start_operation("recover", apply=True), primary=True),
                        0, Qt.AlignmentFlag.AlignLeft)
         body.addWidget(label("The first run downloads the recovery backend and boot files. Instructions, choices, and results appear here as the session progresses.", "muted"))
         layout.addWidget(frame)
@@ -721,7 +721,7 @@ class MainWindow(QMainWindow):
         advanced.addLayout(row)
         advanced.addWidget(label("Leave this empty to use the included tools. Windows recovery uses WSL 2 and USB passthrough.", "muted"))
         actions = QHBoxLayout()
-        actions.addWidget(self.button("Download tools only", lambda: self.start_operation("bruteforce", install_only=True)))
+        actions.addWidget(self.button("Download tools only", lambda: self.start_operation("recover", install_only=True)))
         actions.addWidget(self.button("Connection settings…", self.options_dialog))
         actions.addStretch()
         advanced.addLayout(actions)
@@ -976,7 +976,7 @@ class MainWindow(QMainWindow):
                 "reset": "Apply the timer-state reset to the selected phone? The app backs up original files before writing.",
                 "restore": "Restore original files from this backup? The connected phone must match the saved identity.",
                 "finalize": "Verify this transaction and finish its device-lock cleanup?",
-                "bruteforce": "Start the recovery backend? It will guide you through DFU and its own device workflow.",
+                "recover": "Start the recovery backend? It will guide you through DFU and its own device workflow.",
             }.get(action, "Start this device operation?")
             if QMessageBox.question(self, action_copy(action, apply=apply).title, description,
                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
@@ -990,7 +990,7 @@ class MainWindow(QMainWindow):
         self.operation_apply = apply
         self.operation_install_only = install_only
         self.interrupted = False
-        if action in {"restore", "finalize"} or (action == "bruteforce" and not install_only):
+        if action in {"restore", "finalize"} or (action == "recover" and not install_only):
             self.timer_flow.invalidate()
         self.timer_flow.start(action, apply=apply)
         self.sync_timer_flow()
@@ -1051,7 +1051,7 @@ class MainWindow(QMainWindow):
             self.capture = (self.capture + text)[-1024 * 1024:]
             self.append_output(text)
             # A found result must remain visible even while the backend menu is open.
-            if self.operation == "bruteforce" and "found" in self.capture[-512:]:
+            if self.operation == "recover" and "found" in self.capture[-512:]:
                 complete_lines = self.capture[-8192:].rpartition("\n")[0]
                 result = summarize(self.operation, complete_lines, None)
                 if result.get("passcode"):

@@ -54,13 +54,22 @@ class RecoveryProbe:
     def close(self):
         if self.process is not None:
             process, self.process = self.process, None
-            try:
-                if self.owns_group:
-                    os.killpg(process.pid, signal.SIGKILL)
-                else:
-                    process.kill()
-            except ProcessLookupError:
-                pass
+            if process.poll() is None:
+                try:
+                    if self.owns_group:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    else:
+                        process.kill()
+                except ProcessLookupError:
+                    pass
+                except PermissionError:
+                    # A macOS query can exit between poll() and killpg().
+                    # Reap it first; if still alive, target our child directly.
+                    if process.poll() is None:
+                        try:
+                            process.kill()
+                        except ProcessLookupError:
+                            pass
             try:
                 process.communicate(timeout=0.3)
             except subprocess.TimeoutExpired as exc:
@@ -115,8 +124,57 @@ def guide(model, probe, *, emit=progress, clock=time.monotonic, sleep=time.sleep
         probe.close()
 
 
+def wait_bootloader(model, probe, *, timeout=30, emit=progress,
+                    clock=time.monotonic, sleep=time.sleep, output=print):
+    """A successful upload is not evidence that iBSS started running."""
+    deadline = clock() + timeout
+    last_readable = ""
+    current = ""
+    last_event = None
+    try:
+        while clock() < deadline:
+            result = probe.poll()
+            if result is not None:
+                current = result
+                if current:
+                    last_readable = current
+                # Validate chip/board identity before accepting any transition.
+                try:
+                    early_dfu_state(model, current)
+                except ResetError as exc:
+                    output("[WARNING] USB state after iBSS: " + early_dfu_summary(current), flush=True)
+                    raise ResetError("The USB identity after iBSS could not be verified for the selected phone. "
+                                     "No ramdisk was uploaded.") from exc
+                fields = dict(line.split(":", 1) for line in current.splitlines() if ":" in line)
+                mode = fields.get("MODE", "").strip()
+                if mode == "Recovery":
+                    output("[Log] iBSS Recovery mode and phone identity verified.", flush=True)
+                    emit("Recovery bootloader detected", "iBSS is running. Loading the ramdisk next.", 0)
+                    return
+            remaining = math.ceil(deadline - clock())
+            description = early_dfu_summary(current) if current else "USB device is reconnecting"
+            event = (description, remaining)
+            if event != last_event:
+                emit("Waiting for iBSS to start", description + ". The ramdisk has not started yet.", remaining)
+                last_event = event
+            sleep(min(0.05, max(0, deadline - clock())))
+        output("[WARNING] Current USB state: " + early_dfu_summary(current), flush=True)
+        if not current and last_readable:
+            output("[WARNING] Last readable USB state: " + early_dfu_summary(last_readable), flush=True)
+        state = early_dfu_state(model, current)
+        if state in ("stock", "patched"):
+            reason = "The phone is still in DFU; iBSS did not start."
+        else:
+            reason = "The phone did not reappear in verified Recovery mode after iBSS."
+        raise ResetError(reason + " The ramdisk was not uploaded. Reconnect the iPhone 3G through "
+                         "a direct USB adapter instead of a hub, then retry.")
+    finally:
+        probe.close()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--after-ibss", action="store_true")
     parser.add_argument("model")
     parser.add_argument("query", nargs=argparse.REMAINDER)
     args = parser.parse_args()
@@ -124,7 +182,8 @@ def main():
     if not command:
         parser.error("A recovery query executable is required.")
     try:
-        guide(args.model, RecoveryProbe(command))
+        operation = wait_bootloader if args.after_ibss else guide
+        operation(args.model, RecoveryProbe(command))
         return 0
     except (ResetError, OSError) as exc:
         print("[Error] " + str(exc), flush=True)

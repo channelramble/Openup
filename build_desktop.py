@@ -262,7 +262,7 @@ def native_launcher(root, target, icon_directory):
         subprocess.run([resource_compiler, str(resource), "-O", "coff", "-o", str(object_file)], check=True)
         subprocess.run([compiler, "-Os", "-municode", "-mwindows", "-static-libgcc", "-Wl,--no-insert-timestamp",
                         str(ROOT / "packaging/launcher-windows.c"), str(object_file), "-o",
-                        str(root / "Bruteforce Legacy iOS.exe")], check=True)
+                        str(root / "Openup.exe")], check=True)
     elif target.startswith("macos"):
         directory = root / "Contents/MacOS"
         directory.mkdir(parents=True)
@@ -270,12 +270,12 @@ def native_launcher(root, target, icon_directory):
         minimum = MACOS_MINIMUM[target]
         subprocess.run(["clang", "-arch", arch, f"-mmacosx-version-min={minimum}", "-Os",
                         str(ROOT / "packaging/launcher-macos.c"), "-framework", "CoreFoundation",
-                        "-o", str(directory / "BruteforceLegacyiOS")], check=True)
+                        "-o", str(directory / "Openup")], check=True)
         shutil.copyfile(icon_directory / "App.icns", root / "Contents/Resources/App.icns")
         (root / "Contents/Info.plist").write_bytes(plistlib.dumps({
-            "CFBundleName": "Bruteforce Legacy iOS", "CFBundleDisplayName": "Bruteforce Legacy iOS",
-            "CFBundleIdentifier": "com.channelramble.bruteforcelegacyios",
-            "CFBundleExecutable": "BruteforceLegacyiOS", "CFBundlePackageType": "APPL",
+            "CFBundleName": "Openup", "CFBundleDisplayName": "Openup",
+            "CFBundleIdentifier": "com.channelramble.openup",
+            "CFBundleExecutable": "Openup", "CFBundlePackageType": "APPL",
             "CFBundleShortVersionString": __version__, "CFBundleVersion": __version__,
             "CFBundleIconFile": "App.icns", "LSMinimumSystemVersion": minimum,
             "NSHighResolutionCapable": True,
@@ -286,9 +286,9 @@ def native_launcher(root, target, icon_directory):
         for name in ("launcher-linux.c", "linux-launcher.bin"):
             if file_hash(ROOT / "packaging" / name) != inventory[name]:
                 raise ValueError("Rebuild the Linux launcher after changing its source.")
-        shutil.copyfile(compiled, root / "Bruteforce Legacy iOS")
-        (root / "Bruteforce Legacy iOS").chmod(0o755)
-        script = root / "Bruteforce Legacy iOS.sh"
+        shutil.copyfile(compiled, root / "Openup")
+        (root / "Openup").chmod(0o755)
+        script = root / "Openup.sh"
         script.write_text('#!/bin/sh\nAPP_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\n'
                           'exec "$APP_DIR/runtime/bin/python3" -I -B "$APP_DIR/desktop.py" "$@"\n')
         script.chmod(0o755)
@@ -352,7 +352,7 @@ def build(target, *, allow_dirty=False):
         shutil.copyfile(LOCK, code / "desktop-build-lock.json")
         icon_directory = CACHE / "icons"
         icons(icon_directory)
-        native_root = root / "Bruteforce Legacy iOS.app" if target.startswith("macos") else root
+        native_root = root / "Openup.app" if target.startswith("macos") else root
         native_launcher(native_root, target, icon_directory)
         if target.startswith("macos"):
             architecture = "arm64" if target.endswith("arm64") else "x86_64"
@@ -374,7 +374,7 @@ def build(target, *, allow_dirty=False):
                     "sha256": file_hash(path), "mode": 0o755 if path.stat().st_mode & 0o111 else 0o644}
         (root / "DESKTOP.json").write_text(json.dumps(manifest, sort_keys=True, indent=2) + "\n")
         validate_manifest({**manifest, "dirty": False}, target, __version__)
-        destination = output / f"Bruteforce-Legacy-iOS-{__version__}-{target}.zip"
+        destination = output / f"Openup-{__version__}-{target}.zip"
         with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
             for path in sorted(root.rglob("*")):
                 if path.is_file():

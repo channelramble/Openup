@@ -61,7 +61,7 @@ class BackendUiTests(unittest.TestCase):
         self.python.chmod(0o700)
 
     def run_shell(self, backend, invocation, *, enabled=True, reply=""):
-        source = adapt_prompts(BRUTE if backend == "bruteforce" else LEGACY, backend)
+        source = adapt_prompts(BRUTE if backend == "recover" else LEGACY, backend)
         result = subprocess.run(
             [shutil.which("bash"), "--noprofile", "--norc"],
             input=source + "\n" + invocation + "\n", text=True, capture_output=True,
@@ -80,7 +80,7 @@ class BackendUiTests(unittest.TestCase):
         return result, events
 
     def test_cli_mode_keeps_original_text_and_emits_no_events(self):
-        for backend in ("bruteforce", "legacy"):
+        for backend in ("recover", "legacy"):
             with self.subTest(backend=backend):
                 result, events = self.run_shell(
                     backend, "input 'Main Menu'\nprint '* Hold TOP and HOME buttons...'", enabled=False)
@@ -94,13 +94,13 @@ class BackendUiTests(unittest.TestCase):
     def test_read_prompt_marker_survives_command_substitution_with_quoted_text(self):
         prompt = "Enter build's identifier: "
         result, events = self.run_shell(
-            "bruteforce", 'value="$(input ' + shlex.quote(prompt) + ')"; printf "%s\\n" "$value"')
+            "recover", 'value="$(input ' + shlex.quote(prompt) + ')"; printf "%s\\n" "$value"')
         self.assertEqual(events, [["prompt", "auto", "Recovery tool", prompt]])
         self.assertIn("TEST_UI_EVENT\n[Input] " + prompt, result.stdout)
 
     def test_pause_is_an_explicit_continue_request_and_still_reads_enter(self):
         result, events = self.run_shell(
-            "bruteforce", "pause <<<'\n'\nprintf 'AFTER_PAUSE\\n'")
+            "recover", "pause <<<'\n'\nprintf 'AFTER_PAUSE\\n'")
         self.assertEqual(events[0][:3], ["prompt", "continue", "Continue when ready"])
         self.assertIn("AFTER_PAUSE", result.stdout)
 
@@ -134,18 +134,18 @@ bl_ios_early_prepare() {
 device_dfuhelper
 bl_ios_early_prepare
 '''
-        _, events = self.run_shell("bruteforce", invocation)
+        _, events = self.run_shell("recover", invocation)
         self.assertEqual([event[-1] for event in events], ["8", "8", "10", "15", "0"])
         self.assertTrue(all(event[:2] == ["progress", "Enter DFU mode"] for event in events[:-1]))
         self.assertEqual(events[-1][:2], ["progress", "Phone detected"])
 
     def test_exact_source_structure_is_required(self):
         with self.assertRaises(ValueError):
-            adapt_prompts("input() { :; }", "bruteforce")
+            adapt_prompts("input() { :; }", "recover")
         with self.assertRaises(ValueError):
             adapt_prompts(BRUTE, "unknown")
         with self.assertRaises(ValueError):
-            adapt_prompts(adapt_prompts(BRUTE, "bruteforce"), "bruteforce")
+            adapt_prompts(adapt_prompts(BRUTE, "recover"), "recover")
 
 
 if __name__ == "__main__":

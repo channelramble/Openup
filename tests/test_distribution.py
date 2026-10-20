@@ -19,19 +19,19 @@ class DistributionTests(unittest.TestCase):
             self.assertEqual(build_release.build(Path(folder)).read_bytes(), first)
             with zipfile.ZipFile(archive) as package:
                 names = package.namelist()
-                self.assertTrue(all(name.startswith("Bruteforce-Legacy-iOS/") for name in names))
+                self.assertTrue(all(name.startswith("Openup/") for name in names))
                 for name in names:
                     self.assertNotIn("/.venv/", name)
                     self.assertNotIn("/backups/", name)
                     self.assertNotIn("/.git/", name)
                     self.assertNotIn("/.backends/", name)
-                launcher = package.getinfo("Bruteforce-Legacy-iOS/Launch.command")
+                launcher = package.getinfo("Openup/Launch.command")
                 self.assertEqual((launcher.external_attr >> 16) & 0o777, 0o755)
-                source = json.loads(package.read("Bruteforce-Legacy-iOS/SOURCE.json"))
+                source = json.loads(package.read("Openup/SOURCE.json"))
                 self.assertEqual(source["version"], __version__)
                 self.assertEqual(
-                    package.read("Bruteforce-Legacy-iOS/requirements-lock.txt"),
-                    package.read("Bruteforce-Legacy-iOS/ios_timeout/runtime-requirements.txt"),
+                    package.read("Openup/requirements-lock.txt"),
+                    package.read("Openup/ios_timeout/runtime-requirements.txt"),
                 )
 
     def test_dependency_drift_and_missing_transitive_packages_are_detected(self):

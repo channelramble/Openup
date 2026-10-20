@@ -82,7 +82,7 @@ def summarize(action, capture, exit_code, interrupted=False):
             if value and value not in errors:
                 errors.append(value)
             continue
-        if action == "bruteforce":
+        if action == "recover":
             found = re.fullmatch(r"found\s*:\s*([0-9]{4}|[0-9]{6})", line)
             if found and found[1] not in passcodes:
                 passcodes.append(found[1])
@@ -158,7 +158,7 @@ def summarize(action, capture, exit_code, interrupted=False):
         "doctor": "Computer checks", "devices": "Phone connection",
         "prepare": "Phone preparation", "inspect": "Timer inspection",
         "reset": "Timer reset", "restore": "Restore originals",
-        "finalize": "Transaction cleanup", "bruteforce": "Passcode recovery",
+        "finalize": "Transaction cleanup", "recover": "Passcode recovery",
     }
     title = titles.get(action, "Operation result")
     if interrupted:
@@ -186,7 +186,7 @@ def summarize(action, capture, exit_code, interrupted=False):
     elif action == "finalize":
         message = ("Transaction verified and cleanup completed." if cleanup_verified else
                    "Cleanup operation ended. No verified cleanup was reported.")
-    elif action == "bruteforce":
+    elif action == "recover":
         message = ("The backend reported a passcode. Verify it on the phone." if passcodes else
                    "Recovery session ended. No passcode was reported in this session.")
     elif action == "doctor":

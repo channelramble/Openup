@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
     execv(python, arguments);
     free(arguments);
     CFUserNotificationDisplayAlert(0, kCFUserNotificationStopAlertLevel, NULL, NULL, NULL,
-        CFSTR("Bruteforce Legacy iOS"), CFSTR("The bundled runtime could not start. Extract the complete app and try again."),
+        CFSTR("Openup"), CFSTR("The bundled runtime could not start. Extract the complete app and try again."),
         CFSTR("OK"), NULL, NULL, NULL);
     return 1;
 }

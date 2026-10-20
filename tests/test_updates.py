@@ -31,7 +31,7 @@ def release_zip(path, version="1.3.0", extra=None):
     ).encode()
     with zipfile.ZipFile(path, "w") as archive:
         for name, data in entries.items():
-            archive.writestr("Bruteforce-Legacy-iOS/" + name, data)
+            archive.writestr("Openup/" + name, data)
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
@@ -46,7 +46,7 @@ class UpdateTests(unittest.TestCase):
     def test_missing_github_digest_prevents_install(self):
         with self.assertRaises(ResetError):
             asset_for({"tag_name": "v1.3.0", "assets": [
-                {"name": "Bruteforce-Legacy-iOS-1.3.0.zip", "id": 1, "size": 10},
+                {"name": "Openup-1.3.0.zip", "id": 1, "size": 10},
             ]})
 
     def test_install_verify_rollback_and_reactivation(self):

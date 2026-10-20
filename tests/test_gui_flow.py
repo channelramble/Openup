@@ -67,7 +67,7 @@ class TimerFlowTests(unittest.TestCase):
                 self.assertFalse(flow.can_apply)
 
     def test_unrelated_operations_neither_unlock_nor_discard_review(self):
-        for action in ("doctor", "devices", "bruteforce", "restore", "finalize"):
+        for action in ("doctor", "devices", "recover", "restore", "finalize"):
             with self.subTest(action=action):
                 flow = TimerFlow()
                 flow.finish(action, 0)
@@ -81,7 +81,7 @@ class TimerFlowTests(unittest.TestCase):
 class ActionCopyTests(unittest.TestCase):
     def test_every_worker_action_has_complete_user_facing_copy(self):
         for action in ("doctor", "devices", "prepare", "inspect", "reset",
-                       "restore", "finalize", "bruteforce"):
+                       "restore", "finalize", "recover"):
             for apply in (False, True):
                 with self.subTest(action=action, apply=apply):
                     copy = action_copy(action, apply=apply)
@@ -92,7 +92,7 @@ class ActionCopyTests(unittest.TestCase):
                         self.assertLessEqual(len(value), 70, value)
 
     def test_preview_and_apply_are_distinct_for_writing_operations(self):
-        for action in ("prepare", "reset", "restore", "finalize", "bruteforce"):
+        for action in ("prepare", "reset", "restore", "finalize", "recover"):
             with self.subTest(action=action):
                 preview = action_copy(action)
                 applied = action_copy(action, apply=True)
@@ -100,16 +100,16 @@ class ActionCopyTests(unittest.TestCase):
                 self.assertNotEqual(preview.success, applied.success)
 
     def test_download_is_not_described_as_running_recovery(self):
-        copy = action_copy("bruteforce", install_only=True)
+        copy = action_copy("recover", install_only=True)
         self.assertIn("Download", copy.title)
         self.assertIn("downloaded and checked", copy.success)
         for value in (copy.title, copy.running, copy.success, copy.failure):
             self.assertLessEqual(len(value), 70, value)
         with self.assertRaises(ValueError):
-            action_copy("bruteforce", install_only=True, apply=True)
+            action_copy("recover", install_only=True, apply=True)
 
     def test_success_does_not_claim_a_recovered_passcode_or_cleared_timer(self):
-        recovery = action_copy("bruteforce", apply=True)
+        recovery = action_copy("recover", apply=True)
         self.assertIn("session ended", recovery.success)
         self.assertIn("result", recovery.success)
         self.assertNotIn("passcode found", recovery.success.lower())

@@ -97,6 +97,10 @@ bl_ios_send() {
     ${irecovery} -f "$1" || error "Firmware upload failed; boot cancelled."
 }
 
+bl_ios_command() {
+    ${irecovery} -c "$1" || error "Recovery command failed: $1. Ramdisk boot stopped."
+}
+
 bl_ios_early_read() {
     # One query supplies mode, signature and board identity from the same device.
     bl_ios_recovery="$(${irecovery} -q 2>/dev/null)" || bl_ios_recovery=""
@@ -379,6 +383,34 @@ def adapt_script(original):
             '''    elif [[ $device_proc == 1 || $device_type == "iPod2,1" ]]; then
         [[ $device_proc == 1 ]] && bl_ios_early_before_ibss
         log "Sending iBSS..."; bl_ios_send $ramdisk_path/iBSS; sleep 2''')
+    # Keep a completed transfer separate from a verified boot. The old backend
+    # printed only the requested mode and lost the actual DFU state on timeout.
+    start = source.index("boot_sshrd() {\n")
+    end = source.index("\n}\n", start) + 3
+    section = source[start:end]
+    if section.count("        device_find_mode Recovery\n") != 1 or section.count("\n    device_find_mode Recovery\n") != 1:
+        raise ResetError("The reviewed ramdisk transition layout changed.")
+    transition = '''if [[ $device_type == "iPhone1,2" ]]; then
+        "$BL_IOS_PYTHON" -m ios_timeout.recovery_timing --after-ibss "$device_type" -- ${irecovery} ||
+            error "iBSS did not reach verified Recovery mode; no ramdisk was sent."
+        device_mode=Recovery
+    else
+        device_find_mode Recovery
+    fi'''
+    section = section.replace("device_find_mode Recovery", transition)
+    section = section.replace('$irecovery -c ', 'bl_ios_command ')
+    section = section.replace('log "Booting..."', 'log "Ramdisk launch command sent; startup is not yet verified."')
+    section = section.replace('log "Bruteforce will auto-run on device screen."',
+                              'log "When the ramdisk starts, recovery runs on the phone screen."')
+    source = source[:start] + section + source[end:]
+    source = source.replace('log "Ramdisk boot sequence complete."',
+                            'log "Boot commands finished. Ramdisk startup still needs verification."')
+    # Branding in messages only; preserve third-party URLs, file names and hashes.
+    source = source.replace(' BRUTEFORCE 32bit-DEVICE', ' Openup · legacy iPhone recovery')
+    source = source.replace('Usage: ./Bruteforce.sh [Options]', 'Usage: Openup recover [Options]')
+    source = source.replace('log "Adding bruteforce tools to ramdisk..."', 'log "Adding recovery tools to ramdisk..."')
+    source = source.replace('log "bruteforce auto enable"', 'log "Recovery startup enabled"')
+    source = source.replace('echo "::    Bruteforce Passcode 32bit IOS Device"', 'echo "::    Openup · legacy iPhone recovery"')
     # Prevent firmware upload after a failed exploit check.
     start = source.index('            warn "Failed to detect pwned DFU mode."')
     end = source.index('\n        fi', start)
@@ -402,7 +434,7 @@ def adapt_script(original):
             line += ' || error "Could not replace stock restore startup; boot cancelled."'
         lines.append(line)
     from .backend_ui import adapt_prompts
-    return adapt_prompts("\n".join(lines) + "\n", backend="bruteforce").encode()
+    return adapt_prompts("\n".join(lines) + "\n", backend="recover").encode()
 
 
 def run_backend(args):

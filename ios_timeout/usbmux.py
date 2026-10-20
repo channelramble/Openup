@@ -27,8 +27,8 @@ def recv_exact(sock, size):
 
 def request(sock, message, tag=1):
     payload = {
-        "ClientVersionString": f"bruteforce-legacy-ios/{__version__}",
-        "ProgName": "bruteforce-legacy-ios", "kLibUSBMuxVersion": 3,
+        "ClientVersionString": f"openup/{__version__}",
+        "ProgName": "openup", "kLibUSBMuxVersion": 3,
         **message,
     }
     body = plistlib.dumps(payload)

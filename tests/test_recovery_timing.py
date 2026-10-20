@@ -6,9 +6,10 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import Mock, patch
 
 from ios_timeout.core import ResetError
-from ios_timeout.recovery_timing import RecoveryProbe, guide
+from ios_timeout.recovery_timing import RecoveryProbe, guide, wait_bootloader
 
 
 WTF = "MODE: WTF\nCPID: 8900\nBDID: 00\n"
@@ -42,6 +43,61 @@ class Probe:
 
 
 class RecoveryTimingTests(unittest.TestCase):
+    def test_ibss_upload_requires_matching_recovery_mode(self):
+        clock = Clock()
+        probe = Probe(clock, ready_at=0.35, result=STOCK.replace("DFU", "Recovery"))
+        events = []
+        wait_bootloader("iPhone1,2", probe, timeout=1, clock=clock,
+                        sleep=clock.sleep, emit=lambda *a: events.append(a),
+                        output=lambda *a, **k: None)
+        self.assertLess(clock(), 0.41)
+        self.assertEqual(events[-1][0], "Recovery bootloader detected")
+        self.assertTrue(probe.closed)
+
+    def test_still_dfu_reports_actual_state_without_claiming_ramdisk_boot(self):
+        clock = Clock()
+        probe = Probe(clock, ready_at=0, result=STOCK + "ECID: private-id\n")
+        events, lines = [], []
+        with self.assertRaisesRegex(ResetError, "still in DFU.*ramdisk was not uploaded"):
+            wait_bootloader("iPhone1,2", probe, timeout=1, clock=clock,
+                            sleep=clock.sleep, emit=lambda *a: events.append(a),
+                            output=lambda value, **k: lines.append(value))
+        self.assertAlmostEqual(clock(), 1)
+        self.assertTrue(probe.closed)
+        self.assertTrue(all(event[0] == "Waiting for iBSS to start" for event in events))
+        self.assertIn("MODE=DFU", "\n".join(lines))
+        self.assertNotIn("private-id", str(events) + str(lines))
+
+    def test_recovery_on_wrong_board_or_without_identity_is_rejected(self):
+        for snapshot in ("MODE: Recovery\n", STOCK.replace("DFU", "Recovery").replace("04", "00")):
+            clock = Clock()
+            probe = Probe(clock, ready_at=0, result=snapshot)
+            with self.subTest(snapshot=snapshot), self.assertRaises(ResetError):
+                wait_bootloader("iPhone1,2", probe, clock=clock, sleep=clock.sleep,
+                                emit=lambda *a: None, output=lambda *a, **k: None)
+            self.assertTrue(probe.closed)
+
+    def test_completed_query_is_reaped_without_signalling_its_old_process_group(self):
+        probe = RecoveryProbe([sys.executable])
+        process = probe.process = Mock()
+        process.poll.return_value = 0
+        with patch("ios_timeout.recovery_timing.os.killpg", create=True) as kill:
+            probe.close()
+        kill.assert_not_called()
+        process.kill.assert_not_called()
+        process.communicate.assert_called_once_with(timeout=0.3)
+        self.assertIsNone(probe.process)
+
+    @unittest.skipIf(os.name == "nt", "POSIX process groups")
+    def test_query_exit_race_does_not_turn_success_into_permission_error(self):
+        probe = RecoveryProbe([sys.executable])
+        process = probe.process = Mock()
+        process.poll.side_effect = [None, 0]
+        with patch("ios_timeout.recovery_timing.os.killpg", side_effect=PermissionError):
+            probe.close()
+        process.kill.assert_not_called()
+        process.communicate.assert_called_once_with(timeout=0.3)
+
     def test_missing_usb_does_not_stretch_button_phase_deadlines(self):
         clock = Clock()
         probe = Probe(clock)

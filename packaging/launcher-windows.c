@@ -22,7 +22,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
     startup.cb = sizeof(startup);
     if (!CreateProcessW(python, command, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, root, &startup, &process)) {
         MessageBoxW(NULL, L"The bundled runtime could not start. Extract the complete download before opening the app.",
-                    L"Bruteforce Legacy iOS", MB_OK | MB_ICONERROR);
+                    L"Openup", MB_OK | MB_ICONERROR);
         return 1;
     }
     CloseHandle(process.hThread);

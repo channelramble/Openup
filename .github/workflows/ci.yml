@@ -59,9 +59,9 @@ jobs:
         run: |
           bash -n Launch.command
           bash -n Launch.sh
-          bruteforce-legacy-ios --version
-          bruteforce-legacy-ios reset --help
-          bruteforce-legacy-ios bruteforce --help
+          openup --version
+          openup reset --help
+          openup recover --help
       - name: Build verified source archive
         run: python build_release.py
       - name: Exercise desktop without dependency installation

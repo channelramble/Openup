@@ -23,7 +23,7 @@ class Settings:
 
 
 def operation_arguments(action, settings, *, apply=False, backup=None, install_only=False):
-    if action not in {"doctor", "devices", "inspect", "reset", "prepare", "restore", "finalize", "bruteforce"}:
+    if action not in {"doctor", "devices", "inspect", "reset", "prepare", "restore", "finalize", "recover"}:
         raise ResetError("Unknown desktop operation.")
     args = [action]
     if action in {"restore", "finalize"}:
@@ -48,7 +48,7 @@ def operation_arguments(action, settings, *, apply=False, backup=None, install_o
         for value, flag in ((settings.ipsw, "--ipsw"), (settings.kit, "--kit")):
             if value:
                 args += [flag, value]
-    if action == "bruteforce":
+    if action == "recover":
         if install_only and apply:
             raise ResetError("Choose either download or run.")
         if apply and settings.model == "iPhone1,2" and not settings.armv6_tools:

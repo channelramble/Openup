@@ -36,7 +36,7 @@ def port_number(value):
 
 def parser():
     result = argparse.ArgumentParser(
-        prog="bruteforce-legacy-ios",
+        prog="openup",
         description="Legacy iPhone timer reset and integrated passcode-recovery ramdisk tools.",
         epilog="Reset commands preview changes unless --apply is supplied.",
     )
@@ -53,14 +53,14 @@ def parser():
     update.add_argument("--prerelease", action="store_true", help="Include prereleases.")
     update_action.add_argument("--rollback", action="store_true", help="Reactivate the previous installation.")
     update.set_defaults(state_dir=DEFAULT_STATE)
-    brute = commands.add_parser("bruteforce", help="Use the pinned 32bit-Bruteforce-Passcode backend.")
-    brute.add_argument("--apply", action="store_true", help="Run the backend and boot its ramdisk.")
-    brute.add_argument("--install-only", action="store_true", help="Download and check the backend without device access.")
-    brute.add_argument("--backend-dir", type=Path)
-    brute.add_argument("--state-dir", type=Path, default=DEFAULT_STATE)
-    brute.add_argument("--model", choices=sorted(PHONES))
-    brute.add_argument("--armv6-tools", type=Path, help="Optional custom ARMv6 tools folder; bundled iPhone 3G tools are used by default.")
-    brute.add_argument("--wsl-distro", help="Windows: select a WSL 2 distribution.")
+    recover = commands.add_parser("recover", help="Run the pinned passcode-recovery backend.")
+    recover.add_argument("--apply", action="store_true", help="Run the backend and boot its ramdisk.")
+    recover.add_argument("--install-only", action="store_true", help="Download and check the backend without device access.")
+    recover.add_argument("--backend-dir", type=Path)
+    recover.add_argument("--state-dir", type=Path, default=DEFAULT_STATE)
+    recover.add_argument("--model", choices=sorted(PHONES))
+    recover.add_argument("--armv6-tools", type=Path, help="Optional custom ARMv6 tools folder; bundled iPhone 3G tools are used by default.")
+    recover.add_argument("--wsl-distro", help="Windows: select a WSL 2 distribution.")
     for name, help_text in (
         ("inspect", "Read device identity and preview the timer reset."),
         ("reset", "Preview or apply reset to a booted ramdisk."),
@@ -111,7 +111,7 @@ def doctor():
         print("Native USB SSH: Apple Mobile Device Service is required.")
         print(f"Ramdisk preparation: WSL 2 ({'found' if shutil.which('wsl.exe') else 'missing'}) "
               f"and usbipd-win ({'found' if shutil.which('usbipd.exe') else 'missing'}) are required.")
-        print("Share/attach the phone to WSL with usbipd before prepare or bruteforce.")
+        print("Share/attach the phone to WSL with usbipd before prepare or recover.")
     elif sys.platform.startswith("linux"):
         print("Install/start usbmuxd and ensure USB device permissions (udev/sudo).")
     print("\nTimer-reset model/version gates (hardware validation still required):")
@@ -228,7 +228,7 @@ def wizard():
     print("4. Start with Legacy iOS Kit, then reset timer")
     print("5. Restore an earlier transaction")
     print("6. Finish interrupted cleanup")
-    print("7. Use the 32bit-Bruteforce-Passcode backend")
+    print("7. Start passcode recovery")
     print("8. Prepare and reset an iPhone 3G on iOS 4")
     print("9. Check / install updates / roll back")
     print("0. Exit")
@@ -238,7 +238,7 @@ def wizard():
     if choice == "1":
         return main(["doctor"])
     if choice == "7":
-        return main(["bruteforce", "--apply"])
+        return main(["recover", "--apply"])
     if choice == "8":
         return main(["prepare", "--model", "iPhone1,2", "--apply"])
     if choice == "9":
@@ -279,7 +279,7 @@ def run(args):
         return 0
     if args.action == "wizard":
         return wizard()
-    if args.action == "bruteforce":
+    if args.action == "recover":
         from .upstream import run_backend
         args.state_dir = args.state_dir.expanduser().absolute()
         with host_lock(args.state_dir):
@@ -355,7 +355,7 @@ def main(argv=None):
             return dispatched
         options = parser().parse_args(arguments)
         if sys.platform == "win32" and (
-            options.action in ("prepare", "bruteforce")
+            options.action in ("prepare", "recover")
             or getattr(options, "wsl", False) or getattr(options, "wsl_distro", None)
         ):
             from .wsl import run_in_wsl

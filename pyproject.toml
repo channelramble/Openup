@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "bruteforce-legacy-ios"
+name = "openup"
 dynamic = ["version"]
 description = "Legacy iPhone timer reset and integrated passcode-recovery ramdisk tools"
 readme = "README.md"
@@ -12,7 +12,7 @@ requires-python = ">=3.9"
 dependencies = ["paramiko==5.1.0"]
 
 [project.scripts]
-bruteforce-legacy-ios = "ios_timeout.cli:main"
+openup = "ios_timeout.cli:main"
 iphone-timeout-reset = "ios_timeout.cli:main"
 
 [project.optional-dependencies]
@@ -23,8 +23,8 @@ desktop = ["PySide6-Essentials==6.9.3; sys_platform == 'darwin'",
            "pywinpty==3.1.0; sys_platform == 'win32'"]
 
 [project.urls]
-Repository = "https://github.com/channelramble/Bruteforce-Legacy-iOS"
-Issues = "https://github.com/channelramble/Bruteforce-Legacy-iOS/issues"
+Repository = "https://github.com/channelramble/Openup"
+Issues = "https://github.com/channelramble/Openup/issues"
 
 [tool.setuptools.dynamic]
 version = {attr = "ios_timeout.__version__"}

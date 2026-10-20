@@ -8,11 +8,19 @@ from pathlib import Path
 
 
 def state_directory():
+    from . import legacy_names
     if sys.platform == "win32":
-        return Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData/Local"))) / "Bruteforce Legacy iOS"
-    if sys.platform == "darwin":
-        return Path.home() / "Library/Application Support/Bruteforce Legacy iOS"
-    return Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state"))) / "bruteforce-legacy-ios"
+        base = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData/Local")))
+        current, previous = base / "Openup", base / legacy_names.APP_NAME
+    elif sys.platform == "darwin":
+        base = Path.home() / "Library/Application Support"
+        current, previous = base / "Openup", base / legacy_names.APP_NAME
+    else:
+        base = Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state")))
+        current, previous = base / "openup", base / legacy_names.STATE_SLUG
+    # Keep the same backups, transaction paths and host lock for existing users.
+    # Renaming or copying a live workspace could split its lock or break recovery.
+    return previous if previous.is_dir() and not current.exists() else current
 
 
 def reject_link(path):

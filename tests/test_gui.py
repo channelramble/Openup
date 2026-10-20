@@ -247,7 +247,7 @@ class GuiTests(unittest.TestCase):
         from PySide6.QtWidgets import QMessageBox
         with self.fake_worker(), \
              patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes):
-            self.window.start_operation("bruteforce", apply=True)
+            self.window.start_operation("recover", apply=True)
             for text in ("found ", ": 12", "34\n"):
                 self.window.handle_session_event({"type": "output", "text": text})
             self.window.show_prompt({"type": "prompt", "kind": "continue", "id": "result",
@@ -448,7 +448,7 @@ class GuiTests(unittest.TestCase):
 
     def test_recovery_download_does_not_start_passcode_recovery(self):
         with self.fake_worker():
-            self.window.start_operation("bruteforce", install_only=True)
+            self.window.start_operation("recover", install_only=True)
             worker = self.window.process
             self.assertTrue(self.window.operation_install_only)
             self.assertFalse(self.window.operation_apply)

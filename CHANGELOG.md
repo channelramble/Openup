@@ -1,5 +1,15 @@
 # Changes
 
+## 2.3.0
+
+- Rename the application, repository, launchers, release packages, and CLI to Openup. Preserve existing backup/cache locations and verified older installations for rollback. Third-party file names and attribution remain accurate.
+- Require a matching iPhone 3G Recovery-mode response after iBSS before sending the ramdisk. Show the observed mode and a bounded countdown in the GUI; explicitly report when the phone stays in DFU.
+- Stop the boot chain when a recovery command fails. Describe boot commands as sent, without claiming verified ramdisk startup.
+- Fix a macOS USB-query cleanup race when a query exits just before its process group is signalled.
+- Prevent an older saved updater selection from silently opening an old app when the new Openup is launched. Explicit rollback selections remain persistent.
+
+The latest physical tests reproduce the iBSS handoff failure, including with an original signed image and a newer USB client. The phone remains in patched DFU. A direct USB adapter retest is still needed; this release does not claim successful ramdisk boot. Open the new Openup download once to migrate from 2.2.x; later updates use the built-in updater.
+
 ## 2.2.2
 
 - Add a built-in installer for desktop release ZIPs and their matching SHA-256 files. Download through your signed-in browser, select the files in Updates, and restart without a terminal, GitHub CLI, token, or dependency installation. Direct authenticated downloads remain available in an expandable section.
@@ -18,7 +28,7 @@ The new reports still came from 2.2.0. Read-only inspection found 2.2.0 and 2.2.
 - Keep a recovery journal for interrupted guardian cleanup, and stop before launching the backend if the Mac session cannot be reserved.
 - Clear the stale “Response sent” status when active guidance resumes. Terminal and manual input remain off by default.
 
-The supplied log stops in stock DFU before upload. On the user's MacBook, all three agents were running; live normal-exit and forced-parent-death checks confirmed they are restored. This supports the host-interference diagnosis but does not establish a successful physical recovery. Final package and updater results are recorded with [v2.2.1](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.2.1).
+The supplied log stops in stock DFU before upload. On the user's MacBook, all three agents were running; live normal-exit and forced-parent-death checks confirmed they are restored. This supports the host-interference diagnosis but does not establish a successful physical recovery. Final package and updater results are recorded with [v2.2.1](https://github.com/channelramble/Openup/releases/tag/v2.2.1).
 
 ## 2.1.0
 
@@ -28,7 +38,7 @@ The supplied log stops in stock DFU before upload. On the user's MacBook, all th
 - Make Activity expandable and open it for operations and errors. Show specific progress and result messages, and lock phone/settings controls during an operation.
 - Retain the existing recovery backends, bundled ARMv6 tools, backup protections, and update verification.
 
-This release changes the desktop workflow. Final test, platform-package, and updater results are recorded with [v2.1.0](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.1.0). Physical iPhone recovery remains unverified.
+This release changes the desktop workflow. Final test, platform-package, and updater results are recorded with [v2.1.0](https://github.com/channelramble/Openup/releases/tag/v2.1.0). Physical iPhone recovery remains unverified.
 
 ## 2.0.2
 
@@ -37,7 +47,7 @@ This release changes the desktop workflow. Final test, platform-package, and upd
 - Fix passcode recovery's first WTF download: the pinned downloader discards directory components in its output argument. Download into a staging directory, validate the result, and publish it into the cache before patching. Cover empty caches, spaces in paths, cache reuse, and failures.
 - Preserve exported session output independently of the 2,500-line display. Keep up to 16 MiB in memory, include app/action/model/platform context, and explicitly mark omitted output if the limit is reached. Clear removes both the display and export transcript.
 
-The original logs exposed gaps in the earlier offline checks. The new regression tests exercise these failing branches; a download-only check also uses the actual pinned downloader and Apple firmware endpoint. Physical 3G boot and recovery remain unverified. Final package and updater verification is recorded with [v2.0.2](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.0.2).
+The original logs exposed gaps in the earlier offline checks. The new regression tests exercise these failing branches; a download-only check also uses the actual pinned downloader and Apple firmware endpoint. Physical 3G boot and recovery remain unverified. Final package and updater verification is recorded with [v2.0.2](https://github.com/channelramble/Openup/releases/tag/v2.0.2).
 
 ## 2.0.1
 
@@ -49,7 +59,7 @@ The original logs exposed gaps in the earlier offline checks. The new regression
 - Require the matching 4.2.1/8C148 ramdisk and kernel for 3G passcode recovery, with input-hash verification and all seven expected kernel patch patterns. Keep timer-reset preparation on its separate 3.1.3/7E18 profile.
 - Validate exact iBSS/iBEC hashes and RAM-disk boot arguments. Use managed startup with a bundled native wait helper, no automatic filesystem repair or read/write data mounts, and stop on preparation failures. Verify the complete preparation pipeline offline.
 
-The Intel development build passed its six-page GUI self-test under Rosetta on macOS 27. Actual Monterey hardware, native Windows execution, and physical iPhone recovery remain untested. The following entries describe earlier releases; the ARMv6 availability and Mac compatibility changes above supersede their corresponding limitations. Release-specific verification is recorded with [v2.0.1](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.0.1).
+The Intel development build passed its six-page GUI self-test under Rosetta on macOS 27. Actual Monterey hardware, native Windows execution, and physical iPhone recovery remain untested. The following entries describe earlier releases; the ARMv6 availability and Mac compatibility changes above supersede their corresponding limitations. Release-specific verification is recorded with [v2.0.1](https://github.com/channelramble/Openup/releases/tag/v2.0.1).
 
 ## 2.0.0
 
@@ -78,7 +88,7 @@ Physical device operations, native Windows execution, and WSL USB passthrough re
 
 ## 1.1.0
 
-Published under the requested project name, **Bruteforce Legacy iOS**. The implemented function remains a one-time timer-state reset for eligible legacy iPhones.
+Published under the requested project name, **Openup**. The implemented function remains a one-time timer-state reset for eligible legacy iPhones.
 
 - Replace multipart device-lock creation with an atomic owner-bearing link; support recovery of version 1.0 locks.
 - Treat lost lock acknowledgments as requiring recovery.

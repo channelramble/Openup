@@ -102,7 +102,7 @@ random debug command with fixture-secret
             "found : 123", "found : 1234567", "echo found : 9999",
             "password: fixture-password", "token=fixture-token",
         ))
-        result = summarize("bruteforce", output, None)
+        result = summarize("recover", output, None)
         self.assertIn("reported a passcode", result["message"])
         self.assertEqual(result["details"], [
             "Reported passcode: 0123", "Reported passcode: 123456",
@@ -112,7 +112,7 @@ random debug command with fixture-secret
         self.assertNotIn("fixture-password", str(result))
         self.assertEqual(summarize("inspect", output, 0)["details"], [])
         self.assertNotIn("passcode", summarize("inspect", output, 0))
-        self.assertIn("No passcode was reported", summarize("bruteforce", "Booting...\n", 0)["message"])
+        self.assertIn("No passcode was reported", summarize("recover", "Booting...\n", 0)["message"])
 
     def test_patcher_probe_failures_are_not_operation_errors(self):
         result = summarize("prepare", """

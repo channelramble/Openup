@@ -18,6 +18,7 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 from . import __version__
+from . import legacy_names
 from .core import ResetError, read_local_file, secure_write
 from .host import host_lock, state_directory, sync_directory
 from .updates import REPO, select_release, version_tuple
@@ -38,29 +39,38 @@ def target():
 
 
 def bundle_name(platform_target):
-    return "Bruteforce-Legacy-iOS"
+    return "Openup"
 
 
-def code_prefix(platform_target):
-    return "Bruteforce Legacy iOS.app/Contents/Resources/app/" if platform_target.startswith("macos-") else ""
+def code_prefix(platform_target, legacy=False):
+    name = legacy_names.APP_NAME if legacy else "Openup"
+    return name + ".app/Contents/Resources/app/" if platform_target.startswith("macos-") else ""
 
 
-def python_relative(platform_target, windowed=False):
+def python_relative(platform_target, windowed=False, legacy=False):
     name = ("pythonw.exe" if windowed else "python.exe") if platform_target.startswith("windows-") else "bin/python3"
-    return code_prefix(platform_target) + "runtime/" + name
+    return code_prefix(platform_target, legacy) + "runtime/" + name
 
 
-def required_files(platform_target):
-    names = [code_prefix(platform_target) + "desktop.py",
-             code_prefix(platform_target) + "ios_timeout/gui.py", python_relative(platform_target)]
+def required_files(platform_target, legacy=False):
+    name = legacy_names.APP_NAME if legacy else "Openup"
+    executable = legacy_names.MAC_EXECUTABLE if legacy else "Openup"
+    names = [code_prefix(platform_target, legacy) + "desktop.py",
+             code_prefix(platform_target, legacy) + "ios_timeout/gui.py", python_relative(platform_target, legacy=legacy)]
     if platform_target.startswith("macos"):
-        names += ["Bruteforce Legacy iOS.app/Contents/MacOS/BruteforceLegacyiOS",
-                  "Bruteforce Legacy iOS.app/Contents/Info.plist"]
+        names += [name + ".app/Contents/MacOS/" + executable,
+                  name + ".app/Contents/Info.plist"]
     elif platform_target.startswith("windows"):
-        names += ["Bruteforce Legacy iOS.exe", "runtime/pythonw.exe", "wsl-runtime/bin/python3"]
+        names += [name + ".exe", "runtime/pythonw.exe", "wsl-runtime/bin/python3"]
     else:
-        names += ["Bruteforce Legacy iOS", "Bruteforce Legacy iOS.sh"]
+        names += [name, name + ".sh"]
     return names
+
+
+def legacy_layout(manifest, platform_target):
+    names = manifest.get("files", {})
+    return (all(name in names for name in required_files(platform_target, legacy=True))
+            and not all(name in names for name in required_files(platform_target)))
 
 
 def find_bundle(source_root):
@@ -106,7 +116,7 @@ def validate_manifest(manifest, platform_target, version):
         if (not isinstance(item, dict) or not re.fullmatch(r"[a-f0-9]{64}", item.get("sha256", ""))
                 or item.get("mode") not in (0o644, 0o755)):
             raise ResetError("Invalid desktop checksum inventory.")
-    for required in required_files(platform_target):
+    for required in required_files(platform_target, legacy_layout(manifest, platform_target)):
         if required not in names:
             raise ResetError("The desktop package is missing its bundled runtime or GUI.")
 
@@ -141,7 +151,7 @@ class SafeRedirect(urllib.request.HTTPRedirectHandler):
 def open_github(path, token="", binary=False):
     import certifi
     headers = {"Accept": "application/octet-stream" if binary else "application/vnd.github+json",
-               "User-Agent": "Bruteforce-Legacy-iOS-Desktop/" + __version__,
+               "User-Agent": "Openup-Desktop/" + __version__,
                "X-GitHub-Api-Version": "2022-11-28"}
     if token:
         if any(ord(char) < 33 or ord(char) > 126 for char in token):
@@ -173,7 +183,7 @@ def check(token="", prerelease=True, platform_target=None):
     if release is None:
         return None
     version = release["tag_name"][1:]
-    expected = f"Bruteforce-Legacy-iOS-{version}-{platform_target}.zip"
+    expected = f"Openup-{version}-{platform_target}.zip"
     assets = [asset for asset in release.get("assets", []) if asset.get("name") == expected]
     if len(assets) != 1:
         if version_tuple(version) <= version_tuple(__version__):
@@ -195,14 +205,16 @@ def read_pointer(state):
     data = json.loads(read_local_file(path, 4096))
     if not isinstance(data, dict):
         raise ResetError("Invalid desktop update record.")
-    for value in (data.get("current"), data.get("previous")):
+    for value in (data.get("current"), data.get("previous"), data.get("selected_by")):
         if value is not None:
             version_tuple(value)
     return data
 
 
 def installed_root(state, version, platform_target):
-    return Path(state) / "desktop-updates/versions" / (version + "-" + platform_target) / bundle_name(platform_target)
+    parent = Path(state) / "desktop-updates/versions" / (version + "-" + platform_target)
+    current, previous = parent / bundle_name(platform_target), parent / legacy_names.SLUG
+    return previous if previous.is_dir() and not current.exists() else current
 
 
 def extract_archive(archive, destination, version, platform_target, checksum, progress=lambda text: None):
@@ -210,6 +222,8 @@ def extract_archive(archive, destination, version, platform_target, checksum, pr
         raise ResetError("The desktop download does not match the release SHA-256.")
     prefix = bundle_name(platform_target) + "/"
     with zipfile.ZipFile(archive) as package:
+        if package.namelist() and package.namelist()[0].startswith(legacy_names.SLUG + "/"):
+            prefix = legacy_names.SLUG + "/"
         members = {}
         total = 0
         for info in package.infolist():
@@ -268,7 +282,9 @@ def downloaded_release(archive, checksum_file, platform_target=None):
         raise ResetError("The selected ZIP does not match its SHA-256 file. Download both files again.")
     with zipfile.ZipFile(archive) as package:
         try:
-            info = package.getinfo(bundle_name(platform_target) + "/DESKTOP.json")
+            root_name = (bundle_name(platform_target) if bundle_name(platform_target) + "/DESKTOP.json" in package.namelist()
+                         else legacy_names.SLUG)
+            info = package.getinfo(root_name + "/DESKTOP.json")
         except KeyError:
             raise ResetError("Choose a desktop release ZIP for this computer, not the source archive.") from None
         if info.file_size > 8 * 1024 * 1024:
@@ -279,7 +295,7 @@ def downloaded_release(archive, checksum_file, platform_target=None):
     version = manifest.get("version", "")
     version_tuple(version)
     validate_manifest(manifest, platform_target, version)
-    expected = f"Bruteforce-Legacy-iOS-{version}-{platform_target}.zip"
+    expected = f"{root_name}-{version}-{platform_target}.zip"
     if match[2] is not None and match[2] != expected:
         raise ResetError("The checksum file names a different desktop release.")
     if version_tuple(version) <= version_tuple(__version__):
@@ -348,7 +364,9 @@ def _install(release, fetch, state, progress):
         progress("Activating the verified desktop update…")
         record = read_pointer(state)
         if record.get("current") != version:
-            secure_write(area / "active.json", json.dumps({"current": version, "previous": record.get("current")}).encode())
+            secure_write(area / "active.json", json.dumps({
+                "current": version, "previous": record.get("current"),
+                "selected_by": __version__}).encode())
     return destination
 
 
@@ -359,7 +377,8 @@ def rollback(state=None):
         if record.get("current") is None:
             return False
         secure_write(state / "desktop-updates/active.json", json.dumps({
-            "current": record.get("previous"), "previous": record.get("current")}).encode())
+            "current": record.get("previous"), "previous": record.get("current"),
+            "selected_by": __version__}).encode())
         return True
 
 
@@ -369,16 +388,24 @@ def dispatch(source_root, arguments):
         return None
     state = state_directory()
     try:
-        version = read_pointer(state).get("current")
+        record = read_pointer(state)
+        version = record.get("current")
         if version is None:
             return None
         platform_target = target()
+        # A freshly downloaded Openup must not be silently replaced by an older
+        # update selected by a previous installation. An explicit rollback from
+        # this version (or newer) remains selected across subsequent launches.
+        if (version_tuple(version) < version_tuple(__version__)
+                and version_tuple(record.get("selected_by") or "0.0.0") < version_tuple(__version__)):
+            return None
         bundle = installed_root(state, version, platform_target)
         if bundle.resolve() == (find_bundle(source_root) or Path(source_root)).resolve():
             return None
-        verify_bundle(bundle, platform_target, version)
-        executable = bundle / python_relative(platform_target, windowed=True)
-        script = bundle / code_prefix(platform_target) / "desktop.py"
+        manifest = verify_bundle(bundle, platform_target, version)
+        legacy = legacy_layout(manifest, platform_target)
+        executable = bundle / python_relative(platform_target, windowed=True, legacy=legacy)
+        script = bundle / code_prefix(platform_target, legacy) / "desktop.py"
         # Wait so a failed replacement process cannot silently orphan the launcher.
         return subprocess.run([str(executable), "-I", "-B", str(script), *arguments]).returncode
     except (ResetError, OSError, ValueError, TypeError, KeyError, zipfile.BadZipFile):

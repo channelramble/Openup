@@ -119,19 +119,23 @@ elif tool == "managed-python":
         # Exercise the real guidance/identity contract with virtual button time.
         # Nonblocking real query timing is covered in test_recovery_timing.
         import subprocess
-        from ios_timeout.recovery_timing import guide
+        from ios_timeout.recovery_timing import guide, wait_bootloader
         from ios_timeout.core import ResetError
         now = [0.0]
+        after_ibss = args[2] == "--after-ibss"
+        model = args[3] if after_ibss else args[2]
+        command = args[5:] if after_ibss else args[4:]
         class Probe:
             def poll(self):
-                result = subprocess.run(args[4:] + ["-q"], capture_output=True, text=True)
+                result = subprocess.run(command + ["-q"], capture_output=True, text=True)
                 return result.stdout if result.returncode == 0 else ""
             def close(self):
                 pass
         def advance(_):
             now[0] += 0.5
         try:
-            guide(args[2], Probe(), clock=lambda: now[0], sleep=advance)
+            operation = wait_bootloader if after_ibss else guide
+            operation(model, Probe(), clock=lambda: now[0], sleep=advance)
         except ResetError as exc:
             print(str(exc), file=sys.stderr)
             raise SystemExit(1)
@@ -167,6 +171,9 @@ elif tool == "irecovery":
             raise SystemExit(9)
     elif args[:1] == ["-f"]:
         if os.environ.get("BL_TEST_FAIL_UPLOAD") == "1":
+            raise SystemExit(9)
+    elif args[:1] == ["-c"] and args[1] in ("getenv ramdisk-delay", "ramdisk", "devicetree", "bootx"):
+        if args[1] == os.environ.get("BL_TEST_FAIL_COMMAND"):
             raise SystemExit(9)
     else:
         raise SystemExit("Unexpected USB command")
@@ -308,6 +315,43 @@ mv() {
             [BASH, "--noprofile", "--norc", "-n"], input=self.adapted,
             text=True, capture_output=True, timeout=30)
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def run_boot(self, **overrides):
+        return self.run_functions(
+            (*EARLY_FUNCTIONS, "bl_ios_command", "bl_ios_early_before_ibss", "boot_sshrd"),
+            'device_target_build=8C148\ndevice_enter_mode() { enter_pwndfu; }\nboot_sshrd',
+            **overrides)
+
+    def test_completed_ibss_upload_that_stays_in_dfu_never_sends_ramdisk(self):
+        result = self.run_boot(BL_TEST_RECOVERY=PATCHED)
+        self.assert_stopped(result, "no ramdisk was sent")
+        self.assertIn("still in DFU", result.stdout + result.stderr)
+        transfers = [entry["args"] for entry in self.trace_entries()
+                     if entry["tool"] == "irecovery" and entry["args"][0] in ("-f", "-c")]
+        self.assertEqual(transfers, [["-f", str(self.destination / "iBSS")]])
+
+    def test_verified_recovery_allows_boot_chain_in_order(self):
+        recovery = PATCHED.replace("DFU", "Recovery")
+        result = self.run_boot(BL_TEST_RECOVERY_SEQUENCE=json.dumps([PATCHED, PATCHED, recovery]))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("phone identity verified", result.stdout)
+        commands = [entry["args"] for entry in self.trace_entries()
+                    if entry["tool"] == "irecovery" and entry["args"][0] in ("-f", "-c")]
+        self.assertEqual(commands, [
+            ["-f", str(self.destination / "iBSS")],
+            ["-f", str(self.destination / "Ramdisk.dmg")],
+            ["-c", "getenv ramdisk-delay"], ["-c", "ramdisk"],
+            ["-f", str(self.destination / "DeviceTree.dec")], ["-c", "devicetree"],
+            ["-f", str(self.destination / "Kernelcache.dec")], ["-c", "bootx"],
+        ])
+
+    def test_failed_ramdisk_command_stops_before_kernel_upload(self):
+        recovery = PATCHED.replace("DFU", "Recovery")
+        result = self.run_boot(BL_TEST_RECOVERY_SEQUENCE=json.dumps([PATCHED, PATCHED, recovery]),
+                               BL_TEST_FAIL_COMMAND="ramdisk")
+        self.assert_stopped(result, "Recovery command failed: ramdisk")
+        self.assertFalse(any(entry["args"][-1].endswith("Kernelcache.dec")
+                             for entry in self.trace_entries() if entry["args"]))
 
     def test_early_wtf_branch_rejects_missing_pwnd_and_wrong_srtg(self):
         result = self.run_functions(

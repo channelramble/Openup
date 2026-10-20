@@ -10,7 +10,7 @@ from pathlib import Path
 from ios_timeout import APP_NAME, __version__
 
 ROOT = Path(__file__).resolve().parent
-PREFIX = "Bruteforce-Legacy-iOS"
+PREFIX = "Openup"
 
 
 def provenance(root):
