@@ -1,5 +1,14 @@
 # Changes
 
+## 2.0.2
+
+- Fix iPhone 3G timer-ramdisk preparation selecting original-iPhone `m68ap` firmware when WTF mode reports a generic identity. Preserve the selected `n82ap` profile, then verify the real chip, board, and patched DFU state before sending iBSS.
+- Apply that compatibility fix only to the reviewed Legacy iOS Kit script, using a temporary adapter that leaves the original checkout intact and honors the no-update flag. Check USB command failures, allow 15 seconds on macOS for the post-iBSS Recovery transition while retaining Linux's 24 seconds, and report the last readable USB state on timeout.
+- Fix passcode recovery's first WTF download: the pinned downloader discards directory components in its output argument. Download into a staging directory, validate the result, and publish it into the cache before patching. Cover empty caches, spaces in paths, cache reuse, and failures.
+- Preserve exported session output independently of the 2,500-line display. Keep up to 16 MiB in memory, include app/action/model/platform context, and explicitly mark omitted output if the limit is reached. Clear removes both the display and export transcript.
+
+The original logs exposed gaps in the earlier offline checks. The new regression tests exercise these failing branches; a download-only check also uses the actual pinned downloader and Apple firmware endpoint. Physical 3G boot and recovery remain unverified. Final package and updater verification is recorded with [v2.0.2](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.0.2).
+
 ## 2.0.1
 
 - Add an Intel Mac desktop archive targeting macOS 12 Monterey, including Python 3.13.16, Qt 6.9.3, and cryptography 48.0.1.

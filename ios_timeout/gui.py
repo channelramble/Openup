@@ -22,6 +22,7 @@ from . import APP_NAME, __version__
 from .core import ResetError, SUPPORTED
 from .desktop_model import Settings, TerminalText, backup_inventory, operation_arguments
 from .host import state_directory
+from .session_log import SessionLog
 from . import desktop_updates
 
 STYLE = """
@@ -124,6 +125,7 @@ class MainWindow(QMainWindow):
         self.output_decoder = codecs.getincrementaldecoder("utf-8")("replace")
         self.terminal_text = TerminalText()
         self.capture = ""
+        self.session_log = SessionLog()
         self.backup_rows = []
         self.operation = ""
         self.operation_apply = False
@@ -208,7 +210,7 @@ class MainWindow(QMainWindow):
         self.session_status = label("SESSION  ·  Ready", "sessionTitle")
         session_header.addWidget(self.session_status, 1)
         session_header.addWidget(self.button("Save output…", self.save_output, operation=False))
-        session_header.addWidget(self.button("Clear", lambda: self.console.clear(), operation=False))
+        session_header.addWidget(self.button("Clear", self.clear_output, operation=False))
         self.stop_button = self.button("Interrupt", self.interrupt, operation=False)
         self.stop_button.setObjectName("danger")
         self.stop_button.setEnabled(False)
@@ -521,11 +523,16 @@ class MainWindow(QMainWindow):
             self.send_button.setEnabled(False)
 
     def append_output(self, text):
+        self.session_log.append(text)
         cursor = self.console.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
         cursor.insertText(text)
         self.console.setTextCursor(cursor)
         self.console.ensureCursorVisible()
+
+    def clear_output(self):
+        self.console.clear()
+        self.session_log.clear()
 
     def scan(self):
         self.connection.setText("Checking USB…")
@@ -561,7 +568,13 @@ class MainWindow(QMainWindow):
         self.capture = ""
         self.terminal_text = TerminalText()
         self.output_decoder = codecs.getincrementaldecoder("utf-8")("replace")
-        self.append_output("\n› " + action.replace("_", " ").capitalize() + "\n")
+        self.append_output(
+            "\n› " + action.replace("_", " ").capitalize() + "\n"
+            + f"App: {APP_NAME} {__version__}\n"
+            + f"Action: {action}\n"
+            + f"Model: {self.settings.model or 'Automatic'}\n"
+            + f"Platform: {platform.system()} {platform.release()} / {platform.machine()}\n\n"
+        )
         process = QProcess(self)
         self.process = process
         process.setProgram(str(executable))
@@ -664,7 +677,7 @@ class MainWindow(QMainWindow):
         if path:
             try:
                 from .core import secure_write
-                secure_write(Path(path), self.console.toPlainText().encode("utf-8"))
+                secure_write(Path(path), self.session_log.text().encode("utf-8"))
             except OSError as exc:
                 QMessageBox.warning(self, "Could not save", str(exc))
 

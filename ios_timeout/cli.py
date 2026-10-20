@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from contextlib import nullcontext
 from dataclasses import asdict
 from pathlib import Path
 
@@ -192,10 +193,23 @@ def launch_backend(args):
     print("Connect only one phone for this backend step; --udid selects the phone after boot.", flush=True)
     print("Leave the phone in the ramdisk; the reset tool resumes when the backend exits.", flush=True)
     print(f"Backend: {script}\nSHA-256: {digest(script.read_bytes())}", flush=True)
-    completed = subprocess.run(
-        ["bash", str(script), "--sshrd", "--no-version-check", "--no-color"] + extra,
-        cwd=str(kit), check=False,
-    )
+    original = script.read_bytes()
+    if args.model == "iPhone1,2":
+        from .legacy_kit import prepared_script
+        prepared = prepared_script(kit, original)
+    else:
+        prepared = nullcontext(script)
+    with prepared as running_script:
+        env = {**os.environ, "BL_IOS_PYTHON": sys.executable,
+               "PYTHONPATH": str(Path(__file__).resolve().parent.parent) +
+               (os.pathsep + os.environ["PYTHONPATH"] if os.environ.get("PYTHONPATH") else "")}
+        if running_script != script:
+            subprocess.run(["bash", "-n", str(running_script)], check=True, timeout=30)
+            print("Applied reviewed 3G identity checks; original backend files are unchanged.", flush=True)
+        completed = subprocess.run(
+            ["bash", str(running_script), "--sshrd", "--no-version-check", "--no-color"] + extra,
+            cwd=str(kit), env=env, check=False,
+        )
     if completed.returncode:
         raise ResetError(f"Legacy iOS Kit exited with status {completed.returncode}. No reset was attempted.")
     args.mount = True

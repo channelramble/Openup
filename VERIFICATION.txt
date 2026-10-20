@@ -1,3 +1,46 @@
+Bruteforce Legacy iOS 2.0.2 — reported recovery failures
+Verification date: 2026-10-20
+
+Reported failures:
+  The supplied logs contain two timer-ramdisk Recovery-mode timeouts.
+  The complete second attempt selected iPhone1,1 / m68ap despite an explicit
+  iPhone1,2 selection. The first attempt's initial identity was truncated.
+  Passcode preparation validated the 3G boot components and kernel patches,
+  then failed to find the newly downloaded shared WTF component in its cache.
+  Both exported logs had lost their initial context at the GUI display limit.
+
+Corrections and verification:
+  The timer adapter preserves the selected 3G firmware profile while WTF
+  reports a generic identity. Real board/chip and patched DFU verification
+  precedes the board-specific iBSS upload. Only the reviewed Legacy iOS Kit
+  script is adapted; the original checkout remains unchanged.
+  Its post-iBSS Recovery wait is 15 seconds on macOS and 24 on Linux, with
+  USB state on timeout. The no-update flag also covers new extracted checkouts.
+  The passcode adapter downloads shared WTF into an isolated staging directory
+  using a basename, validates success/nonempty output, and publishes the cache.
+  The actual pinned macOS ARM64 pzb downloaded the correct 62,602-byte component
+  from Apple over HTTPS with an empty cache and a path containing spaces.
+  SHA-256: 38ea64c64881e882ca8c729405cb35d7bd857183892beb1a41f5207abd0816d2
+  A second invocation reused the cache without a download; no USB code ran.
+  Shell integration tests cover real pinned script control flow and simulated
+  USB transitions/download failures. GUI tests cover exports beyond 2,500
+  lines, UTF-8 boundaries, bounded output, and clearing.
+  Exports use a separate 16 MiB in-memory transcript with operation context
+  and an explicit omission marker at the cap. Nothing is automatically saved.
+
+Limits:
+  The MacBook USB inventory contained no connected iPhone for this repair.
+  Successful physical 3G boot, timer reset, and passcode recovery are still
+  unverified. The fixes address the reproduced host-side defects.
+  The included ARMv6 binaries and desktop runtime inputs are unchanged.
+  Exact final test totals, package checks, updater results, and CI status:
+  https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.0.2
+
+Historical records follow. In particular, the v2.0.1 offline ramdisk assembly
+record describes that version's adapter hash; it did not cover the first WTF
+download or the timer backend's ambiguous-WTF identity branch.
+============================================================
+
 Bruteforce Legacy iOS 2.0.1 — Intel Monterey and bundled 3G tools
 Verification date: 2026-10-20
 

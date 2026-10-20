@@ -144,6 +144,7 @@ class LinuxBackendTests(unittest.TestCase):
         with patch("ios_timeout.cli.subprocess.run", side_effect=self.fake_run), \
              patch("ios_timeout.cli.shutil.which", return_value="/usr/bin/git"), \
              patch("ios_timeout.cli.platform.system", return_value="Linux"), \
+             patch("ios_timeout.legacy_kit.adapt_script", return_value=b"#!/bin/bash\n"), \
              redirect_stdout(io.StringIO()):
             cli.launch_backend(self.args)
         self.assertEqual(self.calls[-1][-2:], ["--device=iPhone1,2", "--build-id=7E18"])

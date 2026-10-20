@@ -2,7 +2,7 @@
 
 [![Test and package](https://github.com/channelramble/Bruteforce-Legacy-iOS/actions/workflows/ci.yml/badge.svg)](https://github.com/channelramble/Bruteforce-Legacy-iOS/actions/workflows/ci.yml)
 
-A desktop app for legacy iPhone recovery. Version **2.0.1** adds Intel Mac builds targeting macOS 12 Monterey and includes ARMv6 recovery tools for the iPhone 3G. The GUI provides device selection, timer reset, [32bit-Bruteforce-Passcode](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, diagnostics, and updates.
+A desktop app for legacy iPhone recovery. Version **2.0.2** fixes 3G firmware selection in WTF mode, first-download cache failures, and truncated session exports. It includes ARMv6 recovery tools for the iPhone 3G and Intel Mac builds targeting macOS 12 Monterey. The GUI provides device selection, timer reset, [32bit-Bruteforce-Passcode](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, diagnostics, and updates.
 
 **Desktop downloads include Python, Qt, SSH libraries, and their Python dependencies. No Python, pip, virtual environment, or package installation is needed to open the app.** The Windows archive also includes the Linux Python/SSH runtime used by its WSL bridge.
 
@@ -10,7 +10,7 @@ A desktop app for legacy iPhone recovery. Version **2.0.1** adds Intel Mac build
 
 ## Download and open
 
-Get the platform archive from [version 2.0.1](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.0.1) and extract it completely.
+Get the platform archive from [version 2.0.2](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.0.2) and extract it completely.
 
 | Computer | Download suffix | Open |
 |---|---|---|
@@ -29,12 +29,12 @@ USB access still depends on the host: macOS's usbmuxd service, Apple Mobile Devi
 
 1. **Overview:** refresh the USB list and choose a phone. DFU-only devices appear after booting an SSH ramdisk.
 2. **Timer reset:** choose the model, optionally select a local 3G IPSW, then use **Prepare and inspect**. When the backend reaches its SSH Ramdisk Menu, choose Exit while leaving the ramdisk running. Review the session output before **Apply timer reset**.
-3. **Passcode recovery:** download or start the pinned backend. Reply to its prompts in the session input. Replies are hidden by default.
+3. **Passcode recovery:** download or start the pinned backend. Reply to its prompts in the session input. The input field hides replies by default; backend output and terminal echo can still appear in the session and in an explicit export, including recovery results.
 4. **Backups:** select a saved transaction to restore original files or finish cleanup. Invalid backups cannot be selected for recovery.
 5. **Updates:** check, install, relaunch, or roll back. Because this repository is private, enter a GitHub token with repository read access. It stays in memory and is never saved. GitHub CLI is not required.
 6. **Diagnostics:** inspect platform requirements and connection options.
 
-Long operations run outside the GUI process. **Interrupt** sends a graceful terminal interrupt; file-writing workflows ask before interruption and retain the engine's rollback behavior. Output stays in memory unless you choose **Save output**. The window remains open while an operation or cleanup is active.
+Long operations run outside the GUI process. **Interrupt** sends a graceful terminal interrupt; file-writing workflows ask before interruption and retain the engine's rollback behavior. Output stays in memory unless you choose **Save output**. Exports retain up to 16 MiB independently of the display's 2,500-line scrollback. If that limit is reached, the export preserves initial context and recent output with an explicit omission marker. **Clear** resets both. The window remains open while an operation or cleanup is active.
 
 Desktop updates verify the GitHub asset digest, platform, clean source revision, archive paths, and all packaged file checksums. They stage a complete replacement runtime, then switch versions. The original launcher remains your entry point; rollback selects the previous installation. A damaged update falls back to the original app's recovery UI.
 
@@ -44,7 +44,7 @@ The `reset` workflow still requires the correct passcode afterward. The separate
 
 ## Source edition and CLI
 
-The unqualified `Bruteforce-Legacy-iOS-2.0.1.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
+The unqualified `Bruteforce-Legacy-iOS-2.0.2.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
 
 Download the ZIP from [Releases](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases) and extract the whole folder onto the computer connected to the phone. Python 3.9 or newer is required.
 
@@ -86,13 +86,15 @@ Use `bash Launch.sh` on Linux or `Launch.cmd` on Windows with the same arguments
 
 The 3G is `iPhone1,2` / `n82ap`. `m68ap` belongs to the original iPhone; an `iBSS.m68ap.RELEASE.dfu` error on a 3G can indicate incorrect device selection. The explicit 3G **timer-reset** route selects `n82ap` and the **3.1.3 / 7E18 boot ramdisk** used by Legacy iOS Kit. This does not downgrade the installed iOS 4 system. The reset adapter recognizes the older `/dev/disk0s1` and `/dev/disk0s2` partitions.
 
+WTF mode can report the generic `m68ap` identity. Version 2.0.2 preserves the selected 3G profile while preparing files, then checks the actual chip and board after the shared WTF transition and before uploading 3G iBSS. The fix requires the reviewed, pinned Legacy iOS Kit script; an altered `--kit` script is rejected for this route. Original backend files remain unchanged.
+
 If downloading the boot components fails, provide a complete local **iPhone 3G 3.1.3 / 7E18** IPSW:
 
 ```sh
 ./Launch.command prepare --model iPhone1,2 --ipsw "/path/iPhone1,2_3.1.3_7E18_Restore.ipsw" --apply
 ```
 
-The app validates the IPSW product, build, and `iBSS.n82ap.RELEASE.dfu` entry before copying it into the backend cache. An exact failure log and a connected 3G are still needed to confirm that the reported failure is resolved on hardware.
+The app validates the IPSW product, build, and `iBSS.n82ap.RELEASE.dfu` entry before copying it into the backend cache. The reported logs established the wrong-board selection and download-path failures; a connected 3G is still needed to confirm successful boot on hardware.
 
 The separate **passcode-recovery** route uses the **4.2.1 / 8C148** ramdisk and matching kernel. Its kernel patch requires the expected input hash and all seven expected byte patterns; an unexpected kernel stops preparation. The 3.1.3 timer-reset IPSW option above does not select the passcode-recovery firmware.
 
@@ -113,7 +115,7 @@ Run it for a supported legacy iPhone:
 
 The backend is downloaded directly from tuanemss at commit `4949674b318767de83eb149e57bcc543a6453d6e`. Its script hash and checkout are checked before compatibility edits are applied. The adapter fixes fallback iBSS/iBEC filenames, cross-checks chip/board IDs, rejects incompatible executables, and stops when patching or pwnDFU verification fails.
 
-For an iPhone 3G, version 2.0.1 automatically supplies ARMv6 builds of `bruteforce`, `device_infos`, and `restored_external`:
+For an iPhone 3G, the app automatically supplies ARMv6 builds of `bruteforce`, `device_infos`, and `restored_external`:
 
 ```sh
 ./Launch.command bruteforce --model iPhone1,2 --apply

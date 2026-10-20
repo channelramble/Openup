@@ -2,6 +2,30 @@
 
 Reviewed 2026-10-20.
 
+## Version 2.0.2 failure analysis
+
+The supplied recovery log shows the pinned Legacy iOS Kit choosing `iPhone1,1` /
+`m68ap` after the app requested `iPhone1,2`. In the
+[reviewed script](https://github.com/LukeZGD/Legacy-iOS-Kit/blob/23622f8fe72c09952089d5145a7b008cfcc90d9b/restore.sh),
+`--device` enables manual-entry mode, suppressing the normal ambiguous-WTF
+selection prompt. The generic board string then overrides the selected product.
+The app's temporary adapter preserves the 3G preparation profile and checks
+the actual board/chip after the shared WTF transition, before iBSS upload.
+
+The passcode log shows a successful WTF download followed by a missing-file
+error. The pinned [partialZipBrowser implementation](https://github.com/tihmstar/partialZipBrowser/blob/9bfdde2b2456181045f74631683fba491d8bf4f2/pzb/main.cpp#L127-L150)
+discards directory components from the output filename without `-c`.
+The new adapter downloads a basename in a staging directory, checks the result,
+then moves it into the expected cache. The actual pinned binary passed an
+empty-cache download from Apple and a cache-reuse check, with spaces in the path.
+
+These findings explain the observed host-side failures. The earlier fixture
+preseeded the WTF cache and therefore did not exercise that branch. New tests
+use the downloader's actual filename behavior and start with an empty cache.
+No physical phone was connected during the repair.
+
+## Original scope and historical findings
+
 The requested community is `r/setupapp`. Its discussions distinguish old passcode lockout-state edits from modern Secure Enclave enforcement. Reports are inconsistent across versions, especially around mounting iOS 9/10 data volumes; they are leads, not proof that a particular implementation works.
 
 The [r/setupapp disabled-iPhone discussion](https://www.reddit.com/r/setupapp/comments/v3xw31) describes cached timer state that can survive incomplete edits. The software here uses a limited list of recognized fields and rejects unknown layouts. It does not follow the thread's broad file deletion or unlimited-attempt suggestions.
@@ -10,7 +34,7 @@ A [first-hand iPhone 5 write-up and accompanying code discussion](https://gist.g
 
 [Legacy iOS Kit's SSH ramdisk documentation](https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/SSH-Ramdisk) documents booting, mounting, and accessing legacy devices. Its [A5 documentation](https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/checkm8-a5) explains the additional hardware requirement for iPhone 4S.
 
-The integrated backend downloader pins [Legacy iOS Kit revision 23622f8fe72c09952089d5145a7b008cfcc90d9b](https://github.com/LukeZGD/Legacy-iOS-Kit/tree/23622f8fe72c09952089d5145a7b008cfcc90d9b). The source's `--sshrd` argument starts the ramdisk workflow. Its bundled mount scripts were inspected; this tool instead mounts only the recognized HFS partitions, avoiding their filesystem-repair fallback. An explicitly supplied existing backend can differ and is identified by its script hash when launched. Upstream may download further dependencies or firmware during its workflow.
+The integrated backend downloader pins [Legacy iOS Kit revision 23622f8fe72c09952089d5145a7b008cfcc90d9b](https://github.com/LukeZGD/Legacy-iOS-Kit/tree/23622f8fe72c09952089d5145a7b008cfcc90d9b). The source's `--sshrd` argument starts the ramdisk workflow. Its bundled mount scripts were inspected; this tool instead mounts only the recognized HFS partitions, avoiding their filesystem-repair fallback. An explicitly supplied existing backend is identified by its script hash when launched; the explicit 3G compatibility route requires the reviewed script hash. Upstream may download further dependencies or firmware during its workflow.
 
 The [libusbmuxd source](https://github.com/libimobiledevice/libusbmuxd/blob/master/src/libusbmuxd.c) was used to check the local plist protocol, USB-only selection, packet framing, and network-byte-order port representation. [Paramiko's SFTP API](https://docs.paramiko.org/en/stable/api/sftp.html) supplies the file transport. No third-party exploit binaries or firmware are included in this distribution.
 

@@ -49,8 +49,10 @@ jobs:
       - name: Test recovery, USB and SSH transport
         env:
           BL_IOS_UPSTREAM_SCRIPT: ${{ runner.temp }}/Bruteforce.sh
+          BL_IOS_LEGACY_SCRIPT: ${{ runner.temp }}/restore.sh
         run: |
           python -c "import hashlib, os, pathlib, urllib.request; from ios_timeout.upstream import REVISION, SCRIPT_SHA256; data=urllib.request.urlopen('https://raw.githubusercontent.com/tuanemss/32bit-Bruteforce-Passcode/'+REVISION+'/Bruteforce.sh', timeout=30).read(); assert hashlib.sha256(data).hexdigest()==SCRIPT_SHA256; pathlib.Path(os.environ['BL_IOS_UPSTREAM_SCRIPT']).write_bytes(data)"
+          python -c "import hashlib, os, pathlib, urllib.request; from ios_timeout.cli import KIT_COMMIT; from ios_timeout.legacy_kit import SCRIPT_SHA256; data=urllib.request.urlopen('https://raw.githubusercontent.com/LukeZGD/Legacy-iOS-Kit/'+KIT_COMMIT+'/restore.sh', timeout=30).read(); assert hashlib.sha256(data).hexdigest()==SCRIPT_SHA256; pathlib.Path(os.environ['BL_IOS_LEGACY_SCRIPT']).write_bytes(data)"
           python -m unittest discover -s tests -v
       - name: Check launcher and installed CLI
         shell: bash

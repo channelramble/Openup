@@ -34,6 +34,8 @@ import sys
 
 tool, args = sys.argv[1], sys.argv[2:]
 entry = {"tool": tool, "args": args}
+if tool == "pzb":
+    entry["cwd"] = str(Path.cwd())
 if tool == "hfsplus" and args[1:3] == ["add", "setup.temp"]:
     entry["startup"] = Path("setup.temp").read_text()
 with open(os.environ["BL_TEST_TRACE"], "a") as trace:
@@ -54,7 +56,17 @@ if tool == "jq":
           end="")
 elif tool == "pzb":
     member = args[args.index("-g") + 1]
-    Path(args[args.index("-o") + 1]).write_text("fixture: " + member)
+    output = Path(args[args.index("-o") + 1])
+    # pzb 9bfdde2 cmd_get strips directories from -o unless -c is present.
+    # https://github.com/tihmstar/partialZipBrowser/blob/
+    # 9bfdde2b2456181045f74631683fba491d8bf4f2/pzb/main.cpp#L146-L150
+    if "-c" not in args:
+        output = Path(output.name)
+    behavior = os.environ.get("BL_TEST_PZB_RESULT")
+    if behavior != "missing":
+        output.write_text("" if behavior == "empty" else "fixture: " + member)
+    if behavior == "failure":
+        raise SystemExit(9)
 elif tool in ("xpwntool", "bspatch"):
     shutil.copyfile(args[0], args[1])
 elif tool == "managed-python":
@@ -119,7 +131,6 @@ class UpstreamShellIntegrationTests(unittest.TestCase):
             "resources/sshrd/ssh_old.tar",
             "resources/setup.sh",
             "resources/patch/WTF.s5l8900xall.RELEASE.patch",
-            "saved/WTF.s5l8900xall.RELEASE.dfu",
         ):
             (self.backend / relative).write_text("temporary test fixture\n")
         for name in ("bruteforce", "device_infos", "restored_external"):
@@ -177,6 +188,9 @@ mv() {
     if [[ ${BL_TEST_FAIL_FINAL_MV:-} == 1 && $# == 6 && $1 == iBSS ]]; then
         return 9
     fi
+    if [[ ${BL_TEST_FAIL_WTF_MV:-} == 1 && $1 == */.wtf-download.*/WTF.* ]]; then
+        return 9
+    fi
     command mv "$@"
 }
 '''
@@ -230,6 +244,60 @@ mv() {
             BL_TEST_RECOVERY="MODE: DFU\nSRTG: iBoot-636.66.3x\n")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Exploit success (SRTG verified)", result.stdout)
+
+    def test_wtf_empty_cache_downloads_to_staging_then_reuses_cache_with_spaces(self):
+        moved = self.root / "backend with spaces"
+        self.backend.rename(moved)
+        self.backend = moved
+        cache = self.backend / "saved/WTF.s5l8900xall.RELEASE.dfu"
+        cache.parent.rmdir()
+        result = self.run_functions(
+            ("bl_ios_send", "enter_pwndfu"), "enter_pwndfu",
+            BL_TEST_RECOVERY="MODE: DFU\nSRTG: iBoot-636.66.3x\n")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(cache.read_text(),
+                         "fixture: Firmware/dfu/WTF.s5l8900xall.RELEASE.dfu")
+        downloads = [entry for entry in self.trace_entries() if entry["tool"] == "pzb"]
+        self.assertEqual(len(downloads), 1)
+        self.assertEqual(downloads[0]["args"][3], cache.name)
+        self.assertEqual(Path(downloads[0]["cwd"]).parent.resolve(), cache.parent.resolve())
+        self.assertNotEqual(Path(downloads[0]["cwd"]).resolve(), self.work.resolve())
+        self.assertFalse(list(cache.parent.glob(".wtf-download.*")))
+        self.assertFalse((self.work / cache.name).exists())
+        self.trace.unlink()
+        result = self.run_functions(
+            ("bl_ios_send", "enter_pwndfu"), "enter_pwndfu",
+            BL_TEST_RECOVERY="MODE: DFU\nSRTG: iBoot-636.66.3x\n")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(any(entry["tool"] == "pzb" for entry in self.trace_entries()))
+
+    def test_wtf_missing_empty_or_failed_download_never_reaches_patch_or_upload(self):
+        cache = self.backend / "saved/WTF.s5l8900xall.RELEASE.dfu"
+        for behavior in ("missing", "empty", "failure"):
+            with self.subTest(behavior=behavior):
+                if self.trace.exists():
+                    self.trace.unlink()
+                result = self.run_functions(
+                    ("bl_ios_send", "enter_pwndfu"), "enter_pwndfu",
+                    BL_TEST_PZB_RESULT=behavior)
+                self.assert_stopped(result, "WTF DFU download")
+                self.assertFalse(cache.exists())
+                self.assertFalse(list(cache.parent.glob(".wtf-download.*")))
+                self.assertFalse(any(
+                    entry["tool"] == "bspatch"
+                    or (entry["tool"] == "irecovery" and entry["args"][:1] == ["-f"])
+                    for entry in self.trace_entries()))
+
+    def test_wtf_cache_publish_failure_never_reaches_patch_or_upload(self):
+        result = self.run_functions(
+            ("bl_ios_send", "enter_pwndfu"), "enter_pwndfu",
+            BL_TEST_FAIL_WTF_MV="1")
+        self.assert_stopped(result, "Could not cache WTF DFU")
+        self.assertFalse(list((self.backend / "saved").glob(".wtf-download.*")))
+        self.assertFalse(any(
+            entry["tool"] == "bspatch"
+            or (entry["tool"] == "irecovery" and entry["args"][:1] == ["-f"])
+            for entry in self.trace_entries()))
 
     def test_failed_file_upload_stops_the_caller(self):
         result = self.run_functions(

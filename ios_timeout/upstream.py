@@ -178,6 +178,35 @@ def adapt_script(original):
         source = source.replace(f"$PROJECT_ROOT/resources/{name}",
                                 f"${{BL_IOS_PAYLOADS:-$PROJECT_ROOT/resources}}/{name}")
     source = source.replace('$irecovery -f ', 'bl_ios_send ')
+    replace('local wtf_url="http://appldnld.apple.com/iPhone/061-7481.20100202.4orot/iPhone1,1_3.1.3_7E18_Restore.ipsw"',
+            'local wtf_url="https://secure-appldnld.apple.com/iPhone/061-7481.20100202.4orot/iPhone1,1_3.1.3_7E18_Restore.ipsw"')
+    # The pinned pzb strips directories from -o unless -c is supplied. Download
+    # a basename in a fresh staging directory, then publish the complete cache
+    # file. This also prevents a failed/empty download from reaching bspatch.
+    replace('''        if [[ ! -s $PROJECT_ROOT/saved/$wtf_name ]]; then
+             log "Downloading WTF DFU..."
+            "$dir/pzb" -g "Firmware/dfu/$wtf_name" -o "$PROJECT_ROOT/saved/$wtf_name" "$wtf_url"
+        fi''', '''        if [[ ! -s "$PROJECT_ROOT/saved/$wtf_name" ]]; then
+            log "Downloading WTF DFU..."
+            mkdir -p "$PROJECT_ROOT/saved" || error "Could not create WTF DFU cache."
+            local wtf_download
+            wtf_download="$(mktemp -d "$PROJECT_ROOT/saved/.wtf-download.XXXXXX")" ||
+                error "Could not stage WTF DFU download."
+            if ! (cd "$wtf_download" &&
+                  "$dir/pzb" -g "Firmware/dfu/$wtf_name" -o "$wtf_name" "$wtf_url"); then
+                rm -rf "$wtf_download"
+                error "WTF DFU download failed; boot cancelled."
+            fi
+            if [[ ! -f "$wtf_download/$wtf_name" || ! -s "$wtf_download/$wtf_name" ]]; then
+                rm -rf "$wtf_download"
+                error "WTF DFU download produced no usable file; boot cancelled."
+            fi
+            if ! mv "$wtf_download/$wtf_name" "$PROJECT_ROOT/saved/$wtf_name"; then
+                rm -rf "$wtf_download"
+                error "Could not cache WTF DFU; boot cancelled."
+            fi
+            rmdir "$wtf_download" || error "Could not finish WTF DFU cache update."
+        fi''')
     replace('                 warn "Exploit might have failed. Please re-enter DFU and try again if it fails."',
             '                 error "S5L8900 pwnDFU verification failed. Re-enter DFU before retrying."')
     # Prevent firmware upload after a failed exploit check.
@@ -246,7 +275,7 @@ def run_backend(args):
             check_payloads(args.model, payloads if args.model == "iPhone1,2" else backend / "resources")
         env["BL_IOS_ARMV6"] = str(payloads)
         print("Connect exactly one phone. Follow the backend's DFU and dependency prompts.", flush=True)
-        print("The backend performs passcode recovery on the phone; results are not logged by this app.", flush=True)
+        print("Recovery results may appear in session output and in files you explicitly export.", flush=True)
         result = subprocess.run(["bash", str(script)], cwd=folder, env=env, check=False)
         if result.returncode:
             raise ResetError(f"Upstream backend stopped with status {result.returncode}.")
