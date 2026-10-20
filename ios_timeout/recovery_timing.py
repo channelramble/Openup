@@ -14,22 +14,33 @@ from .desktop_protocol import progress
 from .upstream import early_dfu_state, early_dfu_summary
 
 
-def verify_ibss_console(model, console):
+BOOTLOADERS = {
+    "ibss": ("iBSS", "iBoot-636.66.33"),
+    "ibec": ("iBEC", "iBoot-931.71.16"),
+}
+
+
+def verify_bootloader_console(model, console, stage="ibss"):
     """Recovery USB identity alone also matches the phone's installed iBoot."""
-    if model != "iPhone1,2":
-        raise ResetError("No verified iBSS console profile exists for the selected phone.")
+    if model != "iPhone1,2" or stage not in BOOTLOADERS:
+        raise ResetError("No verified bootloader console profile exists for the selected phone.")
+    name, version = BOOTLOADERS[stage]
     console = console.replace("\x00", "")
     banners = set(re.findall(r"\b(iBSS|iBEC|iBoot) for ([a-zA-Z0-9]+),", console))
     versions = set(re.findall(r"\bBUILD_TAG:\s*(iBoot-[0-9.]+)(?=\s|$)", console))
-    if banners != {("iBSS", "n82ap")} or versions != {"iBoot-636.66.33"}:
+    if banners != {(name, "n82ap")} or versions != {version}:
         # Only public build/board fields are emitted; console logs can contain
         # unique device identifiers and must not be copied into diagnostics.
         observed = ", ".join(sorted(kind + " for " + board for kind, board in banners))
         observed += (" / " + ", ".join(sorted(versions))) if versions else ""
         observed = observed[:160] or "no recognizable bootloader banner"
-        raise ResetError("Recovery mode was detected, but the uploaded iBSS was not verified "
+        raise ResetError(f"Recovery mode was detected, but the uploaded {name} was not verified "
                          "(" + observed + "). No ramdisk was uploaded.")
-    return "iBSS for n82ap / iBoot-636.66.33"
+    return name + " for n82ap / " + version
+
+
+def verify_ibss_console(model, console):
+    return verify_bootloader_console(model, console, "ibss")
 
 
 class RecoveryProbe:
@@ -162,9 +173,10 @@ def guide(model, probe, *, emit=progress, clock=time.monotonic, sleep=time.sleep
         probe.close()
 
 
-def wait_bootloader(model, probe, *, timeout=30, emit=progress,
+def wait_bootloader(model, probe, *, stage="ibss", timeout=30, emit=progress,
                     clock=time.monotonic, sleep=time.sleep, output=print):
-    """A successful upload is not evidence that iBSS started running."""
+    """A successful upload is not evidence that the requested stage is running."""
+    name = BOOTLOADERS[stage][0]
     deadline = clock() + timeout
     last_readable = ""
     current = ""
@@ -180,21 +192,29 @@ def wait_bootloader(model, probe, *, timeout=30, emit=progress,
                 try:
                     early_dfu_state(model, current)
                 except ResetError as exc:
-                    output("[WARNING] USB state after iBSS: " + early_dfu_summary(current), flush=True)
-                    raise ResetError("The USB identity after iBSS could not be verified for the selected phone. "
+                    output(f"[WARNING] USB state after {name}: " + early_dfu_summary(current), flush=True)
+                    raise ResetError(f"The USB identity after {name} could not be verified for the selected phone. "
                                      "No ramdisk was uploaded.") from exc
                 fields = dict(line.split(":", 1) for line in current.splitlines() if ":" in line)
                 mode = fields.get("MODE", "").strip()
                 if mode == "Recovery":
-                    identity = verify_ibss_console(model, probe.bootloader_console())
-                    output("[Log] Uploaded bootloader and phone identity verified: " + identity, flush=True)
-                    emit("Recovery bootloader detected", "iBSS is running. Loading the ramdisk next.", 0)
-                    return
+                    console = probe.bootloader_console()
+                    # A recovery endpoint can appear before its console banner.
+                    # During iBEC handoff the previous iBSS may still answer.
+                    previous = stage == "ibec" and "iBSS for " in console
+                    if previous:
+                        verify_ibss_console(model, console)
+                    elif console.replace("\x00", "").strip():
+                        identity = verify_bootloader_console(model, console, stage)
+                        output("[Log] Uploaded bootloader and phone identity verified: " + identity, flush=True)
+                        following = "Loading the second-stage bootloader next." if stage == "ibss" else "Loading the ramdisk next."
+                        emit("Recovery bootloader detected", name + " is running. " + following, 0)
+                        return
             remaining = math.ceil(deadline - clock())
             description = early_dfu_summary(current) if current else "USB device is reconnecting"
             event = (description, remaining)
             if event != last_event:
-                emit("Waiting for iBSS to start", description + ". The ramdisk has not started yet.", remaining)
+                emit(f"Waiting for {name} to start", description + ". The ramdisk has not started yet.", remaining)
                 last_event = event
             sleep(min(0.05, max(0, deadline - clock())))
         output("[WARNING] Current USB state: " + early_dfu_summary(current), flush=True)
@@ -202,9 +222,9 @@ def wait_bootloader(model, probe, *, timeout=30, emit=progress,
             output("[WARNING] Last readable USB state: " + early_dfu_summary(last_readable), flush=True)
         state = early_dfu_state(model, current)
         if state in ("stock", "patched"):
-            reason = "The phone is still in DFU; iBSS did not start."
+            reason = f"The phone is still in DFU; {name} did not start."
         else:
-            reason = "The phone did not reappear in verified Recovery mode after iBSS."
+            reason = f"The phone did not reappear with a verified {name} console."
         # This also reproduces on Intel Macs with a direct connection. USB
         # enumeration and a successful transfer cannot identify the cause.
         raise ResetError(reason + " The ramdisk was not uploaded. "
@@ -217,7 +237,9 @@ def wait_bootloader(model, probe, *, timeout=30, emit=progress,
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--after-ibss", action="store_true")
+    stages = parser.add_mutually_exclusive_group()
+    stages.add_argument("--after-ibss", action="store_true")
+    stages.add_argument("--after-ibec", action="store_true")
     parser.add_argument("model")
     parser.add_argument("query", nargs=argparse.REMAINDER)
     args = parser.parse_args()
@@ -225,8 +247,10 @@ def main():
     if not command:
         parser.error("A recovery query executable is required.")
     try:
-        operation = wait_bootloader if args.after_ibss else guide
-        operation(args.model, RecoveryProbe(command))
+        if args.after_ibss or args.after_ibec:
+            wait_bootloader(args.model, RecoveryProbe(command), stage="ibec" if args.after_ibec else "ibss")
+        else:
+            guide(args.model, RecoveryProbe(command))
         return 0
     except (ResetError, OSError) as exc:
         print("[Error] " + str(exc), flush=True)

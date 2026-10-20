@@ -122,9 +122,9 @@ elif tool == "managed-python":
         from ios_timeout.recovery_timing import guide, wait_bootloader
         from ios_timeout.core import ResetError
         now = [0.0]
-        after_ibss = args[2] == "--after-ibss"
-        model = args[3] if after_ibss else args[2]
-        command = args[5:] if after_ibss else args[4:]
+        after_boot = args[2] in ("--after-ibss", "--after-ibec")
+        model = args[3] if after_boot else args[2]
+        command = args[5:] if after_boot else args[4:]
         class Probe:
             def poll(self):
                 result = subprocess.run(command + ["-q"], capture_output=True, text=True)
@@ -136,8 +136,11 @@ elif tool == "managed-python":
         def advance(_):
             now[0] += 0.5
         try:
-            operation = wait_bootloader if after_ibss else guide
-            operation(model, Probe(), clock=lambda: now[0], sleep=advance)
+            if after_boot:
+                wait_bootloader(model, Probe(), stage="ibec" if args[2] == "--after-ibec" else "ibss",
+                                clock=lambda: now[0], sleep=advance)
+            else:
+                guide(model, Probe(), clock=lambda: now[0], sleep=advance)
         except ResetError as exc:
             print(str(exc), file=sys.stderr)
             raise SystemExit(1)
@@ -161,7 +164,10 @@ elif tool == "sudo":
 elif tool == "irecovery":
     if args == ["-s"]:
         assert sys.stdin.read() == "/exit\n"
-        print(os.environ.get("BL_TEST_BOOT_CONSOLE", "iBSS for n82ap, Copyright Apple Inc.\nBUILD_TAG: iBoot-636.66.33\n"))
+        if Path(os.environ["BL_TEST_TRACE"]).with_suffix(".ibec").exists():
+            print(os.environ.get("BL_TEST_IBEC_CONSOLE", "iBEC for n82ap, Copyright Apple Inc.\nBUILD_TAG: iBoot-931.71.16\n"))
+        else:
+            print(os.environ.get("BL_TEST_BOOT_CONSOLE", "iBSS for n82ap, Copyright Apple Inc.\nBUILD_TAG: iBoot-636.66.33\n"))
     elif args == ["-q"]:
         sequence = os.environ.get("BL_TEST_RECOVERY_SEQUENCE")
         if sequence:
@@ -177,7 +183,9 @@ elif tool == "irecovery":
     elif args[:1] == ["-f"]:
         if os.environ.get("BL_TEST_FAIL_UPLOAD") == "1":
             raise SystemExit(9)
-    elif args[:1] == ["-c"] and args[1] in ("getenv ramdisk-delay", "ramdisk", "devicetree", "bootx"):
+    elif args[:1] == ["-c"] and args[1] in ("go", "getenv ramdisk-delay", "ramdisk", "devicetree", "bootx"):
+        if args[1] == "go":
+            Path(os.environ["BL_TEST_TRACE"]).with_suffix(".ibec").touch()
         if args[1] == os.environ.get("BL_TEST_FAIL_COMMAND"):
             raise SystemExit(9)
     else:
@@ -344,6 +352,7 @@ mv() {
                     if entry["tool"] == "irecovery" and entry["args"][0] in ("-f", "-c")]
         self.assertEqual(commands, [
             ["-f", str(self.destination / "iBSS")],
+            ["-f", str(self.destination / "iBEC")], ["-c", "go"],
             ["-f", str(self.destination / "Ramdisk.dmg")],
             ["-c", "getenv ramdisk-delay"], ["-c", "ramdisk"],
             ["-f", str(self.destination / "DeviceTree.dec")], ["-c", "devicetree"],
@@ -367,6 +376,23 @@ mv() {
         transfers = [entry["args"] for entry in self.trace_entries()
                      if entry["tool"] == "irecovery" and entry["args"][:1] == ["-f"]]
         self.assertEqual(transfers, [["-f", str(self.destination / "iBSS")]])
+
+    def test_stock_iboot_after_second_stage_blocks_ramdisk(self):
+        recovery = PATCHED.replace("DFU", "Recovery")
+        result = self.run_boot(BL_TEST_RECOVERY_SEQUENCE=json.dumps([PATCHED, PATCHED, recovery]),
+                               BL_TEST_IBEC_CONSOLE="iBoot for n82ap, Copyright Apple Inc.\nBUILD_TAG: iBoot-931.71.16\n")
+        self.assert_stopped(result, "iBEC handoff verification failed")
+        uploads = [entry["args"][-1] for entry in self.trace_entries()
+                   if entry["tool"] == "irecovery" and entry["args"][:1] == ["-f"]]
+        self.assertEqual(uploads, [str(self.destination / "iBSS"), str(self.destination / "iBEC")])
+
+    def test_failed_second_stage_execution_blocks_ramdisk(self):
+        recovery = PATCHED.replace("DFU", "Recovery")
+        result = self.run_boot(BL_TEST_RECOVERY_SEQUENCE=json.dumps([PATCHED, PATCHED, recovery]),
+                               BL_TEST_FAIL_COMMAND="go")
+        self.assert_stopped(result, "Recovery command failed: go")
+        self.assertFalse(any(entry["args"][-1].endswith("Ramdisk.dmg")
+                             for entry in self.trace_entries() if entry["args"]))
 
     def test_early_wtf_branch_rejects_missing_pwnd_and_wrong_srtg(self):
         result = self.run_functions(

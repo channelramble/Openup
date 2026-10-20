@@ -418,6 +418,11 @@ def adapt_script(original):
     transition = '''if [[ $device_type == "iPhone1,2" ]]; then
         "$BL_IOS_PYTHON" -m ios_timeout.recovery_timing --after-ibss "$device_type" -- ${irecovery} ||
             error "iBSS handoff verification failed; no ramdisk was sent."
+        log "Sending the matching iPhone 3G 4.2.1 second-stage bootloader..."
+        bl_ios_send "$ramdisk_path/iBEC"
+        bl_ios_command go
+        "$BL_IOS_PYTHON" -m ios_timeout.recovery_timing --after-ibec "$device_type" -- ${irecovery} ||
+            error "iBEC handoff verification failed; no ramdisk was sent."
         device_mode=Recovery
     else
         device_find_mode Recovery

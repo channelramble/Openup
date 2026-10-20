@@ -38,7 +38,7 @@
   "source/ramdisk_tools/registry.h": "bb64b8aba46b749e8c355a18f0ff4b7b2af6450fed79947b500becc76cf84ae9",
   "source/ramdisk_tools/remote_functions.c": "372920119bce563785f44f50efe506312fbc91edf19dd1bde3d0b32aef21bd5d",
   "source/ramdisk_tools/remote_functions.h": "c7cb14383814cf50c631dcbb83b3594093553680a329ba3a378549243238286c",
-  "source/ramdisk_tools/restored_external.c": "d464567fd2d0da3c948d7f4a2a82bb569850e1bb90dbbf3549ab886c7aba2092",
+  "source/ramdisk_tools/restored_external.c": "d11cc879dc7ba886a89bd7c8b1e2a15c0a6f7014a01b39a143bc17011c4a43d1",
   "source/ramdisk_tools/scripts/mount_partitions.sh": "a890f3d7beb2cda09226ddaa14f62ae8566a685e6468c1b11d533fb14eb7b312",
   "source/ramdisk_tools/shsh_dump.c": "d5c0a9555684002ca4ebb20eef2c84d7b97276d5c44101bc1623bca39f79cbe8",
   "source/ramdisk_tools/systemkb_bruteforce.c": "aa9c5e9d348cc2697aaf8880d94730933094ec3df0b08c3495b4919805a66010",
@@ -51,6 +51,7 @@
   "include/IOKit/IOReturn.h": "5d756f7a78492c16fe6a7e61f48e54e57bea65a869019d571a006ef0ca790b78",
   "include/IOKit/IOTypes.h": "3755e6de0b6d64e5e7d2e26bc2c3fc39cdf55c587e15983c2e9f89ae68209f2a",
   "include/IOKit/OSMessageNotification.h": "4ac4cb88e34b42800c4eef57de5631b89b6ac0e7edc27eaa4dff5d73e6097f3b",
+  "include/hfs/hfs_mount.h": "85fef0e66803afa990a4554ba5de58617d844ca3186939c4b18b285bcfeac900",
   "include/libkern/OSTypes.h": "2134d66b4df45ab0233fac0ae9c2d9cc1f996237e7210a5e23036f4e84b1770a",
   "original/ramdisk_tools/restored_external.c": "061d0aa178d1123da9208744f64d054be5333d521a052bec7f06ea06f0a547bd"
 }

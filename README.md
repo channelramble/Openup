@@ -2,7 +2,7 @@
 
 [![Test and package](https://github.com/channelramble/Openup/actions/workflows/ci.yml/badge.svg)](https://github.com/channelramble/Openup/actions/workflows/ci.yml)
 
-A desktop app for legacy iPhone recovery. Version **2.3.0** introduces the **Openup** name and verifies the iPhone 3G's USB state after the iBSS upload. Its dark interface provides on-screen instructions, menu buttons, countdowns, and result cards. The terminal and manual input are optional Advanced controls, both off by default. It includes guided timer reset, a pinned [recovery backend](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, and a built-in updater. iPhone 3G ARMv6 tools and Intel Mac builds targeting macOS 12 Monterey are included.
+A desktop app for legacy iPhone recovery. Version **2.3.1** fixes the tested iPhone 3G boot sequence and compatibility with its legacy SSH server. Its dark interface provides on-screen instructions, menu buttons, countdowns, and result cards. The terminal and manual input are optional Advanced controls, both off by default. It includes guided timer reset, a pinned [recovery backend](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, and a built-in updater. iPhone 3G ARMv6 tools and Intel Mac builds targeting macOS 12 Monterey are included.
 
 **Desktop downloads include Python, Qt, SSH libraries, and their Python dependencies. No Python, pip, virtual environment, or package installation is needed to open the app.** The Windows archive also includes the Linux Python/SSH runtime used by its WSL bridge.
 
@@ -10,7 +10,7 @@ A desktop app for legacy iPhone recovery. Version **2.3.0** introduces the **Ope
 
 ## Download and open
 
-Get the platform archive from [version 2.3.0](https://github.com/channelramble/Openup/releases/tag/v2.3.0) and extract it completely.
+Get the platform archive from [version 2.3.1](https://github.com/channelramble/Openup/releases/tag/v2.3.1) and extract it completely.
 
 **Upgrading from 2.2.x:** extract and open the new `Openup` app once. The older updater expects the previous package name and cannot install this renamed layout. Openup preserves the existing backup/cache directory and recognizes older installed versions for rollback. Later Openup releases use the built-in updater normally. An older update selection cannot silently replace a freshly opened, newer app.
 
@@ -44,13 +44,13 @@ Long operations run outside the GUI process. **Stop** requests a graceful stop; 
 
 Desktop updates verify the GitHub asset digest (direct download) or the matching release SHA-256 file (browser download), platform, clean source revision, archive paths, and all packaged file checksums. Obtain both files from this repository’s release page; a locally supplied checksum checks integrity, not publisher identity. They stage a complete replacement runtime, then switch versions. The original launcher remains your entry point; rollback selects the previous installation. Downloading a newer app does not replace an already-open window: check the running version in the title bar and restart after installing. A damaged update falls back to the original app's recovery UI.
 
-**Hardware validation is pending.** Physical ramdisk boot, passcode recovery, USB passthrough, and on-screen timer clearance remain unverified. The included iPhone 3G executables have passed architecture, signature, reproducibility, and ramdisk import checks; those checks do not establish successful recovery on a phone. Native Windows execution also remains unverified. See `VERIFICATION.txt`.
+**Validation scope:** a diagnostic iPhone 3G ramdisk, authenticated SSH and SFTP have been verified on the connected phone through an Apple Silicon MacBook. Passcode recovery and on-screen timer clearance were not run in that test. Intel USB recovery, native Windows execution and Windows USB passthrough remain unverified. The bundled ARMv6 tools also pass architecture, signature, reproducibility and actual ramdisk-library import checks. See `VERIFICATION.txt`.
 
 The `reset` workflow still requires the correct passcode afterward. The separate `recover` command runs the externally downloaded recovery backend. Activation Lock removal and setup.app removal are outside this app's scope.
 
 ## Source edition and CLI
 
-The unqualified `Openup-2.3.0.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
+The unqualified `Openup-2.3.1.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
 
 Download the ZIP from [Releases](https://github.com/channelramble/Openup/releases) and extract the whole folder onto the computer connected to the phone. Python 3.9 or newer is required.
 
@@ -100,11 +100,11 @@ If downloading the boot components fails, provide a complete local **iPhone 3G 3
 ./Launch.command prepare --model iPhone1,2 --ipsw "/path/iPhone1,2_3.1.3_7E18_Restore.ipsw" --apply
 ```
 
-The app validates the IPSW product, build, and `iBSS.n82ap.RELEASE.dfu` entry before copying it into the backend cache. The reported logs established the wrong-board selection and download-path failures; a connected 3G is still needed to confirm successful boot on hardware.
+The app validates the IPSW product, build, and `iBSS.n82ap.RELEASE.dfu` entry before copying it into the backend cache. The reported logs established the wrong-board selection and download-path failures. This separate 3.1.3 timer-reset preparation route has not been physically revalidated by the 4.2.1 diagnostic boot test.
 
-The 3G recovery route distinguishes WTF mode from ordinary DFU, waits for USB re-enumeration, and verifies the patched boot signature plus the real chip/board before sending iBSS. An already verified patched DFU state is reused. A stock DFU state asks for a fresh WTF transition. After iBSS, the app now requires a matching Recovery-mode USB response before sending the ramdisk. A completed upload or black screen alone does not establish boot success. Failed boot commands stop subsequent uploads.
+The 3G recovery route distinguishes WTF mode from ordinary DFU, waits for USB re-enumeration, and verifies the patched boot signature plus the real chip/board before sending iBSS. An already verified patched DFU state is reused. A stock DFU state asks for a fresh WTF transition. The tested chain uses 3.1.3 iBSS followed by the matching 4.2.1 iBEC, ramdisk and kernel. The app verifies the exact board and build in each bootloader console before sending the next stage. Recovery USB mode alone can also mean the installed iBoot is running. Failed transfers, commands or identity checks stop subsequent uploads.
 
-The latest physical checks reproduced the phone remaining in patched DFU after iBSS, using both original and patched images and two USB-tool versions. The root cause is unresolved; successful ramdisk boot is not claimed. For this iPhone 3G, try a direct USB adapter instead of a dock/hub, as recommended for S5L8900 devices by [Legacy iOS Kit](https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/Troubleshooting). The UI reports the actual mode on timeout without requiring the terminal.
+Physical comparison found that 4.2.1 iBSS remained in DFU. The replacement 3.1.3 iBSS started, but launching the 4.2.1 kernel directly from it returned the phone to stock iBoot. Adding and verifying the 4.2.1 iBEC produced a running diagnostic ramdisk. The old OpenSSH 5.2 server also requires an RSA host-key signature removed from Paramiko 5; the app enables that signature only on its USB transport while preserving modern algorithm preference and host-key pinning. The UI reports actual boot progress without requiring the terminal.
 
 The separate **passcode-recovery** route uses the **4.2.1 / 8C148** ramdisk and matching kernel. Its kernel patch requires the expected input hash and all seven expected byte patterns; an unexpected kernel stops preparation. The 3.1.3 timer-reset IPSW option above does not select the passcode-recovery firmware.
 

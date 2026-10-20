@@ -12,6 +12,8 @@ https://github.com/comex/bloggy/wiki/Redsn0w%2Busbmux
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/mount.h>
+#include <hfs/hfs_mount.h>
 #include <sys/sysctl.h>
 #include <net/if.h>
 #include <assert.h>
@@ -177,6 +179,46 @@ invalid:
     return 2;
 }
 
+/* Update only the existing HFS RAM root. mount_hfs tries to reopen /dev/md0
+ * for a volume-header probe and prints EBUSY even when its update succeeds.
+ * Use the matching XNU HFS arguments without that redundant raw-device open. */
+static int make_ramdisk_writable(void)
+{
+    struct statfs rootfs;
+    struct hfs_mount_args args;
+    if (statfs("/", &rootfs) != 0) {
+        perror("Checking RAM disk root");
+        return 1;
+    }
+    if (strcmp(rootfs.f_mntonname, "/") ||
+        strcmp(rootfs.f_mntfromname, "/dev/md0") ||
+        strcmp(rootfs.f_fstypename, "hfs")) {
+        fprintf(stderr, "Refusing to update an unexpected root filesystem\n");
+        return 1;
+    }
+    if (!(rootfs.f_flags & MNT_RDONLY))
+        return 0;
+
+    memset(&args, 0, sizeof(args));
+    args.fspec = rootfs.f_mntfromname;
+    /* VNOVAL preserves the existing ownership, mask, encoding and timezone. */
+    args.hfs_uid = (uid_t)-1;
+    args.hfs_gid = (gid_t)-1;
+    args.hfs_mask = (mode_t)-1;
+    args.hfs_encoding = (u_int32_t)-1;
+    args.hfs_timezone.tz_minuteswest = -1;
+    int flags = (rootfs.f_flags & MNT_VISFLAGMASK & ~MNT_RDONLY) | MNT_UPDATE;
+    if (mount("hfs", "/", flags, &args) != 0) {
+        perror("Making RAM disk root writable");
+        return 1;
+    }
+    if (statfs("/", &rootfs) != 0 || (rootfs.f_flags & MNT_RDONLY)) {
+        fprintf(stderr, "RAM disk root is still not writable\n");
+        return 1;
+    }
+    return 0;
+}
+
 int main(int argc, char* argv[])
 {
     if (argc > 1 && !strcmp(argv[1], "--sleep"))
@@ -245,8 +287,10 @@ int main(int argc, char* argv[])
     init_usb(CFDictionaryGetValue(deviceInfos, CFSTR("udid")));
     printf("USB init done\n");
 
-    system("mount /"); //make ramdisk writable
-   
+    if (make_ramdisk_writable() != 0)
+        return 1;
+    printf("RAM disk root ready (writable)\n");
+
     chmod("/var/root/.ssh/authorized_keys", 0600); 
     chown("/var/root/.ssh/authorized_keys", 0, 0); 
     chown("/var/root/.ssh", 0, 0); 

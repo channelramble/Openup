@@ -21,6 +21,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import paramiko
+from cryptography.hazmat.primitives import hashes
 
 from ios_timeout import cli
 from ios_timeout.core import JOURNAL, PREFS, SYSTEM_VERSION, ResetError
@@ -194,6 +195,7 @@ class SSHTests(unittest.TestCase):
         self.springboard = False
         self.mounted = True
         self.read_only = False
+        self.legacy_hostkey = False
         self.selected = {"udid": "e" * 40, "device_id": 9}
         for path, data in (
             (PREFS, encoded()),
@@ -220,7 +222,14 @@ class SSHTests(unittest.TestCase):
     def connect(self, *_args, **_kwargs):
         client, server_socket = socket.socketpair()
         transport = paramiko.Transport(server_socket)
-        transport.add_server_key(self.key)
+        key = self.key
+        if self.legacy_hostkey:
+            class LegacyServerKey(paramiko.RSAKey):
+                HASHES = {**paramiko.RSAKey.HASHES, "ssh-rsa": hashes.SHA1}
+            key = LegacyServerKey(key=self.key.key)
+            transport._key_info = {**transport._key_info, "ssh-rsa": LegacyServerKey}
+            transport.get_security_options().key_types = ("ssh-rsa",)
+        transport.add_server_key(key)
         transport.set_subsystem_handler("sftp", paramiko.SFTPServer, TestSFTP, root=self.root)
         self.servers.append(transport)
         thread = threading.Thread(
@@ -305,6 +314,25 @@ class SSHTests(unittest.TestCase):
             self.device()
         with self.device(trust_new_key=True):
             pass
+
+    def test_legacy_rsa_server_authenticates_and_preserves_host_key_pinning(self):
+        self.legacy_hostkey = True
+        preferred = paramiko.Transport._preferred_keys
+        implementations = dict(paramiko.Transport._key_info)
+        hash_algorithms = dict(paramiko.RSAKey.HASHES)
+        with self.device() as device:
+            self.assertEqual(device.transport.host_key_type, "ssh-rsa")
+            self.assertEqual(device.read(PREFS)[0], encoded())
+        self.key = paramiko.RSAKey.generate(2048)
+        with self.assertRaisesRegex(ResetError, "host key changed"):
+            self.device()
+        self.assertEqual(paramiko.Transport._preferred_keys, preferred)
+        self.assertEqual(paramiko.Transport._key_info, implementations)
+        self.assertEqual(paramiko.RSAKey.HASHES, hash_algorithms)
+
+    def test_modern_server_keeps_sha2_preference(self):
+        with self.device() as device:
+            self.assertTrue(device.transport.host_key_type.startswith("rsa-sha2-"))
 
     def test_atomic_lock_carries_owner_and_releases_idempotently(self):
         token = "f" * 32

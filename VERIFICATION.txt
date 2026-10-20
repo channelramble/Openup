@@ -1,3 +1,49 @@
+Openup 2.3.1 — verified two-stage 3G boot and RAM-root update
+Verification date: 2026-10-20
+
+Continuous physical sessions on the owner's iPhone1,2 and Apple Silicon MacBook
+held the host lock and Mac device-agent reservation through the complete boot.
+The 3.1.3 first stage identified itself as iBSS for n82ap / iBoot-636.66.33.
+Sending the 4.2.1 kernel directly from that stage reset the phone to installed
+iBoot, despite successful USB transfers. Loading the matching 4.2.1 iBEC,
+issuing go, and confirming iBEC for n82ap / iBoot-931.71.16 before sending the
+same ramdisk, device tree and kernel produced a running diagnostic ramdisk.
+The adapter now follows that sequence and verifies both exact console banners.
+Installed iBoot is rejected even when its build and Recovery USB mode match.
+
+The running ramdisk exposed OpenSSH 5.2. Paramiko 5 rejected its legacy RSA
+host-key signature until a per-USB-transport compatibility implementation was
+added. Authenticated SSH and SFTP then succeeded. Startup-file checksums matched
+the uploaded diagnostic; mount output contained only /dev/md0 on / and devfs.
+Regression tests exercise an actual SSH/SFTP handshake with that signature,
+changed-host-key rejection, modern signature preference and unchanged globals.
+
+The owner reported GetMasterBlock error 16 on the otherwise running OK screen.
+Both mount / and mount -uw / reproduced that warning while returning zero.
+Checking statfs and skipping an already writable root did not remove it on a
+fresh boot: the initial read-only-to-writable update still invoked mount_hfs.
+The replacement validates an HFS /dev/md0 root and calls mount(2) with MNT_UPDATE
+using the unmodified hfs_mount_args header from pinned XNU 1504.9.37. It retains
+ownership/encoding/timezone, skips a writable root, and checks the final flags.
+It never updates a NAND root or runs filesystem repair.
+
+The rebuilt ARMv6 files are reproducible across two clean builds. Independent
+checks validate architecture, iOS 4.0/SDK 4.2 deployment commands, LC_UNIXTHREAD,
+SHA1/SHA256 code signatures and all imports against actual 4.2.1 ramdisk libraries
+(127, 124 and 157 strong imports). All 330 tests pass, including the exact root
+helper compiled with stubbed Darwin filesystem calls to test wrong-root,
+already-writable, failed-update and ineffective-update paths.
+
+Direct RAM-root update hardware confirmation is pending a fresh button entry.
+No passcode recovery or timer clearing was performed in these diagnostics.
+The separate 3.1.3 timer route was not physically revalidated. Native Windows,
+Linux USB and Intel-Mac USB execution are not established by the Apple Silicon
+test. Package and updater validation will be recorded with the release.
+No raw device identifiers, private logs, SDK or Apple firmware are distributed.
+
+Historical records follow.
+============================================================
+
 Candidate validation correction — Recovery is not proof of uploaded iBSS
 Verification date: 2026-10-20
 

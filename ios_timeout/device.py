@@ -74,7 +74,8 @@ class USBDevice:
             raise ResetError("Install dependencies first: python3 -m pip install .") from exc
         try:
             self.socket = usbmux.tunnel(selected["device_id"], port, expected_udid=selected["udid"])
-            self.transport = paramiko.Transport(self.socket)
+            from .ssh_compat import usb_transport
+            self.transport = usb_transport(self.socket)
             self.transport.banner_timeout = 15
             self.transport.auth_timeout = 15
             self.transport.handshake_timeout = 15

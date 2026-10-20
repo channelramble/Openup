@@ -38,7 +38,8 @@ No SDK, firmware, or proprietary runtime library is redistributed in this bundle
    SOURCE_DATE_EPOCH is fixed to the pinned source commit's timestamp. Two clean
    builds with the recorded compiler/linker on this host produced identical files.
    The payload source changes remove automatic fsck_hfs repair from
-   restored_external and add a bounded --sleep SECONDS mode. The modified source is already present in source/. The
+   restored_external add a bounded --sleep SECONDS mode, and update a read-only HFS /dev/md0 root
+   directly through mount(2). The modified source is already present in source/. The
    original file is retained in original/ramdisk_tools/, and the exact patch is
    payload-no-auto-fsck.patch. All other payload sources and Apple open source
    headers are unchanged. SOURCE-MANIFEST.json covers both original and modified
@@ -63,8 +64,13 @@ No iPhone execution, ramdisk boot, or physical-device recovery has been tested.
 Automatic repair policy
 
 The application does not automatically run filesystem repair. The restored_external
-payload waits for the data partition without invoking fsck_hfs. Its USB setup and
-RAM-disk root remount are unchanged. The original mountDataPartition implementation
+payload waits for the data partition without invoking fsck_hfs. Its USB setup is retained.
+The RAM root helper checks statfs, requires an HFS /dev/md0 root, and skips
+an already writable root. A required read-only-to-writable update uses mount(2)
+with the pinned XNU hfs_mount_args header. This avoids mount_hfs reopening the
+mounted block device and emitting GetMasterBlock EBUSY (16). Ownership, encoding,
+permissions and timezone are retained. Failed or ineffective updates stop startup.
+The original mountDataPartition implementation
 used by bruteforce mounts the data partition with MNT_RDONLY. Kernel NAND boot
 arguments were not changed to implement this policy.
 

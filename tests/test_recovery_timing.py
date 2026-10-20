@@ -10,12 +10,13 @@ import unittest
 from unittest.mock import Mock, patch
 
 from ios_timeout.core import ResetError
-from ios_timeout.recovery_timing import RecoveryProbe, guide, wait_bootloader, verify_ibss_console
+from ios_timeout.recovery_timing import RecoveryProbe, guide, wait_bootloader, verify_ibss_console, verify_bootloader_console
 
 
 WTF = "MODE: WTF\nCPID: 8900\nBDID: 00\n"
 STOCK = "MODE: DFU\nCPID: 8900\nBDID: 04\nSRTG: iBoot-596.24\n"
 IBSS_CONSOLE = "\x00:: iBSS for n82ap, Copyright 2009, Apple Inc.\n\x00:: BUILD_TAG: iBoot-636.66.33\n"
+IBEC_CONSOLE = IBSS_CONSOLE.replace("iBSS", "iBEC").replace("636.66.33", "931.71.16")
 
 
 class Clock:
@@ -48,6 +49,31 @@ class Probe:
 
 
 class RecoveryTimingTests(unittest.TestCase):
+    def test_ibec_requires_exact_identity_even_with_same_stock_build(self):
+        self.assertIn("iBEC", verify_bootloader_console("iPhone1,2", IBEC_CONSOLE, "ibec"))
+        for console in (IBEC_CONSOLE.replace("iBEC for", "iBoot for"), IBSS_CONSOLE,
+                        IBEC_CONSOLE.replace("n82ap", "m68ap"), IBEC_CONSOLE + IBSS_CONSOLE):
+            with self.subTest(console=console), self.assertRaises(ResetError):
+                verify_bootloader_console("iPhone1,2", console, "ibec")
+
+    def test_ibec_handoff_waits_for_console_after_previous_stage(self):
+        clock = Clock()
+        probe = Probe(clock, ready_at=0, result=STOCK.replace("DFU", "Recovery"))
+        probe.bootloader_console = Mock(side_effect=[IBSS_CONSOLE, "", IBEC_CONSOLE])
+        events = []
+        wait_bootloader("iPhone1,2", probe, stage="ibec", timeout=1, clock=clock,
+                        sleep=clock.sleep, emit=lambda *a: events.append(a), output=lambda *a, **k: None)
+        self.assertEqual(probe.bootloader_console.call_count, 3)
+        self.assertIn("iBEC is running", events[-1][1])
+
+    def test_empty_console_never_confirms_bootloader(self):
+        clock = Clock()
+        probe = Probe(clock, ready_at=0, result=STOCK.replace("DFU", "Recovery"))
+        probe.bootloader_console = lambda: ""
+        with self.assertRaisesRegex(ResetError, "verified iBEC console"):
+            wait_bootloader("iPhone1,2", probe, stage="ibec", timeout=1, clock=clock,
+                            sleep=clock.sleep, emit=lambda *a: None, output=lambda *a, **k: None)
+
     def test_console_requires_the_uploaded_ibss_not_installed_iboot(self):
         self.assertIn("636.66.33", verify_ibss_console("iPhone1,2", IBSS_CONSOLE))
         installed = IBSS_CONSOLE.replace("iBSS for", "iBoot for").replace("636.66.33", "931.71.16")

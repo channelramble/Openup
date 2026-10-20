@@ -1,5 +1,14 @@
 # Changes
 
+## 2.3.1
+
+- Use the physically tested iPhone 3G chain: 3.1.3 iBSS, then 4.2.1 iBEC before the 4.2.1 ramdisk and kernel. Keep the first-stage firmware cache separate from 4.2.1 components.
+- Verify each uploaded bootloader's board and exact build through its console. Reject installed iBoot even when USB reports Recovery, and allow bounded console readiness during the second-stage transition.
+- Support the ARMv6 ramdisk's OpenSSH 5.2 RSA host-key signature on the selected USB transport. Preserve modern algorithm preference, password authentication and host-key pinning without changing global SSH settings.
+- Fix GetMasterBlock error 16 by updating a verified HFS RAM root directly through mount(2), avoiding the helper's redundant raw-device open. Skip writable roots and verify required updates. Rebuild and revalidate the bundled ARMv6 executable and matching source/provenance archives.
+
+The connected 3G reached the diagnostic ramdisk with authenticated SSH and SFTP on an Apple Silicon MacBook. Its startup files were verified and only the RAM root and devfs were mounted. This test did not run passcode recovery or clear a lockout timer. See VERIFICATION.txt for the final validation record and platform limits.
+
 ## 2.3.0
 
 - Rename the application, repository, launchers, release packages, and CLI to Openup. Preserve existing backup/cache locations and verified older installations for rollback. Third-party file names and attribution remain accurate.

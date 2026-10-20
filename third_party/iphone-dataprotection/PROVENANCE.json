@@ -8,14 +8,14 @@
     "original_project_license": "BSD-3-Clause",
     "original_project_metadata": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/iphone-dataprotection/project.json",
     "original_project_metadata_sha256": "da7a37449fb69b584351f4b9aee89b6bbc4e03426d925c33534c46d76578eed8",
-    "modification": "Removed three automatic fsck_hfs commands from restored_external, retaining partition readiness checks, USB initialization, kernel boot arguments and original read-only data mounting. Added a strict decimal --sleep SECONDS mode (0..3600) which returns before hardware initialization and resumes interrupted libc sleep calls.",
+    "modification": "Removed three automatic fsck_hfs commands from restored_external, retaining partition readiness checks, USB initialization, kernel boot arguments and original read-only data mounting. Added a strict decimal --sleep SECONDS mode (0..3600) which returns before hardware initialization and resumes interrupted libc sleep calls. Require an HFS /dev/md0 root; skip an already writable root, otherwise use a checked mount(2) update with the pinned XNU HFS arguments to avoid mount_hfs reopening the mounted RAM device.",
     "patch": {
       "file": "payload-no-auto-fsck.patch",
-      "sha256": "263c3481d1b39d207bf33958f5a38c07adee758a5fd11b894c20cd8b209fd550",
+      "sha256": "f3464927e0d5dc573c42d167a912766e91f4189b71ea5b9d0d7a4b5287da2891",
       "original_file": "original/ramdisk_tools/restored_external.c",
       "original_sha256": "061d0aa178d1123da9208744f64d054be5333d521a052bec7f06ea06f0a547bd",
       "modified_file": "source/ramdisk_tools/restored_external.c",
-      "modified_sha256": "d464567fd2d0da3c948d7f4a2a82bb569850e1bb90dbbf3549ab886c7aba2092"
+      "modified_sha256": "d11cc879dc7ba886a89bd7c8b1e2a15c0a6f7014a01b39a143bc17011c4a43d1"
     },
     "license_mapping_evidence": "licenses/google-code-license-mapping.json"
   },
@@ -39,7 +39,8 @@
         "iokit/IOKit/IOReturn.h",
         "iokit/IOKit/IOKitKeys.h",
         "iokit/IOKit/OSMessageNotification.h",
-        "libkern/libkern/OSTypes.h"
+        "libkern/libkern/OSTypes.h",
+        "bsd/hfs/hfs_mount.h"
       ],
       "license": "APSL-2.0"
     }
@@ -99,7 +100,7 @@
       "size": 115872
     },
     "restored_external": {
-      "sha256": "c150e31963b641aadad22ed4d25f444bb203844727700e230449d997ec5c1f00",
+      "sha256": "61ae9f34fee62a0ed234cb5a1d59348c4c12b2ffae0f6fbcae848cc4efdf60c4",
       "size": 136832
     }
   },
@@ -116,7 +117,7 @@
   },
   "payload_zip": {
     "name": "iphone3g-armv6-ios4.zip",
-    "sha256": "7a4782cf121eda834c13bdd0dd8344324638e681c30d5d533434dcbbe7816a55",
-    "size": 133808
+    "sha256": "3be9a86c7ca3ebf2b9a7140686c1a61c9e90bf3ce3222decd09e4804dc7171ec",
+    "size": 134227
   }
 }
