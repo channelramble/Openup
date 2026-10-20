@@ -59,6 +59,15 @@ class BackendTests(unittest.TestCase):
         self.assertFalse(self.kit.exists())
         self.assertEqual(list(self.kit.parent.iterdir()), [])
 
+    def test_desktop_backend_uses_numbered_menus_instead_of_cursor_queries(self):
+        with patch.dict(os.environ, {"BL_IOS_UI_PROTOCOL": "1"}), \
+             patch("ios_timeout.cli.subprocess.run", side_effect=self.fake_run), \
+             patch("ios_timeout.cli.shutil.which", return_value="/usr/bin/git"), \
+             patch("ios_timeout.cli.platform.system", return_value="Darwin"), \
+             redirect_stdout(io.StringIO()):
+            cli.launch_backend(self.args)
+        self.assertIn("--old-menu", self.calls[-1])
+
     def test_existing_backend_is_not_replaced(self):
         self.kit.mkdir()
         (self.kit / "resources").mkdir()

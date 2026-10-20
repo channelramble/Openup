@@ -1,3 +1,53 @@
+Bruteforce Legacy iOS 2.2.0 — dark GUI and 3G USB transition repair
+Verification date: 2026-10-20
+
+Reported failure and evidence:
+  The second recovery log validates the correct n82 boot components and kernel,
+  then stops at S5L8900 pwnDFU verification after the shared WTF upload.
+  The old check waited two seconds and queried signature fields separately.
+  A later read-only irecovery query on the connected phone returned iPhone1,2,
+  n82ap, CPID 0x8900, BDID 0x04, MODE DFU, SRTG iBoot-596.24 (stock DFU).
+  That snapshot supports the entry-mode diagnosis; it cannot establish the
+  exact state during the earlier failed upload. No recovery boot was performed
+  during this repair. No unique phone identifiers or raw user logs are included.
+
+Corrections:
+  Download and patch the shared component before timed button instructions.
+  Distinguish WTF entry from stock DFU. Poll through re-enumeration and require
+  the expected patched SRTG plus chip/board identity before board-specific iBSS.
+  Already verified patched DFU is reused. Wrong boards, stale PWND strings,
+  failed queries and uploads stop the workflow. Timeout diagnostics include
+  only mode/chip/board/signature fields.
+  The desktop uses a dark palette for pages, dialogs and native controls.
+  Structured session events expose pauses, choices, passwords, DFU directions,
+  countdowns, progress and bounded result cards. Timer review and errors do not
+  depend on reading a terminal. Backend menu hooks preserve numeric choices;
+  the timer path uses old-menu to avoid ANSI cursor-position queries.
+  Terminal and manual input are separate opt-ins, both off on app launch.
+  Failures never open the terminal automatically. Save log remains available.
+  Typed responses are not logged by the app; secret echo is redacted across
+  output chunks. Backend-reported results can still appear in exported logs.
+  Prompt IDs reject stale/duplicate replies in the worker and GUI callbacks.
+  The protocol flag is forwarded to WSL. Existing CLI interaction is retained.
+
+Validation and limits:
+  Tests include pinned backend shell execution with simulated USB modes,
+  delayed enumeration, identity changes, upload failures and pre-iBSS checks.
+  Real POSIX PTY fixtures exercise Continue -> select -> password -> result and
+  graceful interruption. ConPTY and WSL adapters use mocked host fixtures.
+  GUI tests cover hidden terminal/input defaults, password forms, choices,
+  result persistence, cancellation, timer review gates and stale buttons.
+  All six pages and active forms were rendered at 940x680 and 1120x800 without
+  horizontal overflow, including long menus with Advanced terminal open.
+  Intel deployment target remains macOS 12.0; ARMv6 payloads and desktop
+  runtime inputs are unchanged. Native Windows/Linux USB, physical recovery,
+  timer clearance and execution on actual Intel Monterey remain unverified.
+  Final package checks, test totals, updater results and CI status:
+  https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.2.0
+
+Historical records follow.
+============================================================
+
 Bruteforce Legacy iOS 2.1.0 — guided desktop workflow
 Verification date: 2026-10-20
 

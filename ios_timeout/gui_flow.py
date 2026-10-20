@@ -18,14 +18,14 @@ def action_copy(action, *, apply=False, install_only=False):
             "Run diagnostics",
             "Checking this computer…",
             "Computer checks finished",
-            "Diagnostics stopped — check Activity",
+            "Diagnostics stopped — review the result",
         )
     if action == "devices":
         return ActionCopy(
             "Find connected phones",
             "Looking for connected phones…",
             "Phone scan finished",
-            "Phone scan stopped — check Activity",
+            "Phone scan stopped — review the result",
         )
     if action == "prepare":
         return ActionCopy(
@@ -34,21 +34,21 @@ def action_copy(action, *, apply=False, install_only=False):
             "Preparing the phone and checking its timer state…",
             "Preparation and reset operation finished" if apply else
             "Phone prepared and inspected",
-            "Preparation stopped — check Activity",
+            "Preparation stopped — review the result",
         )
     if action == "inspect" or (action == "reset" and not apply):
         return ActionCopy(
             "Inspect timer state",
             "Checking the phone and reviewing proposed changes…",
             "Inspection finished",
-            "Inspection stopped — check Activity",
+            "Inspection stopped — review the result",
         )
     if action == "reset":
         return ActionCopy(
             "Apply timer reset",
             "Backing up and applying the timer reset…",
             "Reset operation finished",
-            "Reset stopped — check Activity before retrying",
+            "Reset stopped — review the result before retrying",
         )
     if action == "restore":
         return ActionCopy(
@@ -56,7 +56,7 @@ def action_copy(action, *, apply=False, install_only=False):
             "Restoring and verifying the original files…" if apply else
             "Checking the backup and connected phone…",
             "Restore operation finished" if apply else "Restore preview finished",
-            "Restore stopped — check Activity",
+            "Restore stopped — review the result",
         )
     if action == "finalize":
         return ActionCopy(
@@ -64,7 +64,7 @@ def action_copy(action, *, apply=False, install_only=False):
             "Verifying the transaction and finishing cleanup…" if apply else
             "Checking the transaction and connected phone…",
             "Transaction cleanup finished" if apply else "Cleanup preview finished",
-            "Transaction cleanup stopped — check Activity",
+            "Transaction cleanup stopped — review the result",
         )
     if action == "bruteforce":
         if install_only:
@@ -74,20 +74,20 @@ def action_copy(action, *, apply=False, install_only=False):
                 "Download recovery backend",
                 "Downloading and checking the recovery backend…",
                 "Recovery backend downloaded and checked",
-                "Backend download stopped — check Activity",
+                "Backend download stopped — review the result",
             )
         if not apply:
             return ActionCopy(
                 "Review recovery setup",
                 "Reviewing recovery setup…",
                 "Recovery setup preview finished",
-                "Recovery setup preview stopped — check Activity",
+                "Recovery setup preview stopped — review the result",
             )
         return ActionCopy(
             "Start passcode recovery",
-            "Recovery session running — follow the prompts in Activity",
-            "Recovery session ended — check Activity for the result",
-            "Recovery session stopped — check Activity",
+            "Recovery session running — follow the on-screen steps",
+            "Recovery session ended — review the result",
+            "Recovery session stopped — review the result",
         )
     raise ValueError("Unknown desktop operation.")
 

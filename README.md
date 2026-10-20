@@ -2,7 +2,7 @@
 
 [![Test and package](https://github.com/channelramble/Bruteforce-Legacy-iOS/actions/workflows/ci.yml/badge.svg)](https://github.com/channelramble/Bruteforce-Legacy-iOS/actions/workflows/ci.yml)
 
-A desktop app for legacy iPhone recovery. Version **2.1.0** introduces a simpler interface: choose your phone once, select a task, and follow the next step. It includes a guided timer reset, [32bit-Bruteforce-Passcode](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, and updates. iPhone 3G ARMv6 tools and Intel Mac builds targeting macOS 12 Monterey are included.
+A desktop app for legacy iPhone recovery. Version **2.2.0** adds a dark interface with on-screen instructions, menu buttons, countdowns, and result cards. The terminal and manual input are optional Advanced controls, both off by default. It includes a guided timer reset, [32bit-Bruteforce-Passcode](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, and updates. iPhone 3G ARMv6 tools and Intel Mac builds targeting macOS 12 Monterey are included.
 
 **Desktop downloads include Python, Qt, SSH libraries, and their Python dependencies. No Python, pip, virtual environment, or package installation is needed to open the app.** The Windows archive also includes the Linux Python/SSH runtime used by its WSL bridge.
 
@@ -10,7 +10,7 @@ A desktop app for legacy iPhone recovery. Version **2.1.0** introduces a simpler
 
 ## Download and open
 
-Get the platform archive from [version 2.1.0](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.1.0) and extract it completely.
+Get the platform archive from [version 2.2.0](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.2.0) and extract it completely.
 
 | Computer | Download suffix | Open |
 |---|---|---|
@@ -29,14 +29,14 @@ USB access still depends on the host: macOS's usbmuxd service, Apple Mobile Devi
 
 1. **Choose your phone:** use the shared model and USB controls at the top. A phone in DFU may still be connected even when the USB list is empty.
 2. **Choose a task on Start:** if you know the passcode but the phone is locked out, choose timer reset. If you forgot the passcode, choose passcode recovery.
-3. **Timer reset:** follow **Prepare → Review & reset → Done**. Preparation boots the temporary ramdisk and inspects the phone. When the backend reaches its SSH Ramdisk Menu, choose Exit while leaving the ramdisk running. Review the proposed changes in Activity, then confirm the reset. If the phone is already prepared, use the inspection shortcut. Changing the selected phone or its settings requires a fresh review. After reboot, use the existing passcode.
-4. **Passcode recovery:** start recovery with one button; the app downloads the backend when needed. Follow its instructions in Activity and reply when prompted. The input field hides replies by default; backend output and terminal echo can still appear in Activity and in an explicit export, including recovery results. A session ending does not by itself mean a passcode was recovered.
+3. **Timer reset:** follow **Prepare → Review & reset → Done**. Preparation boots the temporary ramdisk and inspects the phone. When the on-screen SSH Ramdisk Menu appears, choose Exit while leaving the ramdisk running. Review the proposed changes in the result card, then confirm the reset. If the phone is already prepared, use the inspection shortcut. Changing the selected phone or its settings requires a fresh review. After reboot, use the existing passcode.
+4. **Passcode recovery:** start recovery with one button; the app downloads the backend when needed. Use the on-screen choices and DFU countdown. A temporary masked field appears only if a password is requested. Reported passcodes appear in a result card. A session ending does not by itself mean a passcode was recovered.
 5. **Advanced options:** expand these only when needed, such as for a local 3G IPSW, a custom tools folder, or connection settings. The normal workflow uses the included tools and default settings.
 6. **Backups and updates:** use Backups to restore original files or finish interrupted cleanup. Use Updates to check, install, and relaunch; rollback remains available. This private repository requires a GitHub token with read access for desktop updates. The token stays in memory, and GitHub CLI is not required.
 
-**Activity** starts collapsed and opens for operations or errors. It contains progress, interactive prompts, and detailed output; result messages explain what finished and what to do next. Phone and settings controls are locked while an operation runs.
+The **session card** displays the current step, requests a response when needed, and shows the result. The terminal stays closed even on failure. Open **Advanced · terminal** to inspect raw output; **Enable manual input** is a separate opt-in. Closing the terminal disables manual input again. Phone and settings controls are locked while an operation runs.
 
-Long operations run outside the GUI process. **Stop** requests a graceful stop; file-writing workflows ask before interruption and retain the engine's rollback behavior. Output stays in memory unless you choose **Save log**. Exports retain up to 16 MiB independently of the display's 2,500-line scrollback. If that limit is reached, the export preserves initial context and recent output with an explicit omission marker. Clearing Activity clears both the display and export transcript. The window remains open while an operation or cleanup is active.
+Long operations run outside the GUI process. **Stop** requests a graceful stop; file-writing workflows ask before interruption and retain the engine's rollback behavior. Output stays in memory unless you choose **Save log**. Prompt responses are not added to the transcript by the app; backend-reported passcodes and other backend output can still appear in an export. Exports retain up to 16 MiB independently of the display's 2,500-line scrollback. If that limit is reached, the export preserves initial context and recent output with an explicit omission marker. Clearing the terminal clears both the display and export transcript. The window remains open while an operation or cleanup is active.
 
 Desktop updates verify the GitHub asset digest, platform, clean source revision, archive paths, and all packaged file checksums. They stage a complete replacement runtime, then switch versions. The original launcher remains your entry point; rollback selects the previous installation. A damaged update falls back to the original app's recovery UI.
 
@@ -46,7 +46,7 @@ The `reset` workflow still requires the correct passcode afterward. The separate
 
 ## Source edition and CLI
 
-The unqualified `Bruteforce-Legacy-iOS-2.1.0.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
+The unqualified `Bruteforce-Legacy-iOS-2.2.0.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
 
 Download the ZIP from [Releases](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases) and extract the whole folder onto the computer connected to the phone. Python 3.9 or newer is required.
 
@@ -97,6 +97,8 @@ If downloading the boot components fails, provide a complete local **iPhone 3G 3
 ```
 
 The app validates the IPSW product, build, and `iBSS.n82ap.RELEASE.dfu` entry before copying it into the backend cache. The reported logs established the wrong-board selection and download-path failures; a connected 3G is still needed to confirm successful boot on hardware.
+
+The 3G recovery route now distinguishes WTF mode from ordinary DFU, waits for USB re-enumeration, and verifies the patched boot signature plus the real chip/board before sending iBSS. An already verified patched DFU state is reused. A stock DFU state asks for a fresh WTF transition; it is not treated as ready. USB failures include a bounded mode/identity diagnostic without the ECID. The uploaded recovery log did not include post-upload USB identity, so the physical outcome still needs verification.
 
 The separate **passcode-recovery** route uses the **4.2.1 / 8C148** ramdisk and matching kernel. Its kernel patch requires the expected input hash and all seven expected byte patterns; an unexpected kernel stops preparation. The 3.1.3 timer-reset IPSW option above does not select the passcode-recovery firmware.
 

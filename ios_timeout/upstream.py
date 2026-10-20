@@ -5,6 +5,7 @@ source-built ARMv6 payloads for iPhone 3G. Only the checked upstream revision is
 adapted; unknown scripts are rejected.
 """
 
+import argparse
 import hashlib
 import os
 import re
@@ -15,13 +16,53 @@ import tempfile
 from importlib import resources
 from pathlib import Path
 
-from .backend_support import check_payloads
+from .backend_support import PHONES, check_payloads, resolve_identity
 from .armv6_payloads import extract_bundled_payloads, read_bundled_payloads
 from .core import ResetError
 
 REPOSITORY = "https://github.com/tuanemss/32bit-Bruteforce-Passcode.git"
 REVISION = "4949674b318767de83eb149e57bcc543a6453d6e"
 SCRIPT_SHA256 = "c6990c56f9631c91d1673246fa794e275e210211e5538a8dcf3b647a4649075b"
+
+
+def early_dfu_state(model, recovery):
+    """Classify one USB snapshot; WTF does not identify the physical board."""
+    if model not in PHONES or PHONES[model][1] != 0x8900:
+        raise ResetError("Select the connected original iPhone or iPhone 3G before continuing.")
+    fields = dict(re.findall(r"^([A-Z]+):[ \t]*(.*?)[ \t\r]*$", recovery, re.MULTILINE))
+    mode = fields.get("MODE")
+    if not mode:
+        return "waiting"
+    if mode not in ("WTF", "DFU", "Recovery", "iBSS", "iBEC"):
+        return "waiting"
+    try:
+        chip = int(fields["CPID"], 16)
+    except (KeyError, ValueError) as exc:
+        raise ResetError("USB chip identity is missing or malformed; no firmware was sent.") from exc
+    if chip != 0x8900:
+        raise ResetError("The connected USB device is not the selected S5L8900 iPhone.")
+    if mode == "WTF":
+        # libirecovery reports a generic m68/BDID 00 for this shared bootrom.
+        # Only the shared WTF image may be sent until real DFU identifies it.
+        return "wtf"
+    if "BDID" not in fields:
+        raise ResetError("USB board identity is missing; no board-specific firmware was sent.")
+    resolve_identity("", "", model, recovery)
+    if mode == "DFU":
+        return "patched" if fields.get("SRTG") == "iBoot-636.66.3x" else "stock"
+    return "waiting"
+
+
+def early_dfu_summary(recovery):
+    """Only non-unique USB fields belong in transition diagnostics."""
+    fields = dict(re.findall(r"^([A-Z]+):[ \t]*(.*?)[ \t\r]*$", recovery, re.MULTILINE))
+    values = []
+    for key in ("MODE", "CPID", "BDID", "SRTG"):
+        value = fields.get(key, "")
+        if value:
+            value = re.sub(r"[^A-Za-z0-9._ -]", "?", value)[:80]
+            values.append(f"{key}={value}")
+    return ", ".join(values) or "no readable USB recovery state"
 
 
 def checkout_backend(directory):
@@ -56,12 +97,105 @@ bl_ios_send() {
     ${irecovery} -f "$1" || error "Firmware upload failed; boot cancelled."
 }
 
+bl_ios_early_read() {
+    # One query supplies mode, signature and board identity from the same device.
+    bl_ios_recovery="$(${irecovery} -q 2>/dev/null)" || bl_ios_recovery=""
+    [[ -n $bl_ios_recovery ]] && bl_ios_last_recovery="$bl_ios_recovery"
+    bl_ios_state="$("$BL_IOS_PYTHON" -m ios_timeout.upstream early-state \
+        "$device_type" "$bl_ios_recovery")" ||
+        error "S5L8900 USB identity verification failed; boot cancelled."
+}
+
+bl_ios_early_diagnostics() {
+    local summary
+    summary="$("$BL_IOS_PYTHON" -m ios_timeout.upstream early-summary \
+        "${bl_ios_recovery:-}")"
+    warn "Current USB state: $summary"
+    if [[ -z $bl_ios_recovery && -n $bl_ios_last_recovery ]]; then
+        summary="$("$BL_IOS_PYTHON" -m ios_timeout.upstream early-summary "$bl_ios_last_recovery")"
+        warn "Last readable USB state: $summary"
+    fi
+}
+
+bl_ios_early_wait() {
+    local wanted="$1" remaining=15
+    [[ $platform == linux ]] && remaining=24
+    log "Waiting for S5L8900 $wanted USB state (up to $remaining polls)..."
+    while (( remaining > 0 )); do
+        bl_ios_early_read
+        [[ $bl_ios_state == "$wanted" ]] && return 0
+        # An already verified patched device also satisfies the entry helper.
+        [[ $wanted == wtf && $bl_ios_state == patched ]] && return 0
+        ((remaining--))
+        ((remaining > 0)) && sleep 1
+    done
+    bl_ios_early_diagnostics
+    error "S5L8900 $wanted verification timed out. Force restart the phone, then repeat the button steps to enter WTF mode. Keep only this phone connected; try a direct USB connection if it does not reappear. No board-specific firmware was uploaded."
+}
+
+bl_ios_early_prepare() {
+    bl_ios_last_recovery=""
+    bl_ios_early_read
+    [[ $bl_ios_state == wtf || $bl_ios_state == patched ]] && return 0
+    if [[ $device_mode == Normal ]]; then
+        device_enter_mode Recovery
+    fi
+    if [[ $bl_ios_state == stock ]]; then
+        warn "Stock DFU is not the S5L8900 WTF entry point. Force restart the phone before repeating the button steps."
+        bl_ios_early_diagnostics
+    fi
+    print "* iPhone WTF mode helper"
+    print "* Hold TOP and HOME for 10 seconds, then release TOP and keep holding HOME."
+    print "* Release both buttons when the app detects WTF mode."
+    pause
+    local seconds
+    print "* Hold TOP and HOME buttons..."
+    for ((seconds=10; seconds>0; seconds--)); do
+        printf '%s ' "$seconds"
+        sleep 1
+        bl_ios_early_read
+        if [[ $bl_ios_state == wtf || $bl_ios_state == patched ]]; then
+            echo
+            print "* USB entry mode detected. Release both buttons now."
+            return 0
+        fi
+    done
+    echo
+    print "* Release TOP, keep holding HOME..."
+    for ((seconds=15; seconds>0; seconds--)); do
+        printf '%s ' "$seconds"
+        sleep 1
+        bl_ios_early_read
+        if [[ $bl_ios_state == wtf || $bl_ios_state == patched ]]; then
+            echo
+            print "* USB entry mode detected. Release both buttons now."
+            return 0
+        fi
+    done
+    echo
+    bl_ios_early_wait wtf
+}
+
+bl_ios_early_before_ibss() {
+    bl_ios_early_read
+    if [[ $bl_ios_state != patched ]]; then
+        bl_ios_early_diagnostics
+        error "Verified patched S5L8900 DFU is required before iBSS; boot cancelled."
+    fi
+}
+
 bl_ios_validate() {
     local resolved payloads recovery
     recovery="$($irecovery -q 2>/dev/null)"
-    resolved="$("$BL_IOS_PYTHON" -m ios_timeout.backend_support identity \
-        "$device_type" "$device_model" "${BL_IOS_MODEL:-}" "$recovery")" ||
-        error "Device identity verification failed."
+    if [[ $device_mode == WTF ]]; then
+        resolved="$("$BL_IOS_PYTHON" -m ios_timeout.upstream wtf-target \
+            "${BL_IOS_MODEL:-}" "$recovery")" ||
+            error "Select the connected iPhone model; WTF reports a generic board."
+    else
+        resolved="$("$BL_IOS_PYTHON" -m ios_timeout.backend_support identity \
+            "$device_type" "$device_model" "${BL_IOS_MODEL:-}" "$recovery")" ||
+            error "Device identity verification failed."
+    fi
     IFS=$'\t' read -r device_type device_model <<< "$resolved"
     all_flash="Firmware/all_flash/all_flash.${device_model}ap.production"
     device_fw_dir="$PROJECT_ROOT/saved/firmware/$device_type"
@@ -207,8 +341,62 @@ def adapt_script(original):
             fi
             rmdir "$wtf_download" || error "Could not finish WTF DFU cache update."
         fi''')
-    replace('                 warn "Exploit might have failed. Please re-enter DFU and try again if it fails."',
-            '                 error "S5L8900 pwnDFU verification failed. Re-enter DFU before retrying."')
+    # S5L8900 starts in WTF (USB 1222), then re-enumerates in patched DFU
+    # (USB 1227). Stock DFU is not interchangeable with the WTF entry point.
+    # Mirror the pinned Legacy iOS Kit transition, checking the real board
+    # after the shared image and again before board-specific iBSS upload.
+    replace('    [[ $device_mode == "DFU" || $device_mode == "iBSS" || $device_mode == "iBEC" ]] && device_pwnd=',
+            '    [[ $device_proc != 1 && ( $device_mode == "DFU" || $device_mode == "iBSS" || $device_mode == "iBEC" ) ]] && device_pwnd=')
+    replace('    if [[ $device_mode == "iBSS" || $device_mode == "iBEC" ]]; then',
+            '    if [[ $device_proc != 1 && ( $device_mode == "iBSS" || $device_mode == "iBEC" ) ]]; then')
+    replace('''        [[ $device_mode != "DFU" ]] && device_enter_mode DFU
+        if [[ $device_pwnd == "Pwnage 2.0" ]]; then
+            log "Already in Pwnage 2.0 mode."
+            return
+        fi''', '''        bl_ios_last_recovery=""
+        bl_ios_early_read
+        if [[ $bl_ios_state == patched ]]; then
+            device_mode="DFU"
+            device_pwnd="Pwnage 2.0"
+            log "Already in verified patched S5L8900 DFU; skipping WTF upload."
+            return
+        fi''')
+    replace('''        # Send Exploit
+        log "Sending Pwnage 2.0 exploit..."
+        bl_ios_send "$wtf_patched"''', '''        # Prepare the shared file before the button helper; WTF may be brief.
+        bl_ios_early_prepare
+        if [[ $bl_ios_state == patched ]]; then
+            device_mode="DFU"
+            device_pwnd="Pwnage 2.0"
+            log "Already in verified patched S5L8900 DFU; skipping WTF upload."
+            return
+        fi
+        log "Sending Pwnage 2.0 exploit from verified WTF mode..."
+        bl_ios_send "$wtf_patched"''')
+    replace('''        sleep 2
+\x20\x20\x20\x20\x20\x20\x20\x20
+        # Verify
+        device_pwnd="$($irecovery -q | grep "PWND" | cut -c 7-)"
+        if [[ -z $device_pwnd ]]; then
+             # Check SRTG just in case
+             local srtg="$($irecovery -q | grep "SRTG" | cut -c 7-)"
+             if [[ $srtg == "iBoot-636.66.3x" ]]; then
+                 log "Exploit success (SRTG verified)."
+                 device_pwnd="Pwnage 2.0"
+             else
+                 warn "Exploit might have failed. Please re-enter DFU and try again if it fails."
+             fi
+        else
+             log "Exploit success: $device_pwnd"
+        fi''', '''        bl_ios_early_wait patched
+        device_mode="DFU"
+        device_pwnd="Pwnage 2.0"
+        log "Patched S5L8900 DFU verified: board identity and SRTG iBoot-636.66.3x."''')
+    replace('''    elif [[ $device_proc == 1 || $device_type == "iPod2,1" ]]; then
+        log "Sending iBSS..."; bl_ios_send $ramdisk_path/iBSS; sleep 2''',
+            '''    elif [[ $device_proc == 1 || $device_type == "iPod2,1" ]]; then
+        [[ $device_proc == 1 ]] && bl_ios_early_before_ibss
+        log "Sending iBSS..."; bl_ios_send $ramdisk_path/iBSS; sleep 2''')
     # Prevent firmware upload after a failed exploit check.
     start = source.index('            warn "Failed to detect pwned DFU mode."')
     end = source.index('\n        fi', start)
@@ -229,7 +417,8 @@ def adapt_script(original):
         if line.strip() == '"$dir/hfsplus" Ramdisk.raw rm usr/local/bin/restored_external 2>/dev/null':
             line += ' || error "Could not replace stock restore startup; boot cancelled."'
         lines.append(line)
-    return ("\n".join(lines) + "\n").encode()
+    from .backend_ui import adapt_prompts
+    return adapt_prompts("\n".join(lines) + "\n", backend="bruteforce").encode()
 
 
 def run_backend(args):
@@ -280,3 +469,33 @@ def run_backend(args):
         if result.returncode:
             raise ResetError(f"Upstream backend stopped with status {result.returncode}.")
     return 0
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Internal recovery transition validation")
+    commands = parser.add_subparsers(dest="command", required=True)
+    for command in ("early-state", "wtf-target"):
+        subparser = commands.add_parser(command)
+        subparser.add_argument("model")
+        subparser.add_argument("recovery")
+    commands.add_parser("early-summary").add_argument("recovery")
+    args = parser.parse_args()
+    try:
+        if args.command == "early-summary":
+            print(early_dfu_summary(args.recovery))
+        else:
+            state = early_dfu_state(args.model, args.recovery)
+            if args.command == "wtf-target":
+                if state != "wtf":
+                    raise ResetError("USB mode changed; reconnect and retry.")
+                print(f"{args.model}\t{PHONES[args.model][0]}")
+            else:
+                print(state)
+        return 0
+    except ResetError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

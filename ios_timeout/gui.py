@@ -25,62 +25,69 @@ from .host import state_directory
 from .session_log import SessionLog
 from .gui_flow import TimerFlow, action_copy
 from . import desktop_updates
+from .desktop_protocol import EventDecoder, encode_reply, encode_interrupt, encode_raw
+from .desktop_results import summarize
 
 STYLE = """
-QWidget { color: #24334b; font-size: 13px; }
-QMainWindow, #workspace { background: #f5f7fb; }
-#sidebar { background: #fff; border-right: 1px solid #e1e6ef; }
-#sidebar #brand { color: #152947; font-size: 20px; font-weight: 700; }
-#sidebar QLabel { color: #778499; }
-#sidebar #edition { color: #7b889b; font-size: 11px; }
-#sidebar QPushButton { background: transparent; color: #59677d; border: 1px solid transparent;
+QWidget { color: #dce5f4; font-size: 13px; }
+QMainWindow, #workspace { background: #0e1420; }
+#sidebar { background: #172132; border-right: 1px solid #2c3a50; }
+#sidebar #brand { color: #f0f5ff; font-size: 20px; font-weight: 700; }
+#sidebar QLabel { color: #9aaac1; }
+#sidebar #edition { color: #8d9db4; font-size: 11px; }
+#sidebar QPushButton { background: transparent; color: #a9b8cf; border: 1px solid transparent;
     border-radius: 8px; padding: 11px 12px; text-align: left; font-weight: 500; }
-#sidebar QPushButton:checked { color: #234fba; background: #edf2ff; font-weight: 700; }
-#sidebar QPushButton:hover { background: #f0f3f8; }
-#sidebar QPushButton:focus { border-color: #7b9de9; }
-#pageTitle { color: #152947; font-size: 28px; font-weight: 700; }
-#subtitle { color: #6a788d; font-size: 13px; }
-#card, #phoneBar, #activityPanel { background: #fff; border: 1px solid #dfe5ee; border-radius: 12px; }
-#cardTitle { font-size: 19px; font-weight: 650; color: #1a2e4c; }
-#eyebrow { color: #627695; font-size: 11px; font-weight: 600; }
-#muted { color: #6b798e; }
-#notice { background: #eef3ff; border: 0; border-radius: 8px; padding: 12px; color: #405b8c; }
-#warning { background: #fff6e8; border: 1px solid #f1dfbd; border-radius: 8px; padding: 12px; color: #815c24; }
-#connection { color: #586f8b; font-size: 12px; }
-#step { color: #8a96a8; background: #edf0f5; border-radius: 7px; padding: 9px; font-size: 12px; }
-#step[active="true"] { color: #244fbc; background: #e8efff; font-weight: 700; }
-#step[complete="true"] { color: #2e735b; background: #eaf5ef; }
-QPushButton { background: #fff; border: 1px solid #d5ddea; border-radius: 7px; padding: 10px 15px; font-weight: 600; }
-QPushButton:hover { background: #f1f5ff; border-color: #9ab1e6; }
-QPushButton:focus { border: 1px solid #527ed6; }
-QPushButton:pressed { background: #e7edfa; }
-QPushButton:disabled { background: #f1f3f7; color: #9aa6b8; border-color: #e5e9f0; }
-QPushButton#primary { background: #2d60d3; color: #fff; border: 1px solid #2d60d3; }
-QPushButton#primary:hover { background: #244fb4; }
-QPushButton#primary:disabled { background: #c3d0ec; border-color: #c3d0ec; color: #fff; }
-QPushButton#quiet { background: transparent; color: #45648f; border: 1px solid transparent; }
-QPushButton#quiet:hover { background: #edf2fb; }
-QPushButton#danger { color: #a45148; }
+#sidebar QPushButton:checked { color: #a9c6ff; background: #203459; font-weight: 700; }
+#sidebar QPushButton:hover { background: #202c40; }
+#sidebar QPushButton:focus { border-color: #80aaff; }
+#pageTitle { color: #f0f5ff; font-size: 28px; font-weight: 700; }
+#subtitle { color: #a4b3ca; font-size: 13px; }
+#card, #phoneBar, #activityPanel { background: #172132; border: 1px solid #2b3a51; border-radius: 12px; }
+#cardTitle { font-size: 19px; font-weight: 650; color: #e8effc; }
+#eyebrow { color: #91a9cd; font-size: 11px; font-weight: 600; }
+#muted { color: #a8b8d0; }
+#notice { background: #1b2e4c; border: 0; border-radius: 8px; padding: 12px; color: #b4cef5; }
+#warning { background: #362b1e; border: 1px solid #685138; border-radius: 8px; padding: 12px; color: #f0c78d; }
+#connection { color: #aac1df; font-size: 12px; }
+#step { color: #95a4bc; background: #1a2639; border-radius: 7px; padding: 9px; font-size: 12px; }
+#step[active="true"] { color: #b7d0ff; background: #243a60; font-weight: 700; }
+#step[complete="true"] { color: #9bd9be; background: #18392f; }
+QPushButton { background: #172132; border: 1px solid #3b4d69; border-radius: 7px; padding: 10px 15px; font-weight: 600; }
+QPushButton:hover { background: #253854; border-color: #6d96dd; }
+QPushButton:focus { border: 1px solid #91b6ff; }
+QPushButton:pressed { background: #2c4165; }
+QPushButton:disabled { background: #1a2536; color: #74839b; border-color: #26354a; }
+QPushButton#primary { background: #477fe8; color: #f4f7ff; border: 1px solid #477fe8; }
+QPushButton#primary:hover { background: #5890f6; }
+QPushButton#primary:disabled { background: #263f68; border-color: #263f68; color: #f4f7ff; }
+QPushButton#quiet { background: transparent; color: #adcbf9; border: 1px solid transparent; }
+QPushButton#quiet:hover { background: #223652; }
+QPushButton#danger { color: #f4a398; }
 #disclosure { background: transparent; border: 0; }
-QPushButton#disclosureToggle { text-align: left; color: #61718a; background: transparent; border: 0; padding: 9px 0; }
-QLineEdit, QComboBox, QSpinBox { background: #fff; border: 1px solid #d5ddea; border-radius: 6px; padding: 7px; min-height: 20px; }
-QLineEdit:focus, QComboBox:focus, QSpinBox:focus { border: 1px solid #6389db; }
-QLineEdit:disabled, QComboBox:disabled { background: #f5f7fa; color: #8f9aab; }
-QComboBox QAbstractItemView { background: #fff; color: #24334b; selection-background-color: #e8efff; }
+QPushButton#disclosureToggle { text-align: left; color: #aabedb; background: transparent; border: 0; padding: 9px 0; }
+QLineEdit, QComboBox, QSpinBox { background: #172132; border: 1px solid #3b4d69; border-radius: 6px; padding: 7px; min-height: 20px; }
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus { border: 1px solid #8db5ff; }
+QLineEdit:disabled, QComboBox:disabled { background: #162031; color: #7d90ad; }
+QComboBox QAbstractItemView { background: #172132; color: #dce5f4; selection-background-color: #243a60; }
 QCheckBox { spacing: 8px; padding: 4px 0; }
-QTableWidget { background: #fff; border: 1px solid #e1e6ef; border-radius: 7px; gridline-color: #eef1f6; selection-background-color: #e8efff; selection-color: #244fbc; }
-QHeaderView::section { background: #f4f6fa; border: 0; padding: 10px; color: #65758c; font-weight: 600; }
-#console { background: #172338; color: #d9e2f1; border: 0; border-radius: 8px; padding: 10px; font-family: Menlo, Consolas, monospace; font-size: 11px; }
-#sessionTitle { font-weight: 650; color: #243d61; }
-#sessionHint { color: #718097; font-size: 12px; }
-QProgressBar { background: #e7edf6; border: 0; border-radius: 2px; min-height: 3px; max-height: 3px; }
-QProgressBar::chunk { background: #4879df; }
+QTableWidget { background: #172132; border: 1px solid #2c3a50; border-radius: 7px; gridline-color: #24344b; selection-background-color: #243a60; selection-color: #b7d0ff; }
+QHeaderView::section { background: #1b283c; border: 0; padding: 10px; color: #a6bbd8; font-weight: 600; }
+#console { background: #0a101b; color: #bdcfe7; border: 0; border-radius: 8px; padding: 10px; font-family: Menlo, Consolas, monospace; font-size: 11px; }
+#sessionTitle { font-weight: 650; color: #e5efff; }
+#sessionHint { color: #acbdd5; font-size: 12px; }
+QProgressBar { background: #26354d; border: 0; border-radius: 2px; min-height: 3px; max-height: 3px; }
+QProgressBar::chunk { background: #79a8ff; }
 QScrollArea { border: 0; background: transparent; }
 QScrollBar:vertical { background: transparent; width: 8px; }
-QScrollBar::handle:vertical { background: #cad3e1; border-radius: 4px; min-height: 30px; }
+QScrollBar::handle:vertical { background: #425773; border-radius: 4px; min-height: 30px; }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
-QDialog { background: #f5f7fb; }
-QToolTip { color: #24334b; background: #fff; border: 1px solid #c6d2e5; padding: 6px; }
+QDialog { background: #0e1420; }
+QToolTip { color: #dce5f4; background: #172132; border: 1px solid #506586; padding: 6px; }
+#guidanceTitle { font-size: 20px; font-weight: 650; color: #eaf2ff; }
+#guidanceText { background: #172132; color: #c3d2e8; font-size: 14px; }
+#promptInput { font-size: 15px; padding: 10px; }
+QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid #617692; border-radius: 3px; background: #101a29; }
+QCheckBox::indicator:checked { background: #477fe8; border-color: #a9c6ff; }
 """
 
 
@@ -103,6 +110,23 @@ def card(title, description=""):
     if description:
         layout.addWidget(label(description, "muted"))
     return frame, layout
+
+
+def dark_palette():
+    palette = QPalette()
+    for role, color in (
+        (QPalette.ColorRole.Window, "#0e1420"), (QPalette.ColorRole.WindowText, "#dce5f4"),
+        (QPalette.ColorRole.Base, "#172132"), (QPalette.ColorRole.AlternateBase, "#1b283c"),
+        (QPalette.ColorRole.Text, "#dce5f4"), (QPalette.ColorRole.Button, "#172132"),
+        (QPalette.ColorRole.ButtonText, "#dce5f4"), (QPalette.ColorRole.Highlight, "#477fe8"),
+        (QPalette.ColorRole.HighlightedText, "#ffffff"), (QPalette.ColorRole.ToolTipBase, "#172132"),
+        (QPalette.ColorRole.ToolTipText, "#dce5f4"), (QPalette.ColorRole.PlaceholderText, "#91a3bf"),
+        (QPalette.ColorRole.Light, "#354761"), (QPalette.ColorRole.Dark, "#080d16"),
+    ):
+        palette.setColor(role, QColor(color))
+    for role in (QPalette.ColorRole.Text, QPalette.ColorRole.ButtonText, QPalette.ColorRole.WindowText):
+        palette.setColor(QPalette.ColorGroup.Disabled, role, QColor("#7688a3"))
+    return palette
 
 
 class Disclosure(QFrame):
@@ -166,6 +190,9 @@ class MainWindow(QMainWindow):
         self.output_decoder = codecs.getincrementaldecoder("utf-8")("replace")
         self.terminal_text = TerminalText()
         self.capture = ""
+        self.event_decoder = EventDecoder()
+        self.active_prompt = None
+        self.prompt_buttons = []
         self.session_log = SessionLog()
         self.backup_rows = []
         self.operation = ""
@@ -288,10 +315,11 @@ class MainWindow(QMainWindow):
         status.addWidget(self.session_status)
         status.addWidget(self.session_hint)
         header.addLayout(status, 1)
-        self.details_toggle = self.button("Show activity", lambda: None, operation=False)
+        self.details_toggle = self.button("Advanced · terminal", lambda: None, operation=False)
         self.details_toggle.setCheckable(True)
         self.details_toggle.setObjectName("quiet")
         self.details_toggle.toggled.connect(self.set_details_visible)
+        header.addWidget(self.button("Save log…", self.save_output, operation=False))
         header.addWidget(self.details_toggle)
         self.stop_button = self.button("Stop", self.interrupt, operation=False)
         self.stop_button.setObjectName("danger")
@@ -305,13 +333,17 @@ class MainWindow(QMainWindow):
         self.progress.setValue(0)
         self.progress.hide()
         session_layout.addWidget(self.progress)
+        self.build_guidance(session_layout)
         self.details_panel = QWidget()
         details = QVBoxLayout(self.details_panel)
         details.setContentsMargins(0, 0, 0, 0)
         details.setSpacing(8)
         toolbar = QHBoxLayout()
-        toolbar.addWidget(label("Activity details", "eyebrow"), 1)
-        toolbar.addWidget(self.button("Save log…", self.save_output, operation=False))
+        toolbar.addWidget(label("ADVANCED TERMINAL", "eyebrow"), 1)
+        self.manual_input = QCheckBox("Enable manual input")
+        self.manual_input.setChecked(False)
+        self.manual_input.toggled.connect(self.sync_manual_input)
+        toolbar.addWidget(self.manual_input)
         toolbar.addWidget(self.button("Clear", self.clear_output, operation=False))
         details.addLayout(toolbar)
         self.console = QPlainTextEdit()
@@ -325,8 +357,8 @@ class MainWindow(QMainWindow):
         input_row = QHBoxLayout(self.reply_row)
         input_row.setContentsMargins(0, 0, 0, 0)
         self.reply = QLineEdit()
-        self.reply.setPlaceholderText("Type a reply when the tool asks, then press Enter")
-        self.reply.setAccessibleName("Reply to the recovery tool")
+        self.reply.setPlaceholderText("Advanced: send a manual reply to the backend")
+        self.reply.setAccessibleName("Advanced terminal input")
         self.reply.setEchoMode(QLineEdit.EchoMode.Password)
         self.reply.returnPressed.connect(self.send_input)
         self.reply.setEnabled(False)
@@ -353,15 +385,162 @@ class MainWindow(QMainWindow):
         self.navigate(0)
         self.sync_timer_flow()
 
+    def build_guidance(self, parent_layout):
+        self.guidance_panel = QWidget()
+        body = QVBoxLayout(self.guidance_panel)
+        body.setContentsMargins(0, 6, 0, 4)
+        body.setSpacing(10)
+        self.guidance_title = label("", "guidanceTitle")
+        body.addWidget(self.guidance_title)
+        self.reported_passcode = label("", "notice")
+        self.reported_passcode.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.reported_passcode.hide()
+        body.addWidget(self.reported_passcode)
+        self.guidance_scroll = QScrollArea()
+        self.guidance_scroll.setWidgetResizable(True)
+        self.guidance_scroll.setMinimumHeight(55)
+        self.guidance_scroll.setMaximumHeight(155)
+        self.guidance_text = label("", "guidanceText")
+        self.guidance_text.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.guidance_text.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.guidance_scroll.setWidget(self.guidance_text)
+        body.addWidget(self.guidance_scroll, 1)
+        self.prompt_controls = QWidget()
+        self.prompt_layout = QVBoxLayout(self.prompt_controls)
+        self.prompt_layout.setContentsMargins(0, 0, 0, 0)
+        self.prompt_layout.setSpacing(8)
+        self.prompt_input_row = QWidget()
+        input_layout = QHBoxLayout(self.prompt_input_row)
+        input_layout.setContentsMargins(0, 0, 0, 0)
+        self.prompt_input = QLineEdit()
+        self.prompt_input.setObjectName("promptInput")
+        self.prompt_input.setAccessibleName("Response for the current step")
+        self.prompt_input.returnPressed.connect(self.submit_prompt_text)
+        input_layout.addWidget(self.prompt_input, 1)
+        self.prompt_submit = self.button("Continue", self.submit_prompt_text, primary=True, operation=False)
+        input_layout.addWidget(self.prompt_submit)
+        self.prompt_layout.addWidget(self.prompt_input_row)
+        self.prompt_choices = QWidget()
+        self.choice_layout = QHBoxLayout(self.prompt_choices)
+        self.choice_layout.setContentsMargins(0, 0, 0, 0)
+        self.prompt_layout.addWidget(self.prompt_choices)
+        body.addWidget(self.prompt_controls)
+        self.prompt_controls.hide()
+        self.prompt_input_row.hide()
+        self.guidance_panel.hide()
+        parent_layout.addWidget(self.guidance_panel)
+
+    def size_session(self):
+        height = max(300, self.split.height())
+        wanted = 82
+        if not self.guidance_panel.isHidden():
+            wanted += 215 if self.active_prompt else 165
+        if not self.details_panel.isHidden():
+            wanted += 220
+        # Keep the task controls reachable; both task and guidance areas scroll.
+        wanted = min(wanted, max(180, height - 125))
+        self.split.setSizes([max(100, height - wanted), wanted])
+        if self.timer_flow.stage == "review":
+            QTimer.singleShot(0, self.ensure_timer_action_visible)
+
+    def sync_manual_input(self):
+        enabled = self.busy and self.process is not None and self.manual_input.isChecked()
+        self.reply_row.setVisible(self.manual_input.isChecked() and not self.details_panel.isHidden())
+        self.reply.setEnabled(enabled)
+        self.send_button.setEnabled(enabled)
+        if not enabled:
+            self.reply.clear()
+
+    def clear_prompt(self):
+        self.active_prompt = None
+        self.prompt_input.clear()
+        self.prompt_controls.hide()
+        self.prompt_input_row.hide()
+        self.prompt_buttons = []
+        while self.choice_layout.count():
+            item = self.choice_layout.takeAt(0)
+            if item.widget():
+                item.widget().setEnabled(False)
+                item.widget().deleteLater()
+
+    def show_prompt(self, event):
+        if not self.busy or self.process is None or not event.get("id"):
+            return
+        self.clear_prompt()
+        self.active_prompt = event
+        prompt_id = event["id"]
+        self.guidance_panel.show()
+        self.guidance_title.setText(event.get("title") or "Your phone needs attention")
+        self.guidance_text.setText(event.get("message") or "Choose the next step below.")
+        self.guidance_scroll.verticalScrollBar().setValue(0)
+        self.session_hint.setText("Waiting for your response below.")
+        kind = event.get("kind", "text")
+        self.prompt_controls.show()
+        options = event.get("options") or []
+        if kind == "continue" and not options:
+            options = [{"label": "I'm ready · continue", "value": ""}]
+        if options:
+            if len(options) > 3:
+                choices = QComboBox()
+                choices.setAccessibleName("Choose the next step")
+                for option in options:
+                    choices.addItem(option["label"], option["value"])
+                self.choice_layout.addWidget(choices, 1)
+                submit = self.button("Continue", lambda: self.answer_prompt(choices.currentData(), prompt_id),
+                                     primary=True, operation=False)
+                self.choice_layout.addWidget(submit)
+                self.prompt_buttons.append(submit)
+            else:
+                for option in options:
+                    button = self.button(option["label"], lambda checked=False, value=option["value"]:
+                                         self.answer_prompt(value, prompt_id), primary=len(options) == 1, operation=False)
+                    self.choice_layout.addWidget(button)
+                    self.prompt_buttons.append(button)
+                self.choice_layout.addStretch()
+            self.prompt_choices.show()
+            self.prompt_buttons[0].setFocus(Qt.FocusReason.OtherFocusReason)
+        else:
+            self.prompt_choices.hide()
+            self.prompt_input_row.show()
+            self.prompt_input.setEchoMode(QLineEdit.EchoMode.Password if kind == "password" or event.get("secret")
+                                          else QLineEdit.EchoMode.Normal)
+            self.prompt_input.setPlaceholderText("Password" if kind == "password" else "Enter the requested value")
+            self.prompt_input.setFocus(Qt.FocusReason.OtherFocusReason)
+        self.size_session()
+        if not self.isActiveWindow():
+            QApplication.alert(self)
+
+    def answer_prompt(self, value, expected_id=None):
+        if not self.busy or self.process is None or self.active_prompt is None:
+            return
+        prompt_id = self.active_prompt["id"]
+        if expected_id is not None and expected_id != prompt_id:
+            return
+        try:
+            encoded = encode_reply(prompt_id, str(value))
+        except ValueError as exc:
+            self.session_hint.setText(str(exc))
+            return
+        self.process.write(encoded)
+        self.clear_prompt()
+        self.session_hint.setText("Response sent. Waiting for the next step…")
+        self.guidance_title.setText("Continuing…")
+        self.guidance_text.setText("Keep your phone connected. The next instruction will appear here.")
+        self.size_session()
+
+    def submit_prompt_text(self):
+        self.answer_prompt(self.prompt_input.text())
+
     def set_details_visible(self, visible):
         self.details_toggle.blockSignals(True)
         self.details_toggle.setChecked(visible)
-        self.details_toggle.setText("Hide activity" if visible else "Show activity")
+        self.details_toggle.setText("Close terminal" if visible else "Advanced · terminal")
         self.details_toggle.blockSignals(False)
         self.details_panel.setVisible(visible)
-        height = max(400, self.split.height())
-        activity_height = max(220, min(310, height - 280))
-        self.split.setSizes([height - activity_height, activity_height] if visible else [height - 82, 82])
+        if not visible:
+            self.manual_input.setChecked(False)
+        self.sync_manual_input()
+        self.size_session()
         if visible and self.timer_flow.stage == "review" and self.pages.currentIndex() == 1:
             QTimer.singleShot(0, self.ensure_timer_action_visible)
 
@@ -385,7 +564,7 @@ class MainWindow(QMainWindow):
              "Prepare the phone, review the proposed changes, then reset the timer. You will still need your passcode.",
              "Reset timer", 1),
             ("I FORGOT THE PASSCODE", "Recover a passcode",
-             "Start a guided session with the legacy recovery tool. Follow its instructions in the activity panel.",
+             "Start a guided session with the legacy recovery tool. The app guides you through each step on screen.",
              "Recover passcode", 2),
         ):
             box, inner = card(title)
@@ -491,15 +670,15 @@ class MainWindow(QMainWindow):
         stage = self.timer_flow.stage
         title, description, note, primary, secondary = {
             "prepare": ("Prepare your phone",
-                        "Boot a temporary recovery system so the app can inspect the lockout state. Follow the tool's instructions in Activity.",
+                        "Boot a temporary recovery system so the app can inspect the lockout state. Follow the on-screen steps.",
                         "This step inspects the phone. It does not apply a timer reset.",
                         "Prepare phone", "Already prepared? Inspect phone"),
             "review": ("Review before resetting",
-                       "Inspection finished. Read the proposed changes in Activity below before continuing.",
+                       "Inspection finished. Review the proposed changes in the result card below before continuing.",
                        "The next step backs up the original files and asks for confirmation before applying the reset.",
                        "Back up and reset timer…", "Inspect again"),
             "complete": ("Reset operation finished",
-                         "Check the activity result. After rebooting, use the phone's existing passcode.",
+                         "Check the result below. After rebooting, use the phone's existing passcode.",
                          "Any backup created by this operation is available from Backups.",
                          "View backups", "Start again"),
         }[stage]
@@ -528,7 +707,7 @@ class MainWindow(QMainWindow):
         body.addWidget(self.armv6_notice)
         body.addWidget(self.button("Start recovery…", lambda: self.start_operation("bruteforce", apply=True), primary=True),
                        0, Qt.AlignmentFlag.AlignLeft)
-        body.addWidget(label("The first run downloads the recovery backend and boot files. Its prompts and results appear in Activity.", "muted"))
+        body.addWidget(label("The first run downloads the recovery backend and boot files. Instructions, choices, and results appear here as the session progresses.", "muted"))
         layout.addWidget(frame)
         self.recovery_advanced = Disclosure("Advanced options")
         advanced = self.recovery_advanced.body
@@ -638,7 +817,7 @@ class MainWindow(QMainWindow):
                  "Backups", "Updates", "Help & connection"]
         descriptions = ["Choose the task that matches your situation.",
                         "Prepare your phone, review the changes, then reset.",
-                        "Follow the recovery tool's instructions one step at a time.",
+                        "Follow the on-screen steps to prepare your phone and view the result.",
                         "Restore original files or finish an interrupted operation.",
                         "Keep the app and its included tools up to date.",
                         "Check this computer and adjust connection settings."]
@@ -734,11 +913,13 @@ class MainWindow(QMainWindow):
         self.progress.setVisible(busy)
         self.stop_button.setVisible(busy)
         if not busy:
+            self.clear_prompt()
             self.stop_button.setEnabled(False)
             self.reply.clear()
             self.reply.setEnabled(False)
             self.send_button.setEnabled(False)
             self.reply_row.hide()
+        self.sync_manual_input()
         self.update_action_states()
 
     def append_output(self, text):
@@ -798,6 +979,10 @@ class MainWindow(QMainWindow):
         self.sync_timer_flow()
         self.capture = ""
         self.terminal_text = TerminalText()
+        self.event_decoder = EventDecoder()
+        self.clear_prompt()
+        self.reported_passcode.clear()
+        self.reported_passcode.hide()
         self.output_decoder = codecs.getincrementaldecoder("utf-8")("replace")
         self.append_output(
             "\n› " + action.replace("_", " ").capitalize() + "\n"
@@ -814,6 +999,7 @@ class MainWindow(QMainWindow):
         for key in ("PYTHONPATH", "PYTHONHOME", "GH_TOKEN", "GITHUB_TOKEN"):
             environment.remove(key)
         environment.insert("BL_IOS_DESKTOP", "1")
+        environment.insert("BL_IOS_UI_PROTOCOL", "1")
         environment.insert("BL_IOS_APP_ROOT", str(root))
         environment.insert("PYTHONNOUSERSITE", "1")
         process.setProcessEnvironment(environment)
@@ -824,40 +1010,84 @@ class MainWindow(QMainWindow):
         process.errorOccurred.connect(self.process_error)
         copy = action_copy(action, apply=apply, install_only=install_only)
         self.set_busy(True, copy.running)
-        interactive = action not in {"devices", "doctor"} and not install_only
-        self.session_hint.setText(
-            self.phone_model.currentText() + " · Follow the tool's instructions in Activity."
-            if interactive else "Please wait while the app completes this task.")
-        self.reply_row.setVisible(interactive)
-        self.reply.setEnabled(interactive)
-        self.send_button.setEnabled(interactive)
+        self.session_hint.setText("Follow the on-screen steps. You can stop this session at any time.")
+        self.guidance_panel.setVisible(action != "devices")
+        self.guidance_title.setText(copy.running)
+        self.guidance_text.setText("Preparing this task. Instructions will appear here when your phone needs attention.")
+        self.sync_manual_input()
         self.stop_button.setEnabled(True)
-        if action != "devices":
-            self.set_details_visible(True)
+        self.size_session()
         process.start()
 
     def process_output(self):
         if self.process is None:
             return
         data = bytes(self.process.readAllStandardOutput())
-        text = self.terminal_text.feed(self.output_decoder.decode(data))
-        self.capture = (self.capture + text)[-1024 * 1024:]
-        self.append_output(text)
+        for event in self.event_decoder.feed(self.output_decoder.decode(data)):
+            self.handle_session_event(event)
+
+    def handle_session_event(self, event):
+        kind = event.get("type")
+        if kind == "output":
+            text = self.terminal_text.feed(event.get("text", ""))
+            self.capture = (self.capture + text)[-1024 * 1024:]
+            self.append_output(text)
+            # A found result must remain visible even while the backend menu is open.
+            if self.operation == "bruteforce" and "found" in self.capture[-512:]:
+                complete_lines = self.capture[-8192:].rpartition("\n")[0]
+                result = summarize(self.operation, complete_lines, None)
+                if result.get("passcode"):
+                    self.reported_passcode.setText("Reported passcode: " + result["passcode"])
+                    self.reported_passcode.show()
+        elif kind == "prompt":
+            self.show_prompt(event)
+        elif kind == "prompt_done":
+            if self.active_prompt and event.get("id") == self.active_prompt.get("id"):
+                self.clear_prompt()
+        elif kind == "progress" and not self.active_prompt:
+            self.guidance_panel.show()
+            self.guidance_title.setText(event.get("title") or "Working on your phone")
+            message = event.get("message", "")
+            remaining = event.get("remaining")
+            if remaining is not None:
+                message += f"\n{remaining} seconds remaining"
+            self.guidance_text.setText(message)
+            self.size_session()
 
     def process_error(self, error):
         if error == QProcess.ProcessError.FailedToStart:
             self.append_output("Could not start the bundled operation process.\n")
             self.timer_flow.finish(self.operation, 1, apply=self.operation_apply)
             self.set_busy(False, "Could not start the task")
-            self.session_hint.setText("The operation did not start. Review the details below.")
-            self.set_details_visible(True)
+            self.session_hint.setText("Reopen the app and try again. Save the log if this continues.")
+            self.guidance_panel.show()
+            self.guidance_title.setText("The task could not start")
+            self.guidance_text.setText("The bundled operation process did not launch. No device operation was started.")
+            self.size_session()
             if self.process:
                 self.process.deleteLater()
             self.process = None
 
+    def show_result(self, code):
+        result = summarize(self.operation, self.capture, code, interrupted=self.interrupted)
+        self.guidance_panel.show()
+        self.guidance_title.setText(result.get("title") or ("Session result" if code is not None else "Recovery result"))
+        details = result.get("details", [])
+        if isinstance(details, str):
+            details = [details]
+        self.guidance_text.setText("\n\n".join(filter(None, [result.get("message", ""), *details])))
+        self.guidance_scroll.verticalScrollBar().setValue(0)
+        if result.get("passcode"):
+            self.reported_passcode.setText("Reported passcode: " + result["passcode"])
+            self.reported_passcode.show()
+        self.size_session()
+
     def process_finished(self, code, _status):
         self.process_output()
-        self.append_output(self.terminal_text.feed(self.output_decoder.decode(b"", final=True)))
+        for event in self.event_decoder.feed(self.output_decoder.decode(b"", final=True)):
+            self.handle_session_event(event)
+        for event in self.event_decoder.finish():
+            self.handle_session_event(event)
         if self.operation == "devices":
             if code == 0:
                 try:
@@ -874,25 +1104,14 @@ class MainWindow(QMainWindow):
         self.timer_flow.finish(self.operation, result, apply=self.operation_apply)
         copy = action_copy(self.operation, apply=self.operation_apply, install_only=self.operation_install_only)
         self.set_busy(False, "Task stopped" if self.interrupted else copy.success if code == 0 else copy.failure)
-        if self.interrupted:
-            self.session_hint.setText("The tool has stopped. Check Activity before starting another operation.")
-        elif code != 0:
-            self.session_hint.setText("Review the error below. You can save the log from Activity.")
-            self.set_details_visible(True)
-        elif self.operation in {"prepare", "inspect"}:
-            self.session_hint.setText("Review the proposed changes below, then use Reset timer to continue.")
-        elif self.operation == "bruteforce" and not self.operation_install_only:
-            self.session_hint.setText("Read the tool's result in Activity. Ending a session does not confirm recovery.")
-        elif self.operation == "devices":
-            self.session_hint.setText("Choose a task above. A phone in DFU may not appear in the USB list.")
-        else:
-            self.session_hint.setText("The result is available in Activity.")
+        self.session_hint.setText("Read the result below. Save log includes the full diagnostic session." if self.operation != "devices" else
+                                  "Choose a task above. A phone in DFU may not appear in the USB list.")
+        if self.operation != "devices" or code != 0:
+            self.show_result(code)
         if self.process:
             self.process.deleteLater()
         self.process = None
         self.refresh_backups()
-        if self.operation in {"prepare", "inspect"} and not self.details_panel.isHidden():
-            self.set_details_visible(True)
 
     def populate_devices(self, devices):
         selected = self.settings.udid
@@ -915,8 +1134,14 @@ class MainWindow(QMainWindow):
                                    "A phone in DFU may still be connected. Choose its model above and start a task.")
 
     def send_input(self):
-        if self.process is not None and self.busy:
-            self.process.write((self.reply.text() + "\n").encode("utf-8"))
+        if self.process is not None and self.busy and self.manual_input.isChecked():
+            try:
+                encoded = encode_raw(self.reply.text())
+            except ValueError as exc:
+                self.session_hint.setText(str(exc))
+                return
+            self.process.write(encoded)
+            self.clear_prompt()
             self.reply.clear()
 
     def interrupt(self):
@@ -935,7 +1160,8 @@ class MainWindow(QMainWindow):
                 if answer != QMessageBox.StandardButton.Yes:
                     return
             self.interrupted = True
-            self.process.write(b"\x03")
+            self.process.write(encode_interrupt())
+            self.clear_prompt()
             self.stop_button.setEnabled(False)
             self.session_status.setText("Stopping — waiting for cleanup…")
 
@@ -1037,7 +1263,10 @@ class MainWindow(QMainWindow):
         self.session_hint.setText(self.task_hint)
         self.append_output(message + "\n")
         self.update_info.setText(message)
-        self.set_details_visible(True)
+        self.guidance_panel.show()
+        self.guidance_title.setText("Update needs attention")
+        self.guidance_text.setText(message)
+        self.size_session()
 
     def check_updates(self):
         token = self.token_edit.text().strip()
@@ -1118,16 +1347,7 @@ def main():
     application.setApplicationName(APP_NAME)
     application.setOrganizationName("channelramble")
     application.setStyle("Fusion")
-    palette = QPalette()
-    for role, color in (
-        (QPalette.ColorRole.Window, "#f5f7fb"), (QPalette.ColorRole.WindowText, "#233c47"),
-        (QPalette.ColorRole.Base, "#ffffff"), (QPalette.ColorRole.AlternateBase, "#edf3ef"),
-        (QPalette.ColorRole.Text, "#233c47"), (QPalette.ColorRole.Button, "#ffffff"),
-        (QPalette.ColorRole.ButtonText, "#233c47"), (QPalette.ColorRole.Highlight, "#2d60d3"),
-        (QPalette.ColorRole.HighlightedText, "#ffffff"), (QPalette.ColorRole.ToolTipBase, "#ffffff"),
-        (QPalette.ColorRole.ToolTipText, "#233c47"),
-    ):
-        palette.setColor(role, QColor(color))
+    palette = dark_palette()
     application.setPalette(palette)
     application.setStyleSheet(STYLE)
     application.setFont(QFont("Segoe UI" if sys.platform == "win32" else "Helvetica Neue", 12))

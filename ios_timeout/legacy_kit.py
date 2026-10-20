@@ -146,7 +146,8 @@ def adapt_script(original):
         '            * ) bl_ios_legacy_diagnostics\n'
         '                error "Failed to find device in $mode mode (Timed out). No timer reset was attempted.";;\n',
     )
-    return source.encode("utf-8")
+    from .backend_ui import adapt_prompts
+    return adapt_prompts(source, backend="legacy").encode("utf-8")
 
 
 @contextmanager

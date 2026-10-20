@@ -14,6 +14,17 @@ PATH_FLAGS = {"--kit", "--ipsw", "--backend-dir", "--armv6-tools", "--state-dir"
 VALUE_FLAGS = PATH_FLAGS | {"--model", "--port", "--udid"}
 
 
+def desktop_wsl_environment():
+    """Carry only the protocol opt-in through Windows' documented WSLENV path."""
+    environment = os.environ.copy()
+    if environment.get("BL_IOS_UI_PROTOCOL") == "1":
+        values = [item for item in environment.get("WSLENV", "").split(":")
+                  if item and item.split("/", 1)[0] != "BL_IOS_UI_PROTOCOL"]
+        # /u passes the scalar from Win32 to WSL, without path translation.
+        environment["WSLENV"] = ":".join(values + ["BL_IOS_UI_PROTOCOL/u"])
+    return environment
+
+
 def wsl_prefix(distribution=None):
     return ["wsl.exe"] + (["--distribution", distribution] if distribution else []) + ["--exec"]
 
@@ -91,7 +102,8 @@ def run_in_wsl(arguments, options):
         print("Using the bundled Linux Python and SSH libraries inside WSL 2.", flush=True)
         print("The phone must be attached to WSL with usbipd; DFU transitions may require reattachment.", flush=True)
         return subprocess.run(prefix + [translate(str(bundled_python)), "-I", "-B", "-u",
-                                       translate(str(desktop_root / "desktop.py")), "--cli"] + forwarded).returncode
+                                       translate(str(desktop_root / "desktop.py")), "--cli"] + forwarded,
+                              env=desktop_wsl_environment()).returncode
 
     directory = state_directory() / "wsl"
     with host_lock(directory):
@@ -100,4 +112,5 @@ def run_in_wsl(arguments, options):
         forwarded = translated_arguments(arguments, translate)
         print("Running the ramdisk workflow inside WSL 2. The phone must be attached there with usbipd.", flush=True)
         print("USB reconnection during DFU may require reattaching it. Windows and WSL use separate state directories.", flush=True)
-        return subprocess.run(prefix + ["python3", translate(str(runner))] + forwarded).returncode
+        return subprocess.run(prefix + ["python3", translate(str(runner))] + forwarded,
+                              env=desktop_wsl_environment()).returncode

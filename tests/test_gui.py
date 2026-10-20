@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -128,51 +129,161 @@ class GuiTests(unittest.TestCase):
         self.window.populate_devices([])
         self.assertEqual(self.window.settings.udid, "")
 
-    def test_busy_worker_freezes_target_and_keeps_prompt_input_available(self):
-        from PySide6.QtWidgets import QLineEdit
+    def test_busy_worker_uses_guided_choices_with_terminal_and_manual_input_off(self):
         with self.fake_worker():
             self.window.show()
             self.window.start_operation("prepare")
             worker = self.window.process
             self.app.processEvents()
             self.assertTrue(worker.started)
+            self.assertEqual(worker.environment.value("BL_IOS_UI_PROTOCOL"), "1")
             self.assertTrue(self.window.busy)
-            self.assertFalse(self.window.phone_model.isEnabled())
-            self.assertFalse(self.window.device_combo.isEnabled())
-            self.assertFalse(self.window.ipsw_edit.isEnabled())
-            self.assertFalse(self.window.armv6_edit.isEnabled())
-            self.assertTrue(self.window.reply_row.isVisible())
-            self.assertTrue(self.window.reply.isEnabled())
-            self.assertTrue(self.window.send_button.isEnabled())
-            self.assertEqual(self.window.reply.echoMode(), QLineEdit.EchoMode.Password)
+            for field in (self.window.phone_model, self.window.device_combo,
+                          self.window.ipsw_edit, self.window.armv6_edit):
+                self.assertFalse(field.isEnabled())
+            self.assertTrue(self.window.details_panel.isHidden())
+            self.assertTrue(self.window.reply_row.isHidden())
+            self.assertTrue(self.window.prompt_input_row.isHidden())
+            self.assertFalse(self.window.manual_input.isChecked())
+            event = {"type": "prompt", "id": "p1", "kind": "continue", "title": "Get ready for DFU",
+                     "message": "Keep the phone connected. Hold Power and Home when instructed."}
+            worker.output = (json.dumps(event) + "\n").encode()
+            worker.readyReadStandardOutput.emit()
+            self.app.processEvents()
+            self.assertEqual(self.window.guidance_title.text(), "Get ready for DFU")
+            self.assertEqual(len(self.window.prompt_buttons), 1)
+            self.assertTrue(self.window.prompt_input_row.isHidden())
+            self.assertTrue(self.window.details_panel.isHidden())
+            self.window.prompt_buttons[0].click()
+            self.window.answer_prompt("")  # Double activation cannot send a second response.
+            self.assertEqual([json.loads(value) for value in worker.input],
+                             [{"type": "reply", "id": "p1", "value": ""}])
             self.window.nav_group.button(5).click()
             self.assertEqual(self.window.pages.currentIndex(), 5)
-            self.assertTrue(self.window.busy)
             self.window.start_operation("devices")
             self.assertIs(self.window.process, worker)
-            self.window.reply.setText("fixture reply")
-            self.window.send_input()
-            self.window.send_input()  # Empty Enter is a valid backend response.
-            self.assertEqual(worker.input, [b"fixture reply\n", b"\n"])
-            self.assertEqual(self.window.reply.text(), "")
-            self.assertNotIn("fixture reply", self.window.session_log.text())
             worker.finish()
             self.assertFalse(self.window.busy)
             self.assertTrue(self.window.phone_model.isEnabled())
-            self.assertTrue(self.window.device_combo.isEnabled())
+            self.assertTrue(self.window.prompt_controls.isHidden())
             self.assertTrue(self.window.reply_row.isHidden())
-            self.assertFalse(self.window.reply.isEnabled())
+            self.assertTrue(self.window.details_panel.isHidden())
+
+    def test_password_prompt_uses_a_temporary_masked_form_and_clears_it(self):
+        from PySide6.QtWidgets import QLineEdit
+        with self.fake_worker():
+            self.window.start_operation("inspect")
+            worker = self.window.process
+            self.window.handle_session_event({"type": "prompt", "id": "secret1", "kind": "password",
+                                              "title": "SSH password", "message": "Enter the ramdisk password."})
+            self.assertFalse(self.window.prompt_input_row.isHidden())
+            self.assertEqual(self.window.prompt_input.echoMode(), QLineEdit.EchoMode.Password)
+            self.window.prompt_input.setText("fixture-secret")
+            self.window.prompt_submit.click()
+            self.assertEqual(self.window.prompt_input.text(), "")
+            self.assertTrue(self.window.prompt_input_row.isHidden())
+            self.assertNotIn("fixture-secret", self.window.session_log.text())
+            self.assertNotIn("fixture-secret", self.window.console.toPlainText())
+            self.assertEqual(json.loads(worker.input[-1])["value"], "fixture-secret")
+            worker.finish(1)
+            self.assertTrue(self.window.details_panel.isHidden())
+
+    def test_manual_terminal_input_requires_explicit_opt_in(self):
+        with self.fake_worker():
+            self.window.start_operation("prepare")
+            worker = self.window.process
+            self.window.reply.setText("not sent")
+            self.window.send_input()
+            self.assertEqual(worker.input, [])
+            self.window.details_toggle.click()
+            self.assertTrue(self.window.reply_row.isHidden())
+            self.window.manual_input.click()
+            self.assertFalse(self.window.reply_row.isHidden())
+            self.window.reply.setText("fixture reply")
+            self.window.send_input()
+            self.assertEqual(json.loads(worker.input[-1]), {"type": "raw", "value": "fixture reply"})
+            self.window.set_details_visible(False)
+            self.assertFalse(self.window.manual_input.isChecked())
+            self.assertTrue(self.window.reply_row.isHidden())
+            worker.finish()
+
+    def test_failure_displays_result_without_opening_terminal(self):
+        with self.fake_worker():
+            self.window.start_operation("prepare")
+            worker = self.window.process
+            worker.output = (json.dumps({"type": "output", "text": "[Error] Fixture USB failure. Reconnect the phone.\n"}) + "\n").encode()
+            worker.finish(1)
+            self.assertFalse(self.window.guidance_panel.isHidden())
+            self.assertIn("Fixture USB failure", self.window.guidance_text.text())
+            self.assertTrue(self.window.details_panel.isHidden())
+            self.assertTrue(self.window.reply_row.isHidden())
+
+    def test_progress_and_menu_are_accessible_without_manual_input(self):
+        with self.fake_worker():
+            self.window.start_operation("prepare")
+            worker = self.window.process
+            self.window.handle_session_event({"type": "progress", "title": "Hold Home", "message": "Release Power.", "remaining": 7})
+            self.assertIn("7 seconds", self.window.guidance_text.text())
+            self.window.handle_session_event({"type": "prompt", "kind": "choice", "id": "menu1", "title": "Recovery menu", "message": "Choose an action.",
+                                              "options": [{"label": "Show passcode", "value": "1"}, {"label": "Finish session", "value": "2"}]})
+            self.assertEqual([b.text() for b in self.window.prompt_buttons], ["Show passcode", "Finish session"])
+            self.assertTrue(self.window.prompt_input_row.isHidden())
+            self.window.prompt_buttons[1].click()
+            self.assertEqual(json.loads(worker.input[-1])["value"], "2")
+            worker.finish()
+
+    def test_dark_palette_covers_native_surfaces_and_disabled_text(self):
+        from PySide6.QtGui import QPalette
+        from ios_timeout.gui import dark_palette
+        palette = dark_palette()
+        for role in (QPalette.ColorRole.Window, QPalette.ColorRole.Base, QPalette.ColorRole.Button):
+            self.assertLess(palette.color(role).lightness(), 50)
+        self.assertGreater(palette.color(QPalette.ColorRole.Text).lightness(), 180)
+        self.assertGreater(palette.color(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text).lightness(), 100)
+
+    def test_reported_result_survives_the_next_menu_and_clears_for_next_session(self):
+        from PySide6.QtWidgets import QMessageBox
+        with self.fake_worker(), \
+             patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes):
+            self.window.start_operation("bruteforce", apply=True)
+            for text in ("found ", ": 12", "34\n"):
+                self.window.handle_session_event({"type": "output", "text": text})
+            self.window.show_prompt({"type": "prompt", "kind": "continue", "id": "result",
+                                     "title": "Continue", "message": "Continue when ready."})
+            self.assertEqual(self.window.reported_passcode.text(), "Reported passcode: 1234")
+            self.assertFalse(self.window.reported_passcode.isHidden())
+            self.assertTrue(self.window.details_panel.isHidden())
+            self.window.process.finish()
+            self.window.start_operation("doctor")
+            self.assertTrue(self.window.reported_passcode.isHidden())
+            self.assertEqual(self.window.reported_passcode.text(), "")
+            self.window.process.finish()
+
+    def test_old_choice_cannot_answer_a_replacement_prompt(self):
+        with self.fake_worker():
+            self.window.start_operation("prepare")
+            event = {"type": "prompt", "kind": "choice", "title": "Continue?",
+                     "message": "Choose an action.", "options": [{"label": "Yes", "value": "y"}]}
+            self.window.show_prompt({**event, "id": "p1"})
+            old_button = self.window.prompt_buttons[0]
+            self.window.show_prompt({**event, "id": "p2"})
+            old_button.click()
+            self.window.answer_prompt("y", "p1")
+            self.assertEqual(self.window.process.input, [])
+            self.window.prompt_buttons[0].click()
+            self.assertEqual(json.loads(self.window.process.input[-1])["id"], "p2")
+            self.window.process.finish()
 
     def test_interrupt_keeps_busy_until_worker_reports_completion(self):
         with self.fake_worker():
             self.window.start_operation("doctor")
             worker = self.window.process
             self.window.interrupt()
-            self.assertEqual(worker.input, [b"\x03"])
+            self.assertEqual([json.loads(value) for value in worker.input], [{"type": "interrupt"}])
             self.assertTrue(self.window.busy)
             self.assertFalse(self.window.stop_button.isEnabled())
             self.window.interrupt()
-            self.assertEqual(worker.input, [b"\x03"])
+            self.assertEqual([json.loads(value) for value in worker.input], [{"type": "interrupt"}])
             worker.finish(130)
             self.assertFalse(self.window.busy)
             self.assertIn("130", self.window.console.toPlainText())

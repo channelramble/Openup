@@ -181,6 +181,10 @@ def launch_backend(args):
                 validate_ipsw(staged, args.model, "7E18")
                 staged.rename(destination)
     extra = []
+    if os.environ.get("BL_IOS_UI_PROTOCOL") == "1":
+        # The GUI renders numbered menus as buttons. The ANSI menu requests
+        # terminal cursor coordinates, which a pipe/PTY bridge cannot supply.
+        extra.append("--old-menu")
     if args.model:
         extra.append("--device=" + args.model)
     if args.model == "iPhone1,2":
@@ -295,6 +299,9 @@ def run(args):
         if args.action == "prepare":
             launch_backend(args)
         selected = usbmux.select_device(usbmux.list_devices(), args.udid)
+        if args.ask_password and os.environ.get("BL_IOS_UI_PROTOCOL") == "1":
+            from .desktop_protocol import prompt
+            prompt("password", "Ramdisk SSH password", "Ramdisk SSH root password: ")
         password = (getpass.getpass("Ramdisk SSH root password: ")
                     if args.ask_password else "alpine")
         with USBDevice(selected, state, password, args.port, args.trust_new_key) as device:

@@ -18,11 +18,54 @@ import sys
 import tempfile
 import unittest
 
-from ios_timeout.upstream import adapt_script
+from ios_timeout.core import ResetError
+from ios_timeout.upstream import adapt_script, early_dfu_state, early_dfu_summary
 
 
 UPSTREAM_SCRIPT = os.environ.get("BL_IOS_UPSTREAM_SCRIPT")
 BASH = shutil.which("bash")
+WTF = "MODE: WTF\nCPID: 8900\nBDID: 00\nPRODUCT: iPhone1,1\nMODEL: m68ap\n"
+PATCHED = "MODE: DFU\nCPID: 8900\nBDID: 04\nSRTG: iBoot-636.66.3x\n"
+STOCK = PATCHED.replace("iBoot-636.66.3x", "iBoot-596.24")
+EARLY_FUNCTIONS = (
+    "bl_ios_send", "bl_ios_early_read", "bl_ios_early_diagnostics",
+    "bl_ios_early_wait", "bl_ios_early_prepare", "enter_pwndfu",
+)
+
+
+class EarlyDfuValidationTests(unittest.TestCase):
+    def test_generic_wtf_does_not_override_selected_3g(self):
+        self.assertEqual(early_dfu_state("iPhone1,2", WTF), "wtf")
+        self.assertEqual(early_dfu_state("iPhone1,1", WTF), "wtf")
+        for model in ("", "iPhone3,1"):
+            with self.assertRaises(ResetError):
+                early_dfu_state(model, WTF)
+
+    def test_real_dfu_requires_matching_board_and_exact_patched_signature(self):
+        self.assertEqual(early_dfu_state("iPhone1,2", PATCHED), "patched")
+        self.assertEqual(early_dfu_state("iPhone1,2", STOCK), "stock")
+        self.assertEqual(early_dfu_state("iPhone1,2", STOCK + "PWND: Pwnage 2.0\n"), "stock")
+        for query in (
+            PATCHED.replace("04", "00"),
+            PATCHED.replace("8900", "8940"),
+            PATCHED.replace("BDID: 04\n", ""),
+            PATCHED.replace("CPID: 8900\n", ""),
+            PATCHED.replace("BDID: 04", "BDID: invalid"),
+        ):
+            with self.subTest(query=query), self.assertRaises(ResetError):
+                early_dfu_state("iPhone1,2", query)
+
+    def test_missing_state_can_be_polled_but_other_modes_never_count_as_patched(self):
+        self.assertEqual(early_dfu_state("iPhone1,2", ""), "waiting")
+        for mode in ("Recovery", "iBSS", "iBEC"):
+            self.assertEqual(early_dfu_state("iPhone1,2", PATCHED.replace("DFU", mode)), "waiting")
+
+    def test_diagnostics_exclude_unique_identifiers_and_control_characters(self):
+        query = STOCK + "ECID: private-id\nSRNM: private-serial\nIMEI: private-imei\n"
+        summary = early_dfu_summary(query)
+        self.assertEqual(summary, "MODE=DFU, CPID=8900, BDID=04, SRTG=iBoot-596.24")
+        self.assertNotIn("\x1b", early_dfu_summary("MODE: \x1b[31mDFU\n"))
+        self.assertEqual(early_dfu_summary(""), "no readable USB recovery state")
 
 STUB_TOOL = r'''
 import json
@@ -70,6 +113,8 @@ elif tool == "pzb":
 elif tool in ("xpwntool", "bspatch"):
     shutil.copyfile(args[0], args[1])
 elif tool == "managed-python":
+    if args[:2] == ["-m", "ios_timeout.upstream"]:
+        os.execv(sys.executable, [sys.executable] + args)
     if args[:2] not in (
         ["-m", "ios_timeout.armv6_boot"],
         ["-m", "ios_timeout.armv6_kernel"],
@@ -88,7 +133,17 @@ elif tool == "sudo":
     os.execv(args[0], args)
 elif tool == "irecovery":
     if args == ["-q"]:
-        print(os.environ.get("BL_TEST_RECOVERY", "MODE: DFU\n"), end="")
+        sequence = os.environ.get("BL_TEST_RECOVERY_SEQUENCE")
+        if sequence:
+            states = json.loads(sequence)
+            counter = Path(os.environ["BL_TEST_TRACE"]).with_suffix(".queries")
+            index = int(counter.read_text()) if counter.exists() else 0
+            counter.write_text(str(index + 1))
+            print(states[min(index, len(states) - 1)], end="")
+        else:
+            print(os.environ.get("BL_TEST_RECOVERY", "MODE: DFU\n"), end="")
+        if os.environ.get("BL_TEST_QUERY_FAILURE") == "1":
+            raise SystemExit(9)
     elif args[:1] == ["-f"]:
         if os.environ.get("BL_TEST_FAIL_UPLOAD") == "1":
             raise SystemExit(9)
@@ -157,6 +212,7 @@ class UpstreamShellIntegrationTests(unittest.TestCase):
         return matches[0]
 
     def run_functions(self, names, invocation, **overrides):
+        self.trace.with_suffix(".queries").unlink(missing_ok=True)
         env = {
             "PATH": str(self.bin) + os.pathsep + "/usr/bin:/bin",
             "PROJECT_ROOT": str(self.backend),
@@ -165,6 +221,7 @@ class UpstreamShellIntegrationTests(unittest.TestCase):
             "BL_IOS_3G_SETUP": str(self.startup),
             "BL_IOS_3G_WAIT": str(self.wait_helper),
             "BL_TEST_TRACE": str(self.trace),
+            "PYTHONPATH": str(Path(__file__).resolve().parents[1]),
             **overrides,
         }
         script = r'''
@@ -177,10 +234,13 @@ device_type="iPhone1,2"
 device_model="n82"
 device_proc=1
 device_mode=DFU
+platform=macos
 all_flash="Firmware/all_flash/all_flash.n82ap.production"
 log() { printf '%s\n' "$*"; }
 warn() { printf 'WARNING: %s\n' "$*" >&2; }
 error() { printf 'ERROR: %s\n' "$*" >&2; exit 73; }
+print() { printf '%s\n' "$*"; }
+pause() { printf 'PAUSE\n'; }
 sleep() { :; }
 device_fw_key_check() { device_fw_key='{}'; }
 device_enter_mode() { error "Unexpected device mode transition"; }
@@ -228,9 +288,10 @@ mv() {
 
     def test_early_wtf_branch_rejects_missing_pwnd_and_wrong_srtg(self):
         result = self.run_functions(
-            ("bl_ios_send", "enter_pwndfu"), "enter_pwndfu",
-            BL_TEST_RECOVERY="MODE: DFU\nSRTG: iBoot-wrong\n")
-        self.assert_stopped(result, "S5L8900 pwnDFU verification failed")
+            EARLY_FUNCTIONS, "enter_pwndfu",
+            BL_TEST_RECOVERY_SEQUENCE=json.dumps([WTF, WTF, STOCK]))
+        self.assert_stopped(result, "S5L8900 patched verification timed out")
+        self.assertIn("SRTG=iBoot-596.24", result.stderr)
         uploads = [entry for entry in self.trace_entries()
                    if entry["tool"] == "irecovery" and entry["args"][:1] == ["-f"]]
         self.assertEqual(len(uploads), 1)
@@ -239,11 +300,11 @@ mv() {
 
     def test_early_wtf_branch_accepts_expected_srtg_fallback(self):
         result = self.run_functions(
-            ("bl_ios_send", "enter_pwndfu"),
+            EARLY_FUNCTIONS,
             'enter_pwndfu\n[[ $device_pwnd == "Pwnage 2.0" ]] || error "Bad state"',
-            BL_TEST_RECOVERY="MODE: DFU\nSRTG: iBoot-636.66.3x\n")
+            BL_TEST_RECOVERY_SEQUENCE=json.dumps([WTF, WTF, PATCHED]))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("Exploit success (SRTG verified)", result.stdout)
+        self.assertIn("Patched S5L8900 DFU verified", result.stdout)
 
     def test_wtf_empty_cache_downloads_to_staging_then_reuses_cache_with_spaces(self):
         moved = self.root / "backend with spaces"
@@ -252,8 +313,8 @@ mv() {
         cache = self.backend / "saved/WTF.s5l8900xall.RELEASE.dfu"
         cache.parent.rmdir()
         result = self.run_functions(
-            ("bl_ios_send", "enter_pwndfu"), "enter_pwndfu",
-            BL_TEST_RECOVERY="MODE: DFU\nSRTG: iBoot-636.66.3x\n")
+            EARLY_FUNCTIONS, "enter_pwndfu",
+            BL_TEST_RECOVERY_SEQUENCE=json.dumps([WTF, WTF, PATCHED]))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(cache.read_text(),
                          "fixture: Firmware/dfu/WTF.s5l8900xall.RELEASE.dfu")
@@ -266,8 +327,8 @@ mv() {
         self.assertFalse((self.work / cache.name).exists())
         self.trace.unlink()
         result = self.run_functions(
-            ("bl_ios_send", "enter_pwndfu"), "enter_pwndfu",
-            BL_TEST_RECOVERY="MODE: DFU\nSRTG: iBoot-636.66.3x\n")
+            EARLY_FUNCTIONS, "enter_pwndfu",
+            BL_TEST_RECOVERY_SEQUENCE=json.dumps([WTF, WTF, PATCHED]))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertFalse(any(entry["tool"] == "pzb" for entry in self.trace_entries()))
 
@@ -278,7 +339,8 @@ mv() {
                 if self.trace.exists():
                     self.trace.unlink()
                 result = self.run_functions(
-                    ("bl_ios_send", "enter_pwndfu"), "enter_pwndfu",
+                    EARLY_FUNCTIONS, "enter_pwndfu",
+                    BL_TEST_RECOVERY=WTF,
                     BL_TEST_PZB_RESULT=behavior)
                 self.assert_stopped(result, "WTF DFU download")
                 self.assertFalse(cache.exists())
@@ -290,7 +352,8 @@ mv() {
 
     def test_wtf_cache_publish_failure_never_reaches_patch_or_upload(self):
         result = self.run_functions(
-            ("bl_ios_send", "enter_pwndfu"), "enter_pwndfu",
+            EARLY_FUNCTIONS, "enter_pwndfu",
+            BL_TEST_RECOVERY=WTF,
             BL_TEST_FAIL_WTF_MV="1")
         self.assert_stopped(result, "Could not cache WTF DFU")
         self.assertFalse(list((self.backend / "saved").glob(".wtf-download.*")))
@@ -298,6 +361,93 @@ mv() {
             entry["tool"] == "bspatch"
             or (entry["tool"] == "irecovery" and entry["args"][:1] == ["-f"])
             for entry in self.trace_entries()))
+
+    def test_already_patched_dfu_never_reuploads_shared_wtf(self):
+        result = self.run_functions(EARLY_FUNCTIONS, "enter_pwndfu",
+                                    BL_TEST_RECOVERY=PATCHED)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("skipping WTF upload", result.stdout)
+        self.assertFalse(any(entry["tool"] in ("pzb", "bspatch")
+                             or entry["args"][:1] == ["-f"]
+                             for entry in self.trace_entries()))
+        self.assertEqual(sum(entry["tool"] == "irecovery"
+                             for entry in self.trace_entries()), 1)
+
+    def test_late_reenumeration_waits_for_atomic_matching_dfu_snapshot(self):
+        result = self.run_functions(
+            EARLY_FUNCTIONS, "enter_pwndfu",
+            BL_TEST_RECOVERY_SEQUENCE=json.dumps([WTF, WTF, "", "", WTF, "", STOCK, PATCHED]))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Patched S5L8900 DFU verified", result.stdout)
+        usb = [entry["args"] for entry in self.trace_entries() if entry["tool"] == "irecovery"]
+        self.assertEqual(sum(args == ["-q"] for args in usb), 8)
+        self.assertEqual(sum(args[:1] == ["-f"] for args in usb), 1)
+
+    def test_patched_signature_on_wrong_board_stops_after_shared_upload(self):
+        result = self.run_functions(
+            EARLY_FUNCTIONS, "enter_pwndfu",
+            BL_TEST_RECOVERY_SEQUENCE=json.dumps([WTF, WTF, PATCHED.replace("04", "00")]))
+        self.assert_stopped(result, "USB identity verification failed")
+        self.assertIn("Connected device is iPhone1,1", result.stderr)
+        self.assertEqual(sum(entry["args"][:1] == ["-f"]
+                             for entry in self.trace_entries()), 1)
+
+    def test_stock_dfu_and_untrusted_pwnd_do_not_trigger_shared_upload(self):
+        result = self.run_functions(
+            EARLY_FUNCTIONS, "enter_pwndfu",
+            BL_TEST_RECOVERY=STOCK + "PWND: Pwnage 2.0\nECID: private-id\n")
+        self.assert_stopped(result, "S5L8900 wtf verification timed out")
+        self.assertIn("Force restart", result.stderr)
+        self.assertNotIn("private-id", result.stdout + result.stderr)
+        self.assertFalse(any(entry["args"][:1] == ["-f"]
+                             for entry in self.trace_entries()))
+
+    def test_button_helper_detects_wtf_during_countdown(self):
+        result = self.run_functions(
+            EARLY_FUNCTIONS, "enter_pwndfu",
+            BL_TEST_RECOVERY_SEQUENCE=json.dumps([STOCK, STOCK, "", WTF, PATCHED]))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("PAUSE", result.stdout)
+        self.assertNotIn("Release TOP, keep holding HOME", result.stdout)
+        self.assertIn("Patched S5L8900 DFU verified", result.stdout)
+
+    def test_linux_wait_has_24_attempts_and_timeout_has_last_state(self):
+        result = self.run_functions(
+            EARLY_FUNCTIONS, "platform=linux\nenter_pwndfu",
+            BL_TEST_RECOVERY_SEQUENCE=json.dumps([WTF, WTF, STOCK + "ECID: private-id\n", ""]))
+        self.assert_stopped(result, "S5L8900 patched verification timed out")
+        self.assertIn("up to 24 polls", result.stdout)
+        self.assertIn("no readable USB recovery state", result.stderr)
+        self.assertIn("Last readable USB state: MODE=DFU", result.stderr)
+        self.assertNotIn("private-id", result.stdout + result.stderr)
+        self.assertEqual(sum(entry["args"] == ["-q"] for entry in self.trace_entries()), 26)
+
+    def test_query_exit_failure_cannot_authorize_upload(self):
+        result = self.run_functions(
+            ("bl_ios_early_read", "bl_ios_early_diagnostics", "bl_ios_early_before_ibss"),
+            "bl_ios_early_before_ibss", BL_TEST_RECOVERY=PATCHED, BL_TEST_QUERY_FAILURE="1")
+        self.assert_stopped(result, "Verified patched S5L8900 DFU is required")
+
+    def test_pre_ibss_gate_rechecks_board_and_signature(self):
+        for query in (STOCK, WTF, PATCHED.replace("04", "00")):
+            with self.subTest(query=query):
+                result = self.run_functions(
+                    ("bl_ios_early_read", "bl_ios_early_diagnostics", "bl_ios_early_before_ibss"),
+                    "bl_ios_early_before_ibss\nbl_ios_send iBSS", BL_TEST_RECOVERY=query)
+                self.assertEqual(result.returncode, 73, result.stdout + result.stderr)
+                self.assertNotIn("AFTER_FUNCTION", result.stdout)
+                self.assertFalse(any(entry["args"][:1] == ["-f"]
+                                     for entry in self.trace_entries()))
+        boot = self.function("boot_sshrd")
+        self.assertIn('[[ $device_proc == 1 ]] && bl_ios_early_before_ibss\n'
+                      '        log "Sending iBSS..."; bl_ios_send $ramdisk_path/iBSS', boot)
+
+    def test_failed_shared_upload_cannot_reach_verification(self):
+        result = self.run_functions(
+            EARLY_FUNCTIONS, "enter_pwndfu", BL_TEST_RECOVERY=WTF,
+            BL_TEST_FAIL_UPLOAD="1")
+        self.assert_stopped(result, "Firmware upload failed")
+        self.assertEqual(sum(entry["args"] == ["-q"] for entry in self.trace_entries()), 2)
 
     def test_failed_file_upload_stops_the_caller(self):
         result = self.run_functions(
