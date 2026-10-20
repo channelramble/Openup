@@ -1,0 +1,122 @@
+{
+  "payload_release": "iphone3g-armv6-ios4-2026-10-20",
+  "source": {
+    "url": "https://github.com/nabla-c0d3/iphone-dataprotection",
+    "commit": "572dd5cd8c07f5f14f7ea9488041031dd22a26bb",
+    "subdirectory": "ramdisk_tools",
+    "modified": true,
+    "original_project_license": "BSD-3-Clause",
+    "original_project_metadata": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/iphone-dataprotection/project.json",
+    "original_project_metadata_sha256": "da7a37449fb69b584351f4b9aee89b6bbc4e03426d925c33534c46d76578eed8",
+    "modification": "Removed three automatic fsck_hfs commands from restored_external, retaining partition readiness checks, USB initialization, kernel boot arguments and original read-only data mounting. Added a strict decimal --sleep SECONDS mode (0..3600) which returns before hardware initialization and resumes interrupted libc sleep calls.",
+    "patch": {
+      "file": "payload-no-auto-fsck.patch",
+      "sha256": "263c3481d1b39d207bf33958f5a38c07adee758a5fd11b894c20cd8b209fd550",
+      "original_file": "original/ramdisk_tools/restored_external.c",
+      "original_sha256": "061d0aa178d1123da9208744f64d054be5333d521a052bec7f06ea06f0a547bd",
+      "modified_file": "source/ramdisk_tools/restored_external.c",
+      "modified_sha256": "d464567fd2d0da3c948d7f4a2a82bb569850e1bb90dbbf3549ab886c7aba2092"
+    },
+    "license_mapping_evidence": "licenses/google-code-license-mapping.json"
+  },
+  "headers": [
+    {
+      "url": "https://github.com/apple-oss-distributions/IOKitUser",
+      "commit": "6e5dd8cc074e51190c17b866d68b87e61467b839",
+      "tag": "IOKitUser-514.16.50",
+      "files": [
+        "IOKitLib.h",
+        "IOCFPlugIn.h"
+      ],
+      "license": "APSL-2.0"
+    },
+    {
+      "url": "https://github.com/apple-oss-distributions/xnu",
+      "commit": "330f2c8b4adedfff14e28c62fcaf450fde98ad57",
+      "tag": "xnu-1504.9.37",
+      "files": [
+        "iokit/IOKit/IOTypes.h",
+        "iokit/IOKit/IOReturn.h",
+        "iokit/IOKit/IOKitKeys.h",
+        "iokit/IOKit/OSMessageNotification.h",
+        "libkern/libkern/OSTypes.h"
+      ],
+      "license": "APSL-2.0"
+    }
+  ],
+  "toolchain": {
+    "compiler": "Apple clang version 21.0.0 (clang-2100.3.34.2)",
+    "linker_repository": "https://github.com/tpoechtrager/cctools-port",
+    "linker_commit": "df82634ce7c3eddba9722e881433fbe357396e16",
+    "linker_branch": "973.0.1-ld64-609",
+    "linker_patch": "ld64-host-page-size.patch",
+    "target": "armv6-apple-ios4.0",
+    "cpu": "arm1176jzf-s",
+    "mode": "ARM",
+    "optimization": "O2",
+    "minimum_ios": "4.0",
+    "sdk": "4.2",
+    "source_date_epoch": 1418119387,
+    "reproducible_rebuild_same_host": true,
+    "linker_patch_sha256": "8e30d96c3c37a75455f76ea261dfb96eb76a52eeae947ae1dcfece05a4099199",
+    "payload_revision": "572dd5cd8c07+no-auto-fsck"
+  },
+  "sdk_build_inputs": {
+    "redistributed": false,
+    "repository": "https://github.com/qianjigui/iOS-sdks",
+    "commit": "189a487850e3351cf624b5cef9c8317138c89b05",
+    "parts": [
+      {
+        "path": "iPhoneOS4.2.sdk/iPhoneOS4.2.sdk.zip.001",
+        "sha256": "3b6db233fbd1cf05c5311cf69a7ad3548be0e1509df35742bb8fce60a45a7ecf",
+        "size": 90000000
+      },
+      {
+        "path": "iPhoneOS4.2.sdk/iPhoneOS4.2.sdk.zip.002",
+        "sha256": "6eb5365f40868b7ac443e633292f5fd87aa591b85b33996c5643fa28b756ccfd",
+        "size": 46820255
+      }
+    ],
+    "combined_sha256": "e8a7560e9c78a394a3b143edf56bd3396f170f1c0f6ce66d5b12b071d1acafb9"
+  },
+  "signing": {
+    "type": "ad-hoc",
+    "digests": [
+      "sha1",
+      "sha256"
+    ],
+    "primary_code_directory": "sha1",
+    "timestamp": false,
+    "entitlements": "source/ramdisk_tools/entitlements.plist"
+  },
+  "binaries": {
+    "bruteforce": {
+      "sha256": "a3819ed32d424d88bcfcaff6e8bfd6ebba4720765e758dd43612d3f499db3823",
+      "size": 116784
+    },
+    "device_infos": {
+      "sha256": "5a4de96ad5ad0bb55607712b35157c540aa76d58ad5ecb107c761e26ac09e6c7",
+      "size": 115872
+    },
+    "restored_external": {
+      "sha256": "c150e31963b641aadad22ed4d25f444bb203844727700e230449d997ec5c1f00",
+      "size": 136832
+    }
+  },
+  "verification": {
+    "architecture": "all ARMv6 Mach-O executables",
+    "entrypoint": "LC_UNIXTHREAD",
+    "imports": "all imported symbols matched to actual iPhone1,2 4.2.1 8C148 restore ramdisk ARMv6 libraries",
+    "code_signatures": "codesign --verify --strict and independent SHA1/SHA256 code page hashing",
+    "hardware_execution": false,
+    "ramdisk_boot": false,
+    "recovery": false,
+    "automatic_filesystem_repair": "All three fsck_hfs invocations removed from restored_external; command absent from final binary; partition wait and USB initialization retained.",
+    "bounded_wait_helper": "The exact helper compiled as native-host C and passed argument, bounds, overflow and interrupted-sleep tests. The ARMv6 executable uses the same libc sleep import already present in the actual 4.2.1 ramdisk. No ARMv6 executable was run on a phone."
+  },
+  "payload_zip": {
+    "name": "iphone3g-armv6-ios4.zip",
+    "sha256": "7a4782cf121eda834c13bdd0dd8344324638e681c30d5d533434dcbbe7816a55",
+    "size": 133808
+  }
+}

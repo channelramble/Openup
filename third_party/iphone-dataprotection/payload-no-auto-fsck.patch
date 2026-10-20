@@ -1,0 +1,70 @@
+--- a/ramdisk_tools/restored_external.c
++++ b/ramdisk_tools/restored_external.c
+@@ -2,6 +2,7 @@
+ https://github.com/comex/bloggy/wiki/Redsn0w%2Busbmux
+ **/
+ #include <unistd.h>
++#include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+ #include <spawn.h>
+@@ -151,8 +152,36 @@
+ size_t bootargs_len = 255;
+ char bootargs[256]={0};
+ 
++/* A bounded wait command for recovery RAM disks that do not ship /bin/sleep.
++ * This path performs no device initialization or filesystem access. */
++static int sleep_command(int argc, char* argv[])
++{
++    unsigned int seconds = 0;
++    const char* digit;
++    if (argc != 3 || strcmp(argv[1], "--sleep") || !argv[2][0])
++        goto invalid;
++    for (digit = argv[2]; *digit; ++digit)
++    {
++        if (*digit < '0' || *digit > '9')
++            goto invalid;
++        seconds = seconds * 10 + (unsigned int)(*digit - '0');
++        if (seconds > 3600)
++            goto invalid;
++    }
++    /* sleep returns the unelapsed seconds when interrupted by a signal. */
++    while (seconds)
++        seconds = sleep(seconds);
++    return 0;
++invalid:
++    fprintf(stderr, "Usage: restored_external --sleep SECONDS (0..3600)\n");
++    return 2;
++}
++
+ int main(int argc, char* argv[])
+ {
++    if (argc > 1 && !strcmp(argv[1], "--sleep"))
++        return sleep_command(argc, argv);
++
+     int i;
+     int nandReadOnly=0;
+     struct stat st;
+@@ -195,21 +224,19 @@
+     else
+     {
+         printf("Waiting for data partition\n");
++        /* Wait for the partition; never run automatic filesystem repair. */
+         for(i=0; i < 10; i++)
+         {
+             if(!stat("/dev/disk0s2s1", &st))
+             {
+-                system("/sbin/fsck_hfs  /dev/disk0s2s1");
+                 break;
+             }
+             if(!stat("/dev/disk0s1s2", &st))
+             {
+-                system("/sbin/fsck_hfs  /dev/disk0s1s2");
+                 break;
+             }
+             if(!stat("/dev/disk0s2", &st))
+             {
+-                system("/sbin/fsck_hfs  /dev/disk0s2");
+                 break;
+             }
+             sleep(5);

@@ -24,6 +24,7 @@ from pathlib import Path
 from ios_timeout import __version__
 from ios_timeout.desktop_updates import bundle_name, code_prefix, file_hash, python_relative, safe_relative, validate_manifest
 from build_release import provenance
+from macos_compatibility import validate_macos_bundle
 
 ROOT = Path(__file__).resolve().parent
 CACHE = ROOT / ".desktop-cache"
@@ -32,10 +33,14 @@ PYTHON_VERSION = "3.13.16"
 PYTHON_RELEASE = "20261013"
 TARGETS = {
     "macos-arm64": ("aarch64-apple-darwin", ["macosx_14_0_arm64", "macosx_14_0_universal2", "macosx_11_0_arm64"]),
+    "macos-x86_64": ("x86_64-apple-darwin", ["macosx_12_0_x86_64", "macosx_12_0_universal2",
+                                         "macosx_10_13_x86_64", "macosx_10_12_universal2",
+                                         "macosx_10_10_universal2", "macosx_10_9_universal2"]),
     "windows-x86_64": ("x86_64-pc-windows-msvc", ["win_amd64"]),
     "linux-x86_64": ("x86_64-unknown-linux-gnu", ["manylinux_2_34_x86_64", "manylinux_2_28_x86_64",
                                                "manylinux_2_17_x86_64", "manylinux2014_x86_64"]),
 }
+MACOS_MINIMUM = {"macos-arm64": "14.0", "macos-x86_64": "12.0"}
 
 
 def json_url(url):
@@ -46,26 +51,36 @@ def json_url(url):
 def requirements(target):
     values = [line.strip() for line in (ROOT / "requirements-lock.txt").read_text().splitlines()
               if line.strip() and not line.startswith("#")]
-    values += ["PySide6-Essentials==6.12.0", "shiboken6==6.12.0", "certifi==2026.10.19"]
+    qt_version = "6.9.3" if target.startswith("macos") else "6.12.0"
+    if target == "macos-x86_64":
+        # Qt 6.9 supports Monterey. Cryptography 49+ stopped shipping Intel
+        # macOS wheels, so this target has an explicit compatibility pin.
+        values = ["cryptography==48.0.1" if value.startswith("cryptography==") else value for value in values]
+    values += [f"PySide6-Essentials=={qt_version}", f"shiboken6=={qt_version}", "certifi==2026.10.19"]
     if target.startswith("windows"):
         values.append("pywinpty==3.1.0")
     return values
 
 
-def prepare_lock():
+def prepare_lock(targets=None):
     CACHE.mkdir(exist_ok=True)
     metadata = json_url(f"https://api.github.com/repos/astral-sh/python-build-standalone/releases/tags/{PYTHON_RELEASE}")
     assets = {asset["name"]: asset for asset in metadata["assets"]}
     previous = json.loads(LOCK.read_text()) if LOCK.exists() else {}
-    locked = {"schema": 1, "python": PYTHON_VERSION, "python_release": PYTHON_RELEASE, "targets": {},
+    locked = {"schema": 1, "python": PYTHON_VERSION, "python_release": PYTHON_RELEASE,
+              "targets": previous.get("targets", {}) if targets else {},
               "linux_libraries": previous.get("linux_libraries", [])}
     package_metadata = {}
-    for target, (triple, tags) in TARGETS.items():
+    for target in targets or TARGETS:
+        triple, tags = TARGETS[target]
         directory = CACHE / "wheels" / target
         directory.mkdir(parents=True, exist_ok=True)
+        # A clean download directory prevents obsolete cached wheels from
+        # entering the lock when target-specific requirements change.
+        staging = tempfile.TemporaryDirectory(prefix="lock-", dir=CACHE)
         args = [sys.executable, "-m", "pip", "download", "--only-binary=:all:", "--python-version", "3.13",
                 "--implementation", "cp", "--abi", "cp313", "--abi", "abi3", "--abi", "none",
-                "--dest", str(directory)]
+                "--dest", staging.name]
         for tag in tags:
             args += ["--platform", tag]
         subprocess.run(args + requirements(target), check=True)
@@ -75,7 +90,7 @@ def prepare_lock():
             raise ValueError("Runtime has no GitHub checksum.")
         result = {"runtime": {"filename": filename, "url": runtime["browser_download_url"],
                               "sha256": runtime["digest"][7:], "size": runtime["size"]}, "wheels": []}
-        for wheel in sorted(directory.glob("*.whl")):
+        for wheel in sorted(Path(staging.name).glob("*.whl")):
             package, version = wheel.name.split("-")[:2]
             key = package + "/" + version
             if key not in package_metadata:
@@ -86,7 +101,9 @@ def prepare_lock():
                 raise ValueError("Downloaded wheel differs from the PyPI checksum.")
             result["wheels"].append({"filename": wheel.name, "url": info["url"],
                                      "sha256": digest, "size": wheel.stat().st_size})
+            shutil.copyfile(wheel, directory / wheel.name)
         locked["targets"][target] = result
+        staging.cleanup()
     LOCK.write_text(json.dumps(locked, indent=2) + "\n")
 
 
@@ -250,7 +267,8 @@ def native_launcher(root, target, icon_directory):
         directory = root / "Contents/MacOS"
         directory.mkdir(parents=True)
         arch = "arm64" if target.endswith("arm64") else "x86_64"
-        subprocess.run(["clang", "-arch", arch, "-mmacosx-version-min=14.0", "-Os",
+        minimum = MACOS_MINIMUM[target]
+        subprocess.run(["clang", "-arch", arch, f"-mmacosx-version-min={minimum}", "-Os",
                         str(ROOT / "packaging/launcher-macos.c"), "-framework", "CoreFoundation",
                         "-o", str(directory / "BruteforceLegacyiOS")], check=True)
         shutil.copyfile(icon_directory / "App.icns", root / "Contents/Resources/App.icns")
@@ -259,7 +277,7 @@ def native_launcher(root, target, icon_directory):
             "CFBundleIdentifier": "com.channelramble.bruteforcelegacyios",
             "CFBundleExecutable": "BruteforceLegacyiOS", "CFBundlePackageType": "APPL",
             "CFBundleShortVersionString": __version__, "CFBundleVersion": __version__,
-            "CFBundleIconFile": "App.icns", "LSMinimumSystemVersion": "14.0",
+            "CFBundleIconFile": "App.icns", "LSMinimumSystemVersion": minimum,
             "NSHighResolutionCapable": True,
         }))
     else:
@@ -296,6 +314,10 @@ def build(target, *, allow_dirty=False):
         site.mkdir(parents=True, exist_ok=True)
         for wheel in wheels:
             install_wheel(wheel, site)
+        if target.startswith("macos"):
+            # This GUI does not use Qt SQL. The optional database plugins
+            # depend on separately installed Mimer/Postgres/iODBC libraries.
+            shutil.rmtree(site / "PySide6/Qt/plugins/sqldrivers")
         if target.startswith("linux"):
             libraries = json.loads(LOCK.read_text()).get("linux_libraries")
             if not libraries:
@@ -319,6 +341,12 @@ def build(target, *, allow_dirty=False):
         for path in (ROOT / "ios_timeout").iterdir():
             if path.suffix in (".py", ".txt", ".svg"):
                 shutil.copyfile(path, package / path.name)
+        from ios_timeout.armv6_payloads import read_bundled_payloads
+        read_bundled_payloads()
+        shutil.copytree(ROOT / "ios_timeout/data", package / "data")
+        # The desktop's dependency check must match its target's actual wheels,
+        # including the older Intel/Monterey compatibility versions.
+        (package / "runtime-requirements.txt").write_text("\n".join(requirements(target)) + "\n")
         for name in ("desktop.py", "README.md", "LICENSE", "THIRD_PARTY.md", "VERIFICATION.txt", "CHANGELOG.md"):
             shutil.copyfile(ROOT / name, code / name)
         shutil.copyfile(LOCK, code / "desktop-build-lock.json")
@@ -327,11 +355,17 @@ def build(target, *, allow_dirty=False):
         native_root = root / "Bruteforce Legacy iOS.app" if target.startswith("macos") else root
         native_launcher(native_root, target, icon_directory)
         if target.startswith("macos"):
+            architecture = "arm64" if target.endswith("arm64") else "x86_64"
+            minimum = tuple(map(int, MACOS_MINIMUM[target].split("."))) + (0,)
+            report = validate_macos_bundle(native_root, architecture, minimum)
+            print("macOS binary compatibility: " + json.dumps(report), flush=True)
             # Ad-hoc signing supports local execution; no Developer ID or notarization is claimed.
             subprocess.run(["codesign", "--force", "--deep", "--sign", "-", str(native_root)], check=True)
             subprocess.run(["codesign", "--verify", "--deep", "--strict", str(native_root)], check=True)
         manifest = {"schema": 1, "version": __version__, "target": target,
                     "revision": source["revision"], "dirty": source["dirty"], "files": {}}
+        if target in MACOS_MINIMUM:
+            manifest["minimum_macos"] = MACOS_MINIMUM[target]
         for path in sorted(root.rglob("*")):
             if path.is_file():
                 if path.is_symlink():
@@ -364,7 +398,7 @@ def main():
     parser.add_argument("--allow-dirty", action="store_true", help="Local development builds; updater rejects these.")
     args = parser.parse_args()
     if args.prepare_lock:
-        prepare_lock()
+        prepare_lock([args.target] if args.target and not args.all else None)
     (ROOT / "build").mkdir(exist_ok=True)
     for target in TARGETS if args.all else [args.target] if args.target else []:
         build(target, allow_dirty=args.allow_dirty)

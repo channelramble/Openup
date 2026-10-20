@@ -58,7 +58,7 @@ def parser():
     brute.add_argument("--backend-dir", type=Path)
     brute.add_argument("--state-dir", type=Path, default=DEFAULT_STATE)
     brute.add_argument("--model", choices=sorted(PHONES))
-    brute.add_argument("--armv6-tools", type=Path, help="Compatible ARMv6 bruteforce/device_infos/restored_external folder.")
+    brute.add_argument("--armv6-tools", type=Path, help="Optional custom ARMv6 tools folder; bundled iPhone 3G tools are used by default.")
     brute.add_argument("--wsl-distro", help="Windows: select a WSL 2 distribution.")
     for name, help_text in (
         ("inspect", "Read device identity and preview the timer reset."),

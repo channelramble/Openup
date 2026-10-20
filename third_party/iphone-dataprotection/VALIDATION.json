@@ -1,0 +1,109 @@
+{
+  "ramdisk": "iPhone1,2_4.2.1_8C148_Restore.ipsw / 038-0029-002.dmg",
+  "ramdisk_raw_sha256": "6a6416937d9df042e31d1f3ccab818850f42f52337486436a9de9811f68dece5",
+  "libraries": {
+    "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation": {
+      "sha256": "e4ea33809fad190fdfba92b6fbebb0ac7ac2c4c38678209de2205d15e31453fd",
+      "exported_symbols": 1933
+    },
+    "/System/Library/Frameworks/IOKit.framework/Versions/A/IOKit": {
+      "sha256": "fed7170d70d0512d1d01e8caa8edb666cf6751de789c811171c7e06c50f6c449",
+      "exported_symbols": 1035
+    },
+    "/System/Library/Frameworks/Security.framework/Security": {
+      "sha256": "b365542742997dc985cd94d3500e2a0568d8a76f7a8ae85d96936f41b9a0737f",
+      "exported_symbols": 490
+    },
+    "/usr/lib/libSystem.B.dylib": {
+      "sha256": "b57ad9c9d7a943901473f0d2770f3ddd4e91e7228b86b453c691052be995d393",
+      "exported_symbols": 3831
+    },
+    "/usr/lib/libgcc_s.1.dylib": {
+      "sha256": "fca5653eacd975e5f07d9a4df5f11ce7112380a068b0deec63e8552c7536d6eb",
+      "exported_symbols": 132
+    }
+  },
+  "payloads": {
+    "bruteforce": {
+      "sha256": "a3819ed32d424d88bcfcaff6e8bfd6ebba4720765e758dd43612d3f499db3823",
+      "size": 116784,
+      "cpu": "ARMv6",
+      "cpu_type": 12,
+      "cpu_subtype": 6,
+      "minimum_ios": "4.0",
+      "sdk": "4.2",
+      "entry": "LC_UNIXTHREAD",
+      "imports_resolved_against_actual_ramdisk": 127,
+      "signatures": [
+        {
+          "slot": 0,
+          "hash": "sha1",
+          "page_size": 4096,
+          "verified_code_pages": 28,
+          "code_directory_version": "0x20400"
+        },
+        {
+          "slot": 4096,
+          "hash": "sha256",
+          "page_size": 4096,
+          "verified_code_pages": 28,
+          "code_directory_version": "0x20400"
+        }
+      ]
+    },
+    "device_infos": {
+      "sha256": "5a4de96ad5ad0bb55607712b35157c540aa76d58ad5ecb107c761e26ac09e6c7",
+      "size": 115872,
+      "cpu": "ARMv6",
+      "cpu_type": 12,
+      "cpu_subtype": 6,
+      "minimum_ios": "4.0",
+      "sdk": "4.2",
+      "entry": "LC_UNIXTHREAD",
+      "imports_resolved_against_actual_ramdisk": 124,
+      "signatures": [
+        {
+          "slot": 0,
+          "hash": "sha1",
+          "page_size": 4096,
+          "verified_code_pages": 28,
+          "code_directory_version": "0x20400"
+        },
+        {
+          "slot": 4096,
+          "hash": "sha256",
+          "page_size": 4096,
+          "verified_code_pages": 28,
+          "code_directory_version": "0x20400"
+        }
+      ]
+    },
+    "restored_external": {
+      "sha256": "c150e31963b641aadad22ed4d25f444bb203844727700e230449d997ec5c1f00",
+      "size": 136832,
+      "cpu": "ARMv6",
+      "cpu_type": 12,
+      "cpu_subtype": 6,
+      "minimum_ios": "4.0",
+      "sdk": "4.2",
+      "entry": "LC_UNIXTHREAD",
+      "imports_resolved_against_actual_ramdisk": 157,
+      "signatures": [
+        {
+          "slot": 0,
+          "hash": "sha1",
+          "page_size": 4096,
+          "verified_code_pages": 33,
+          "code_directory_version": "0x20400"
+        },
+        {
+          "slot": 4096,
+          "hash": "sha256",
+          "page_size": 4096,
+          "verified_code_pages": 33,
+          "code_directory_version": "0x20400"
+        }
+      ]
+    }
+  }
+}

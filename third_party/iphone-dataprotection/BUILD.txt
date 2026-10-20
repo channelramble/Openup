@@ -1,0 +1,82 @@
+Rebuilding the included iPhone 3G ARMv6 executables
+
+Build-only requirements: macOS with Xcode clang and codesign, Python 3, make,
+and a separately obtained iPhoneOS4.2.sdk. End users do not need these tools.
+No SDK, firmware, or proprietary runtime library is redistributed in this bundle.
+
+1. Build cctools-port inside a local build directory:
+
+   git clone https://github.com/tpoechtrager/cctools-port.git
+   git -C cctools-port checkout df82634ce7c3eddba9722e881433fbe357396e16
+   git -C cctools-port apply /absolute/path/to/ld64-host-page-size.patch
+   cd cctools-port/cctools
+   ./configure --build=aarch64-apple-darwin27 --host=aarch64-apple-darwin27 --prefix="$PWD/../install" --target=arm-apple-darwin10 --disable-tapi-support --disable-xar-support
+   make -j8
+   make install
+
+   The explicit aarch64 host/build values were necessary on this Apple Silicon
+   host because this older project's config.guess incorrectly classified it as
+   32-bit ARM. On Intel Macs, use the correct host/build identifiers instead.
+   The prefix above stays inside the checkout; no system tool installation occurs.
+
+2. From this source bundle directory, run:
+
+   python3 build_payloads.py --sdk /absolute/path/to/iPhoneOS4.2.sdk --linker /absolute/path/to/cctools-port/install/bin/arm-apple-darwin10-ld --clang /absolute/path/to/clang
+
+   This was validated with Apple clang 21.0.0 (clang-2100.3.34.2). Modern Apple's
+   ld no longer links ARMv6 even when its version output lists ARMv6, hence the
+   isolated legacy linker. -mlinker-version=609 suppresses new linker flags.
+   The repeated platform-version warning is expected: the explicit final value
+   records minimum iOS 4.0 and SDK 4.2 even when modern clang cannot read the old
+   SDKSettings.plist. The ignored current compiler-runtime archive warning is
+   expected; every required division helper resolves to the ramdisk's libgcc_s.1.
+
+3. The output directory contains bruteforce, device_infos, restored_external,
+   and SHA256.json. All three are compiled for ARM1176JZF-S (ARMv6) and use the
+   legacy LC_UNIXTHREAD entry point. No binary architecture headers are patched.
+
+   SOURCE_DATE_EPOCH is fixed to the pinned source commit's timestamp. Two clean
+   builds with the recorded compiler/linker on this host produced identical files.
+   The payload source changes remove automatic fsck_hfs repair from
+   restored_external and add a bounded --sleep SECONDS mode. The modified source is already present in source/. The
+   original file is retained in original/ramdisk_tools/, and the exact patch is
+   payload-no-auto-fsck.patch. All other payload sources and Apple open source
+   headers are unchanged. SOURCE-MANIFEST.json covers both original and modified
+   files. All original notices remain present; the revision suffix
+   +no-auto-fsck identifies this application build.
+
+4. codesign adds ad-hoc signatures with SHA1 as the primary CodeDirectory and
+   SHA256 as an alternate, plus the original project's XML entitlements. SHA1 is
+   needed by the old iOS kernel. Current codesign refuses SHA1-only signatures.
+   Strict codesign verification and independent SHA1/SHA256 page-hash checks passed.
+
+Validation scope
+
+These files are built for an iOS 4 restore environment and are not compatible
+with a 3.1.3 ramdisk. All strong imports (127, 124 and 157 respectively) were
+checked against the actual ARMv6 libraries from Apple's iPhone1,2 4.2.1 8C148
+restore ramdisk. VALIDATION.json records exact firmware/library hashes and
+signature results. Source/kernel compatibility still requires the matching
+4.2.1 ramdisk and the kernel patches supplied by the host application's adapter.
+No iPhone execution, ramdisk boot, or physical-device recovery has been tested.
+
+Automatic repair policy
+
+The application does not automatically run filesystem repair. The restored_external
+payload waits for the data partition without invoking fsck_hfs. Its USB setup and
+RAM-disk root remount are unchanged. The original mountDataPartition implementation
+used by bruteforce mounts the data partition with MNT_RDONLY. Kernel NAND boot
+arguments were not changed to implement this policy.
+
+Bundled wait helper
+
+The selected legacy SSH archive and 4.2.1 restore image do not provide an external
+sleep utility. The restored_external source therefore includes --sleep SECONDS,
+accepting only ASCII decimal 0..3600 and repeating interrupted libc sleep calls.
+This mode returns before watchdog, USB, device information or filesystem access.
+The host adapter installs a separate verified bundled copy as
+/usr/local/bin/bl-ios-wait, including when custom recovery payloads are selected.
+The managed script uses this helper for its readiness and hold delays. If the
+helper is absent or fails, its hold path stops itself with the shell kill builtin
+instead of spinning. The new helper logic passed isolated native-host C tests;
+its ARMv6 code signatures and actual firmware imports were independently checked.

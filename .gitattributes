@@ -2,3 +2,5 @@
 *.zip binary
 *.png binary
 *.bin binary
+# Preserve the exact upstream bytes recorded in the source provenance.
+third_party/iphone-dataprotection/** -text -whitespace

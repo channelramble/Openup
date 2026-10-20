@@ -1,0 +1,10 @@
+{
+  "url": "https://code.google.com/archive/archive.js",
+  "retrieved": "2026-10-20",
+  "response_sha256": "8bcfd106b13487014ae8d090a634ea0f04830e70218aaa655942007c17f84122",
+  "decoded_sha256": "80dda006e473f4eb593bfc19606faf01a42550d9293f9754041653c2ad7578e3",
+  "exact_mapping": "bsd:new T(\"New BSD License\",\"http://opensource.org/licenses/BSD-3-Clause\")",
+  "project_metadata_file": "iphone-dataprotection-project.json",
+  "project_license_value": "bsd",
+  "license_identifier": "BSD-3-Clause"
+}

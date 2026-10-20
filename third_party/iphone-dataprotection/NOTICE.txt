@@ -1,0 +1,45 @@
+iPhone 3G ARMv6 payload source and binary notices
+
+The source/ramdisk_tools files originate from the original
+iPhone Data Protection Tools project by Jean-Baptiste Bedrune and Jean Sigwald,
+mirrored at nabla-c0d3/iphone-dataprotection commit
+572dd5cd8c07f5f14f7ea9488041031dd22a26bb.
+
+Original project: https://code.google.com/archive/p/iphone-dataprotection/
+The original Google Code project metadata identifies the license as "bsd";
+Google Code's archive maps this identifier to the BSD 3-Clause license.
+The original repository has no top-level license text. Its metadata is retained
+in licenses/iphone-dataprotection-project.json, with the standard BSD-3-Clause
+text in licenses/BSD-3-Clause.txt. This notice does not replace any original
+per-file copyright or permission notice, all of which are retained in source.
+
+Per-file licenses:
+- ramdisk_tools/bsdcrypto/pbkdf2.c and key_wrap.c: Damien Bergamini's ISC-style
+  permission notice; related headers retain their original notices.
+- ramdisk_tools/bsdcrypto/rijndael.c/.h: public-domain dedication by its authors.
+- ramdisk_tools/bsdcrypto/sha1.c/.h: public-domain SHA-1 implementation.
+- ramdisk_tools/IOUSBDeviceControllerLib.h: Apple Public Source License 2.0.
+- include/IOKit and include/libkern: Apple Public Source License 2.0, copied
+  from the pinned Apple open source distributions identified in PROVENANCE.json.
+  These headers are unmodified. The APSL text is included in licenses/.
+
+The build recipe and linker patch were added for this distribution. One payload source file, restored_external.c, is modified to remove automatic
+filesystem repair while retaining device readiness checks and USB initialization.
+It also provides a bounded --sleep SECONDS mode (0..3600), returning before any
+hardware initialization, for RAM disks lacking an external sleep utility.
+The original file is retained in original/ramdisk_tools/restored_external.c; the
+exact change is recorded in payload-no-auto-fsck.patch and PROVENANCE.json.
+The original project license mapping is documented in
+licenses/google-code-license-mapping.json. All other payload source files and
+all Apple open source headers are unmodified. A separately obtained iPhone OS 4.2 SDK
+is required to rebuild; SDK files, Apple firmware and Apple runtime libraries
+are not included in this distribution. The executables link dynamically to the
+libraries already present in Apple's restore ramdisk.
+
+The build-time linker is cctools-port ld64-609, commit
+df82634ce7c3eddba9722e881433fbe357396e16; it is not distributed here. The
+ld64-host-page-size.patch file fixes its mapping of universal binary slices
+on hosts with 16 KB pages. Source and license:
+https://github.com/tpoechtrager/cctools-port/tree/df82634ce7c3eddba9722e881433fbe357396e16
+
+No copyright or trademark endorsement by Apple or the upstream authors is implied.

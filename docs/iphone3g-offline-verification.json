@@ -1,0 +1,148 @@
+{
+  "upstream_script_sha256": "c6990c56f9631c91d1673246fa794e275e210211e5538a8dcf3b647a4649075b",
+  "adapter_sha256": "7a46f4792f4daf7831faaead7870b6e38bdff5894226b67515aabe9ca91b5979",
+  "selected_functions_sha256": "162ab78465fb9b9fe04bb9cb2a2c35c9674afe9b43fa20ce06249f513bdb7039",
+  "functions": [
+    "create_sshrd",
+    "select_ramdisk_version",
+    "ipsw_get_url"
+  ],
+  "device_code_executed": false,
+  "pipeline_exit_code": 0,
+  "key_metadata_sha256": "8f236bb2a1e19438b64ea6ebb35d08b191eceeaddb90d8bab0a762818e0e9eed",
+  "actual_missing_key_entries_tested": [
+    "iBSS",
+    "iBEC"
+  ],
+  "network_downloads_during_pipeline": false,
+  "firmware_outputs": {
+    "iBSS": {
+      "img3_sha256": "0997ead309e35021b428279b446fd6ecb496e967ec54b0cc7607323e7c311553",
+      "decoded_sha256": "5c525aae73ca1973b34902b3551add288e526cc6dac3366815139cb86546d657",
+      "profile_match": true
+    },
+    "iBEC": {
+      "img3_sha256": "3e4ecb7443f7795ca4fee8995be468103ae97145e94f9437193942fe6af935b1",
+      "decoded_sha256": "0210240d65585203edc7ee9fb718575e81cd5d202cf3048b929470b13a3a7902",
+      "profile_match": true
+    },
+    "Kernelcache.dec": {
+      "img3_sha256": "43f953a0c047dfaff04c2666fec505a6b8a433d8ea85533f1a36c24e68a5b26e",
+      "decoded_sha256": "18cf207414fe1dd09ac99eaeb2bbd48fa3c8e9e04f863eb02db414a288ebbe01",
+      "profile_match": true
+    },
+    "Ramdisk.dmg": {
+      "img3_sha256": "820ddea42d6787a43123b7bdc47eefc4d3fd5143fc9ce1826bd6913b5d5d3c2a",
+      "decoded_sha256": "0de2a2f24d9a8e3d2fe83e4f90386c6a9bec613d726ebf62219fe43d522cec06",
+      "decoded_matches_prepackage_hfs": true
+    },
+    "DeviceTree.dec": {
+      "img3_sha256": "2ffe0039b86e11b77664909889d78b28d8f0dd94f5fe8753702a5936cb085f59",
+      "decoded_sha256": "6a664b703cad0cc15a9ec34df05f8096844b9d8aa62c9474929da150bd01a267",
+      "decoded_nodes": 82,
+      "tree_parse_valid": true
+    }
+  },
+  "ramdisk_files": {
+    "usr/bin/bruteforce": {
+      "sha256": "a3819ed32d424d88bcfcaff6e8bfd6ebba4720765e758dd43612d3f499db3823",
+      "size": 116784,
+      "mode": "0755",
+      "exact_match": true
+    },
+    "usr/bin/device_infos": {
+      "sha256": "5a4de96ad5ad0bb55607712b35157c540aa76d58ad5ecb107c761e26ac09e6c7",
+      "size": 115872,
+      "mode": "0755",
+      "exact_match": true
+    },
+    "usr/local/bin/restored_external.sshrd": {
+      "sha256": "c150e31963b641aadad22ed4d25f444bb203844727700e230449d997ec5c1f00",
+      "size": 136832,
+      "mode": "0755",
+      "exact_match": true
+    },
+    "usr/local/bin/restored_external": {
+      "sha256": "f2dcb972132e3796c72ed712447e1e15c58fde4a02c04dd6e2618b2955acdedd",
+      "size": 1680,
+      "mode": "0755",
+      "exact_match": true
+    },
+    "usr/local/bin/bl-ios-wait": {
+      "sha256": "c150e31963b641aadad22ed4d25f444bb203844727700e230449d997ec5c1f00",
+      "size": 136832,
+      "mode": "0755",
+      "exact_match": true
+    },
+    "etc/rc.boot": {
+      "sha256": "6250067fcc6333a3d7081232b1bc5fb1e0ac337d32c26c598399a04e162077bb",
+      "size": 369,
+      "mode": "0755",
+      "exact_match": true
+    }
+  },
+  "startup_chain": "/etc/rc.boot -> /usr/local/bin/restored_external (managed script) -> restored_external.sshrd and bruteforce -u",
+  "legacy_rc_boot_nvram_auto_boot": true,
+  "no_automatic_fsck_in_restored_external": true,
+  "physical_device_tested": false,
+  "phone_data_accessed": false,
+  "managed_startup_command_audit": {
+    "interpreter": "/bin/sh",
+    "interpreter_symlink_target": "bash",
+    "interpreter_symlink_verified_in_pinned_resource": true,
+    "final_ramdisk_sh_dereferences_to_exact_bash": true,
+    "bash_sha256": "de6eb2a09424eba1726c481591857fb6c7d8e640b65f8aa96205ab5f4cbef98e",
+    "bash_macho_cpu_type": 12,
+    "bash_macho_cpu_subtype": 0,
+    "shell_builtins": [
+      "[",
+      ":",
+      "break",
+      "cd",
+      "continue",
+      "echo",
+      "exec",
+      "export",
+      "kill",
+      "wait"
+    ],
+    "shell_functions": [
+      "hold_ramdisk"
+    ],
+    "external_commands": {
+      "/usr/local/bin/restored_external.sshrd": {
+        "sha256": "c150e31963b641aadad22ed4d25f444bb203844727700e230449d997ec5c1f00",
+        "size": 136832,
+        "mode": "0755",
+        "exact_match": true
+      },
+      "/usr/local/bin/bl-ios-wait": {
+        "sha256": "c150e31963b641aadad22ed4d25f444bb203844727700e230449d997ec5c1f00",
+        "size": 136832,
+        "mode": "0755",
+        "exact_match": true
+      },
+      "/usr/bin/bruteforce": {
+        "sha256": "a3819ed32d424d88bcfcaff6e8bfd6ebba4720765e758dd43612d3f499db3823",
+        "size": 116784,
+        "mode": "0755",
+        "exact_match": true
+      }
+    },
+    "all_managed_external_commands_present_and_executable": true,
+    "external_sleep_command_required": false,
+    "wait_helper_is_separate_verified_bundled_copy": true,
+    "wait_helper_matches_import_and_signature_verified_restored_external": true,
+    "wait_helper_failure_uses_builtin_sigstop": true,
+    "launchctl_references_rc_boot": true,
+    "launchctl_sha256": "93be4b3f97e49540ef1d4b150f784a0d19d0572948aaba13ddedf58c6314fba2",
+    "shell_syntax_checks_passed": true,
+    "hardware_execution_tested": false
+  },
+  "distribution_consistency": {
+    "payload_archive_sha256": "7a4782cf121eda834c13bdd0dd8344324638e681c30d5d533434dcbbe7816a55",
+    "source_archive_sha256": "77b988d62f4a3bb02e485d279fc1db316a4da1125be439a375fa422ec4b144b0",
+    "source_archive_file_count": 66,
+    "source_archive_exactly_matches_included_source_tree": true
+  }
+}

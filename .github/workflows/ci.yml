@@ -15,6 +15,7 @@ jobs:
     timeout-minutes: 15
     env:
       QT_QPA_PLATFORM: offscreen
+      BL_IOS_UPSTREAM_SCRIPT: ${{ runner.temp }}/Bruteforce.sh
     strategy:
       fail-fast: false
       matrix:
@@ -47,7 +48,11 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libegl1 libopengl0 libxkbcommon0 libdbus-1-3
       - name: Test recovery, USB and SSH transport
-        run: python -m unittest discover -s tests -v
+        env:
+          BL_IOS_UPSTREAM_SCRIPT: ${{ runner.temp }}/Bruteforce.sh
+        run: |
+          python -c "import hashlib, os, pathlib, urllib.request; from ios_timeout.upstream import REVISION, SCRIPT_SHA256; data=urllib.request.urlopen('https://raw.githubusercontent.com/tuanemss/32bit-Bruteforce-Passcode/'+REVISION+'/Bruteforce.sh', timeout=30).read(); assert hashlib.sha256(data).hexdigest()==SCRIPT_SHA256; pathlib.Path(os.environ['BL_IOS_UPSTREAM_SCRIPT']).write_bytes(data)"
+          python -m unittest discover -s tests -v
       - name: Check launcher and installed CLI
         shell: bash
         run: |

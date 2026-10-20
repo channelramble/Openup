@@ -43,14 +43,16 @@ def build(destination, root=ROOT):
         "README.md", "RESEARCH.md", "VERIFICATION.txt", "CHANGELOG.md", "LICENSE",
         "Launch.command", "Launch.sh", "Launch.cmd", "bootstrap.py", "pyproject.toml", "requirements-lock.txt",
         ".gitignore", ".gitattributes", "build_release.py", "check_dependencies.py",
-        "desktop.py", "build_desktop.py", "desktop-build-lock.json",
+        "desktop.py", "build_desktop.py", "desktop-build-lock.json", "macos_compatibility.py",
         "requirements-desktop.txt", "requirements-build.txt", "THIRD_PARTY.md",
     ]
     paths = [root / name for name in names]
     paths += sorted((root / "ios_timeout").glob("*.py"))
     paths += sorted((root / "ios_timeout").glob("*.txt"))
     paths += sorted((root / "ios_timeout").glob("*.svg"))
+    paths += sorted(path for path in (root / "ios_timeout/data").rglob("*") if path.is_file())
     paths += sorted(path for path in (root / "packaging").rglob("*") if path.is_file())
+    paths += sorted(path for path in (root / "third_party").rglob("*") if path.is_file())
     paths += sorted(path for path in (root / "docs").rglob("*") if path.is_file())
     paths += sorted((root / "tests").glob("*.py"))
     paths += sorted((root / ".github").rglob("*.yml"))

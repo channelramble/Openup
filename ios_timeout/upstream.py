@@ -1,7 +1,8 @@
 """Pinned integration with tuanemss/32bit-Bruteforce-Passcode.
 
-Upstream source, binaries and firmware are downloaded separately, not vendored.
-Only the checked upstream revision is adapted; unknown scripts are rejected.
+The upstream host backend and firmware are downloaded separately. The app adds
+source-built ARMv6 payloads for iPhone 3G. Only the checked upstream revision is
+adapted; unknown scripts are rejected.
 """
 
 import hashlib
@@ -11,9 +12,11 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from importlib import resources
 from pathlib import Path
 
 from .backend_support import check_payloads
+from .armv6_payloads import extract_bundled_payloads, read_bundled_payloads
 from .core import ResetError
 
 REPOSITORY = "https://github.com/tuanemss/32bit-Bruteforce-Passcode.git"
@@ -48,6 +51,11 @@ def checkout_backend(directory):
 
 
 HOOK = r'''
+bl_ios_send() {
+    # Linux/WSL includes a sudo prefix; the backend tool path is space-free.
+    ${irecovery} -f "$1" || error "Firmware upload failed; boot cancelled."
+}
+
 bl_ios_validate() {
     local resolved payloads recovery
     recovery="$($irecovery -q 2>/dev/null)"
@@ -61,7 +69,7 @@ bl_ios_validate() {
     device_get_name
     log "Verified target: $device_type / ${device_model}ap"
     payloads="$PROJECT_ROOT/resources"
-    if [[ $device_proc == 1 && -n ${BL_IOS_ARMV6:-} ]]; then
+    if [[ $device_type == "iPhone1,2" && -n ${BL_IOS_ARMV6:-} ]]; then
         payloads="$BL_IOS_ARMV6"
     fi
     "$BL_IOS_PYTHON" -m ios_timeout.backend_support payloads "$device_type" "$payloads" ||
@@ -89,12 +97,21 @@ def adapt_script(original):
             HOOK + '\n# ==================== INIT ====================')
     replace('select_ramdisk_version() {\n', '''select_ramdisk_version() {
     if [[ $device_type == "iPhone1,2" ]]; then
-        log "iPhone 3G: using the 3.1.3/7E18 ramdisk matching the legacy kernel patch."
+        log "iPhone 3G: using the 4.2.1/8C148 ramdisk and bundled ARMv6 tools."
         log "This does not install or downgrade iOS."
-        device_target_build="7E18"
+        device_target_build="8C148"
         return
     fi
 ''')
+    replace('ipsw_get_url() {\n    local build_id="$1"\n', '''ipsw_get_url() {
+    local build_id="$1"
+    if [[ $device_type == "iPhone1,2" && $build_id == "8C148" ]]; then
+        ipsw_url="https://secure-appldnld.apple.com/iPhone4/061-9853.20101122.Vfgt5/iPhone1,2_4.2.1_8C148_Restore.ipsw"
+        return
+    fi
+''')
+    replace('if [[ $device_proc == 1 && $getcomp == "Kernelcache" ]]; then\n            name=',
+            'if [[ $device_type != "iPhone1,2" && $device_proc == 1 && $getcomp == "Kernelcache" ]]; then\n            name=')
     replace('iBSS.$device_model.RELEASE.dfu', 'iBSS.${device_model}ap.RELEASE.dfu')
     replace('iBEC.$device_model.RELEASE.dfu', 'iBEC.${device_model}ap.RELEASE.dfu')
     replace('$curl -sL "$url" -o "$file"', '$curl -fsSL "$url" -o "$file"')
@@ -104,7 +121,7 @@ def adapt_script(original):
     # Legacy firmware key indexes omit unencrypted iBSS/iBEC keys. Preserve raw
     # kernel decoding for the upstream legacy BSDIFF patch.
     replace('        "$dir/xpwntool" $getcomp.orig $getcomp.dec -iv $iv -k $key -decrypt',
-            '''        if [[ $device_proc == 1 && $getcomp == "Kernelcache" ]]; then
+            '''        if [[ $device_type != "iPhone1,2" && $device_proc == 1 && $getcomp == "Kernelcache" ]]; then
             kernel_iv="$iv"; kernel_key="$key"
             "$dir/xpwntool" "$getcomp.orig" "$getcomp.dec" -iv "$iv" -k "$key" ||
                 error "Legacy kernel decoding failed."
@@ -119,9 +136,50 @@ def adapt_script(original):
     kernel_line = '        $bspatch Kernelcache.dec Kernelcache.patched $PROJECT_ROOT/resources/patch/kernelcache.release.s5l8900x.patch'
     replace(kernel_line, kernel_line + '''
         "$dir/xpwntool" Kernelcache.patched Kernelcache.dec -t Kernelcache.orig -iv "$kernel_iv" -k "$kernel_key"''')
+    replace('    if [[ $device_proc == 1 ]]; then\n        # S5L8900 Kernel Patching',
+            '''    if [[ $device_type == "iPhone1,2" ]]; then
+        cp Kernelcache.dec Kernelcache.template || error "Could not preserve kernel template."
+        "$dir/xpwntool" Kernelcache.dec Kernelcache.raw
+        "$BL_IOS_PYTHON" -m ios_timeout.armv6_kernel Kernelcache.raw Kernelcache.patched ||
+            error "iPhone 3G 4.2.1 kernel validation failed; boot cancelled."
+        "$dir/xpwntool" Kernelcache.patched Kernelcache.dec -t Kernelcache.template
+    elif [[ $device_proc == 1 ]]; then
+        # S5L8900 Kernel Patching''')
+    replace('    if [[ $device_proc == 1 || $device_type == "iPod2,1" ]]; then\n        $bspatch iBSS.orig iBSS ',
+            '''    if [[ $device_type == "iPhone1,2" ]]; then
+        "$dir/xpwntool" iBSS.dec iBSS.raw
+        "$BL_IOS_PYTHON" -m ios_timeout.armv6_boot ibss "$dir/iBoot32Patcher" iBSS.raw iBSS.patched ||
+            error "iPhone 3G iBSS validation failed; boot cancelled."
+        "$dir/xpwntool" iBSS.patched iBSS -t iBSS.dec
+    elif [[ $device_proc == 1 || $device_type == "iPod2,1" ]]; then
+        $bspatch iBSS.orig iBSS ''')
+    replace('    "$dir/iBoot32Patcher" iBEC.raw iBEC.patched --rsa --debug -b "rd=md0 -v amfi=0xff cs_enforcement_disable=1"',
+            '''    if [[ $device_type == "iPhone1,2" ]]; then
+        "$BL_IOS_PYTHON" -m ios_timeout.armv6_boot ibec "$dir/iBoot32Patcher" iBEC.raw iBEC.patched ||
+            error "iPhone 3G iBEC validation failed; boot cancelled."
+    else
+        "$dir/iBoot32Patcher" iBEC.raw iBEC.patched --rsa --debug -b "rd=md0 -v amfi=0xff cs_enforcement_disable=1"
+    fi''')
+    replace('        cp $PROJECT_ROOT/resources/setup.sh setup.temp',
+            '''        if [[ $device_type == "iPhone1,2" ]]; then
+            "$dir/hfsplus" Ramdisk.raw add "$BL_IOS_3G_WAIT" usr/local/bin/bl-ios-wait
+            "$dir/hfsplus" Ramdisk.raw chmod 755 usr/local/bin/bl-ios-wait
+            cp "$BL_IOS_3G_SETUP" setup.temp || error "Managed iPhone 3G startup is missing."
+        else
+            cp $PROJECT_ROOT/resources/setup.sh setup.temp || error "Ramdisk startup copy failed."
+        fi''')
+    replace('            warn "ssh_old.tar not found! Trying standard ssh.tar (might fail)..."',
+            '''            [[ $device_type == "iPhone1,2" ]] && error "Required ARMv6 SSH archive is missing."
+            warn "ssh_old.tar not found! Trying standard ssh.tar (might fail)..."''')
+    replace('    mv iBSS iBEC DeviceTree.dec Kernelcache.dec Ramdisk.dmg $ramdisk_path 2>/dev/null',
+            '    mv iBSS iBEC DeviceTree.dec Kernelcache.dec Ramdisk.dmg $ramdisk_path || error "Could not publish all ramdisk components; boot cancelled."')
+    replace('for file in /*; do', 'for file in /var/root/*.plist /*; do')
     for name in ("bruteforce", "device_infos", "restored_external"):
         source = source.replace(f"$PROJECT_ROOT/resources/{name}",
                                 f"${{BL_IOS_PAYLOADS:-$PROJECT_ROOT/resources}}/{name}")
+    source = source.replace('$irecovery -f ', 'bl_ios_send ')
+    replace('                 warn "Exploit might have failed. Please re-enter DFU and try again if it fails."',
+            '                 error "S5L8900 pwnDFU verification failed. Re-enter DFU before retrying."')
     # Prevent firmware upload after a failed exploit check.
     start = source.index('            warn "Failed to detect pwned DFU mode."')
     end = source.index('\n        fi', start)
@@ -137,6 +195,10 @@ def adapt_script(original):
         if (re.match(r'^\s*(?:\$bspatch |"\$dir/xpwntool" )', line)
                 and not line.rstrip().endswith(("||", "\\"))):
             line += ' || error "Firmware patch/decode failed; boot cancelled."'
+        if re.match(r'^\s*"\$dir/hfsplus" Ramdisk.raw (?:grow|untar|add|chmod|mv) ', line):
+            line += ' || error "Required ramdisk update failed; boot cancelled."'
+        if line.strip() == '"$dir/hfsplus" Ramdisk.raw rm usr/local/bin/restored_external 2>/dev/null':
+            line += ' || error "Could not replace stock restore startup; boot cancelled."'
         lines.append(line)
     return ("\n".join(lines) + "\n").encode()
 
@@ -145,12 +207,13 @@ def run_backend(args):
     if not args.apply and not args.install_only:
         print(f"Backend: {REPOSITORY}\nPinned revision: {REVISION}")
         print("Preview only. Add --apply to prepare and boot the upstream passcode-recovery ramdisk.")
-        print("iPhone 3G requires --armv6-tools; the upstream executables are ARMv7.")
+        print("iPhone 3G uses bundled ARMv6 tools and a 4.2.1 recovery ramdisk. --armv6-tools is an optional override.")
         return 0
+    # The managed startup's wait helper always comes from our verified bundle,
+    # even when a developer overrides the three recovery executables.
+    read_bundled_payloads()
     backend = checkout_backend(args.backend_dir or args.state_dir / "backends/32bit-Bruteforce-Passcode")
     patched = adapt_script((backend / "Bruteforce.sh").read_bytes())
-    if args.model and not args.install_only:
-        check_payloads(args.model, args.armv6_tools or backend / "resources")
     if not shutil.which("bash"):
         raise ResetError("Bash is required. On Windows use WSL 2.")
     # Upstream has unquoted paths. A private, space-free alias avoids changing
@@ -169,10 +232,19 @@ def run_backend(args):
                "BL_IOS_MODEL": args.model or "",
                "PYTHONPATH": str(Path(__file__).resolve().parent.parent) +
                (os.pathsep + os.environ["PYTHONPATH"] if os.environ.get("PYTHONPATH") else "")}
+        startup = folder / "iphone3g-setup.sh"
+        startup.write_bytes(resources.files("ios_timeout").joinpath("data/iphone3g-setup.sh").read_bytes())
+        env["BL_IOS_3G_SETUP"] = str(startup)
+        bundled_payloads = extract_bundled_payloads(folder / "bundled-armv6")
+        env["BL_IOS_3G_WAIT"] = str(bundled_payloads / "restored_external")
         if args.armv6_tools:
             payloads = folder / "armv6"
             payloads.symlink_to(args.armv6_tools.expanduser().resolve(), target_is_directory=True)
-            env["BL_IOS_ARMV6"] = str(payloads)
+        else:
+            payloads = bundled_payloads
+        if args.model:
+            check_payloads(args.model, payloads if args.model == "iPhone1,2" else backend / "resources")
+        env["BL_IOS_ARMV6"] = str(payloads)
         print("Connect exactly one phone. Follow the backend's DFU and dependency prompts.", flush=True)
         print("The backend performs passcode recovery on the phone; results are not logged by this app.", flush=True)
         result = subprocess.run(["bash", str(script)], cwd=folder, env=env, check=False)

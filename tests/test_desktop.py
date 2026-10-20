@@ -49,9 +49,18 @@ class DesktopPlanningTests(unittest.TestCase):
         self.assertEqual(parsed.model, "iPhone1,2")
         self.assertFalse(parsed.apply)
 
-    def test_recovery_requires_armv6_before_starting_3g(self):
-        with self.assertRaises(ResetError):
-            operation_arguments("bruteforce", Settings(), apply=True)
+    def test_recovery_uses_bundled_armv6_for_3g_and_rejects_damaged_bundle(self):
+        args = operation_arguments("bruteforce", Settings(), apply=True)
+        self.assertIn("--apply", args)
+        self.assertNotIn("--armv6-tools", args)
+        self.assertEqual(parser().parse_args(args).model, "iPhone1,2")
+        for problem in ("missing", "corrupt"):
+            with self.subTest(problem=problem), patch(
+                "ios_timeout.armv6_payloads.read_bundled_payloads",
+                side_effect=ResetError(problem),
+            ):
+                with self.assertRaisesRegex(ResetError, problem):
+                    operation_arguments("bruteforce", Settings(), apply=True)
         args = operation_arguments("bruteforce", Settings(), install_only=True)
         self.assertIn("--install-only", args)
         self.assertNotIn("--apply", args)
@@ -109,16 +118,30 @@ class DesktopUpdateTests(unittest.TestCase):
                 self.assertTrue((root / "app/runtime/bin/python3").stat().st_mode & 0o100)
 
     def test_mac_inventory_stays_outside_signed_application(self):
-        with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
-            archive = root / "update.zip"
-            digest = desktop_zip(archive, target="macos-arm64")
-            updates.extract_archive(archive, root / "bundle", "2.1.0", "macos-arm64", digest)
-            self.assertTrue((root / "bundle/DESKTOP.json").exists())
-            app = root / "bundle/Bruteforce Legacy iOS.app"
-            self.assertFalse((app / "DESKTOP.json").exists())
-            source = app / "Contents/Resources/app"
-            self.assertEqual(updates.find_bundle(source), root / "bundle")
+        for target in ("macos-arm64", "macos-x86_64"):
+            with self.subTest(target=target), tempfile.TemporaryDirectory() as folder:
+                root = Path(folder)
+                archive = root / "update.zip"
+                digest = desktop_zip(archive, target=target)
+                updates.extract_archive(archive, root / "bundle", "2.1.0", target, digest)
+                self.assertTrue((root / "bundle/DESKTOP.json").exists())
+                app = root / "bundle/Bruteforce Legacy iOS.app"
+                self.assertFalse((app / "DESKTOP.json").exists())
+                source = app / "Contents/Resources/app"
+                self.assertEqual(updates.find_bundle(source), root / "bundle")
+
+    def test_intel_mac_update_selects_intel_package(self):
+        releases = [{"tag_name": "v9.0.0", "assets": [
+            {"name": f"Bruteforce-Legacy-iOS-9.0.0-{target}.zip", "id": index + 1,
+             "size": 20, "digest": "sha256:" + "a" * 64}
+            for index, target in enumerate(("macos-arm64", "macos-x86_64"))
+        ]}]
+        with patch.object(updates.sys, "platform", "darwin"), \
+             patch.object(updates.platform, "machine", return_value="x86_64"), \
+             patch.object(updates, "open_github", return_value=io.BytesIO(json.dumps(releases).encode())):
+            release = updates.check()
+        self.assertEqual(release["target"], "macos-x86_64")
+        self.assertEqual(release["asset"]["id"], 2)
 
     def test_wrong_target_and_unsafe_paths_rejected(self):
         with tempfile.TemporaryDirectory() as folder:

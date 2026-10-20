@@ -1,0 +1,13 @@
+diff --git a/cctools/ld64/src/ld/InputFiles.cpp b/cctools/ld64/src/ld/InputFiles.cpp
+index ab88882..804849c 100644
+--- a/cctools/ld64/src/ld/InputFiles.cpp
++++ b/cctools/ld64/src/ld/InputFiles.cpp
+@@ -330,7 +330,7 @@ ld::File* InputFiles::makeFile(const Options::FileInfo& info, bool indirectDylib
+ 			// if requested architecture is page aligned within fat file, then remap just that portion of file
+ 			// ld64-port: remapping the file on Cygwin fails for an unknown reason, so always go the alternative way there
+ #ifndef __CYGWIN__
+-			if ( (fileOffset & PAGE_MASK) == 0 ) {
++			if ( (fileOffset % (uint32_t)sysconf(_SC_PAGESIZE)) == 0 ) {
+ 				// unmap whole file
+ 				munmap((caddr_t)p, stat_buf.st_size);
+ 				// re-map just part we need

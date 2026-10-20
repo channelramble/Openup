@@ -55,6 +55,9 @@ def build_runner(path):
         for item in package.iterdir():
             if item.name.endswith((".py", ".txt")):
                 archive.writestr("ios_timeout/" + item.name, item.read_bytes())
+        for item in package.joinpath("data").iterdir():
+            if item.is_file():
+                archive.writestr("ios_timeout/data/" + item.name, item.read_bytes())
         archive.writestr("__main__.py",
                          "from ios_timeout.launcher import main\nraise SystemExit(main())\n")
 

@@ -2,7 +2,7 @@
 
 [![Test and package](https://github.com/channelramble/Bruteforce-Legacy-iOS/actions/workflows/ci.yml/badge.svg)](https://github.com/channelramble/Bruteforce-Legacy-iOS/actions/workflows/ci.yml)
 
-A desktop app for legacy iPhone recovery. Version **2.0.0** replaces the terminal menu with a GUI for device selection, timer reset, [32bit-Bruteforce-Passcode](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, diagnostics, and updates.
+A desktop app for legacy iPhone recovery. Version **2.0.1** adds Intel Mac builds targeting macOS 12 Monterey and includes ARMv6 recovery tools for the iPhone 3G. The GUI provides device selection, timer reset, [32bit-Bruteforce-Passcode](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, diagnostics, and updates.
 
 **Desktop downloads include Python, Qt, SSH libraries, and their Python dependencies. No Python, pip, virtual environment, or package installation is needed to open the app.** The Windows archive also includes the Linux Python/SSH runtime used by its WSL bridge.
 
@@ -10,17 +10,20 @@ A desktop app for legacy iPhone recovery. Version **2.0.0** replaces the termina
 
 ## Download and open
 
-Get the platform archive from [version 2.0.0](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.0.0) and extract it completely.
+Get the platform archive from [version 2.0.1](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.0.1) and extract it completely.
 
 | Computer | Download suffix | Open |
 |---|---|---|
+| Intel Mac, macOS 12 Monterey+ | `macos-x86_64.zip` | `Bruteforce Legacy iOS.app` |
 | Apple Silicon Mac, macOS 14+ | `macos-arm64.zip` | `Bruteforce Legacy iOS.app` |
 | Windows x64 | `windows-x86_64.zip` | `Bruteforce Legacy iOS.exe` |
 | Linux x64 desktop, Ubuntu 22.04+ or equivalent | `linux-x86_64.zip` | `Bruteforce Legacy iOS` |
 
-Keep the extracted Windows/Linux folder together; it contains the bundled runtime. The Mac `.app` can be moved to Applications. These downloads are not Developer ID notarized or Windows Authenticode signed, so operating-system download protection may require an explicit open action. An Intel Mac binary is not included: the pinned cryptography release no longer publishes that platform's wheel.
+Keep the extracted Windows/Linux folder together; it contains the bundled runtime. The Mac `.app` can be moved to Applications. These downloads are not Developer ID notarized or Windows Authenticode signed, so operating-system download protection may require an explicit open action.
 
-USB access still depends on the host: macOS's usbmuxd service, Apple Mobile Device Service on Windows, or usbmuxd/USB permissions on Linux. Windows ramdisk backends use WSL 2 and usbipd-win. The external recovery backends may request their own system tools or elevated access. Bundling the desktop runtime does not replace drivers, WSL, firmware downloads, or compatible on-device executables.
+Both Mac builds include Python 3.13.16 and Qt/PySide6 6.9.3. The Intel build uses cryptography 48.0.1; the other platforms use 50.0.2. Each Mac build checks every native binary's architecture, minimum macOS version, and library dependencies before signing. The Intel development build opened all six GUI pages under Rosetta on macOS 27; execution on an Intel Mac running Monterey is still untested. [Qt 6.9 platform support](https://doc.qt.io/archives/qt-6.9/supported-platforms.html), [cryptography 48.0.1 distributions](https://pypi.org/project/cryptography/48.0.1/#files).
+
+USB access still depends on the host: macOS's usbmuxd service, Apple Mobile Device Service on Windows, or usbmuxd/USB permissions on Linux. Windows ramdisk backends use WSL 2 and usbipd-win. The external recovery backends may request their own system tools or elevated access. The iPhone 3G ARMv6 executables are included; drivers, WSL, firmware downloads, and backend host tools remain separate requirements.
 
 ## Use the GUI
 
@@ -35,13 +38,13 @@ Long operations run outside the GUI process. **Interrupt** sends a graceful term
 
 Desktop updates verify the GitHub asset digest, platform, clean source revision, archive paths, and all packaged file checksums. They stage a complete replacement runtime, then switch versions. The original launcher remains your entry point; rollback selects the previous installation. A damaged update falls back to the original app's recovery UI.
 
-**Hardware validation is pending.** Physical ramdisk boot, passcode recovery, USB passthrough, and on-screen timer clearance remain unverified. The upstream ARMv7 executables still cannot run on an ARMv6 iPhone 3G; compatible ARMv6 tools must be supplied separately. See `VERIFICATION.txt`.
+**Hardware validation is pending.** Physical ramdisk boot, passcode recovery, USB passthrough, and on-screen timer clearance remain unverified. The included iPhone 3G executables have passed architecture, signature, reproducibility, and ramdisk import checks; those checks do not establish successful recovery on a phone. Native Windows execution also remains unverified. See `VERIFICATION.txt`.
 
 The `reset` workflow still requires the correct passcode afterward. The separate `bruteforce` command runs the externally downloaded recovery backend. Activation Lock removal and setup.app removal are outside this app's scope.
 
 ## Source edition and CLI
 
-The unqualified `Bruteforce-Legacy-iOS-2.0.0.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
+The unqualified `Bruteforce-Legacy-iOS-2.0.1.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
 
 Download the ZIP from [Releases](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases) and extract the whole folder onto the computer connected to the phone. Python 3.9 or newer is required.
 
@@ -81,7 +84,7 @@ Select menu option **8**, or run:
 
 Use `bash Launch.sh` on Linux or `Launch.cmd` on Windows with the same arguments.
 
-The 3G is `iPhone1,2` / `n82ap`. `m68ap` belongs to the original iPhone; an `iBSS.m68ap.RELEASE.dfu` error on a 3G can indicate incorrect device selection. The explicit 3G route selects `n82ap` and the **3.1.3 / 7E18 boot ramdisk** used by Legacy iOS Kit. This does not downgrade the installed iOS 4 system. The reset adapter recognizes the older `/dev/disk0s1` and `/dev/disk0s2` partitions.
+The 3G is `iPhone1,2` / `n82ap`. `m68ap` belongs to the original iPhone; an `iBSS.m68ap.RELEASE.dfu` error on a 3G can indicate incorrect device selection. The explicit 3G **timer-reset** route selects `n82ap` and the **3.1.3 / 7E18 boot ramdisk** used by Legacy iOS Kit. This does not downgrade the installed iOS 4 system. The reset adapter recognizes the older `/dev/disk0s1` and `/dev/disk0s2` partitions.
 
 If downloading the boot components fails, provide a complete local **iPhone 3G 3.1.3 / 7E18** IPSW:
 
@@ -90,6 +93,8 @@ If downloading the boot components fails, provide a complete local **iPhone 3G 3
 ```
 
 The app validates the IPSW product, build, and `iBSS.n82ap.RELEASE.dfu` entry before copying it into the backend cache. An exact failure log and a connected 3G are still needed to confirm that the reported failure is resolved on hardware.
+
+The separate **passcode-recovery** route uses the **4.2.1 / 8C148** ramdisk and matching kernel. Its kernel patch requires the expected input hash and all seven expected byte patterns; an unexpected kernel stops preparation. The 3.1.3 timer-reset IPSW option above does not select the passcode-recovery firmware.
 
 ## Integrated passcode-recovery backend
 
@@ -108,13 +113,23 @@ Run it for a supported legacy iPhone:
 
 The backend is downloaded directly from tuanemss at commit `4949674b318767de83eb149e57bcc543a6453d6e`. Its script hash and checkout are checked before compatibility edits are applied. The adapter fixes fallback iBSS/iBEC filenames, cross-checks chip/board IDs, rejects incompatible executables, and stops when patching or pwnDFU verification fails.
 
-**The upstream bundle's on-device executables are ARMv7. They cannot run on an ARMv6 iPhone 3G.** The app stops before booting them. To use that backend on a 3G, supply compatible, ramdisk-tested ARMv6 builds of `bruteforce`, `device_infos`, and `restored_external`:
+For an iPhone 3G, version 2.0.1 automatically supplies ARMv6 builds of `bruteforce`, `device_infos`, and `restored_external`:
+
+```sh
+./Launch.command bruteforce --model iPhone1,2 --apply
+```
+
+The tools were built from [iphone-dataprotection](https://github.com/nabla-c0d3/iphone-dataprotection/tree/572dd5cd8c07f5f14f7ea9488041031dd22a26bb) at commit `572dd5cd8c07f5f14f7ea9488041031dd22a26bb`, using the iPhoneOS 4.2 SDK with an iOS 4.0 deployment target. Their bundled ZIP preserves the SHA-1 and SHA-256 signatures needed by the legacy executables; the app verifies hashes and extracts them into a private temporary directory for each operation. No separate tools folder is required.
+
+Two builds produced identical executables, and all three tools' imports were checked against the actual 4.2.1 ramdisk. Physical recovery remains untested. The source, build recipe, provenance, and license notices are included in the release; see [THIRD_PARTY.md](THIRD_PARTY.md).
+
+An explicit folder remains available for developers testing alternative ARMv6 builds:
 
 ```sh
 ./Launch.command bruteforce --model iPhone1,2 --armv6-tools "/path/armv6-tools" --apply
 ```
 
-These ARMv6 builds are not included or compiled by this release. A Mach-O architecture check establishes CPU compatibility, not end-to-end recovery compatibility. The 3G timer-reset command above is available independently.
+The app continues to reject the upstream ARMv7 executables for an ARMv6 3G. The 3G timer-reset command above is available independently.
 
 The upstream backend runs its own firmware and on-device recovery workflow. The transaction backups and rollback described below apply to this app's `reset` operation, not to upstream ramdisk tools. Backend prompts remain interactive. Connect one phone for preparation.
 
@@ -276,9 +291,9 @@ To build the source ZIP:
 python3 build_release.py
 ```
 
-The archive in `dist/` contains only explicitly selected source, documentation, and tests. It includes file checksums, a `SOURCE.json` revision record, and an executable launcher. Runtime data, downloaded firmware, dependencies, and backups are excluded.
+The archive in `dist/` contains explicitly selected source, documentation, tests, and the verified 3G payload/source archives. It includes file checksums, a `SOURCE.json` revision record, and an executable launcher. User runtime data, downloaded firmware, desktop runtime dependencies, and backups are excluded.
 
-The MIT license covers this app's code. External backend source, executables, and firmware are downloaded separately and retain their respective terms and attribution.
+The MIT license covers this app's code. Included iphone-dataprotection sources and executables retain their original notices and terms. External backend checkouts and firmware are downloaded separately. See [THIRD_PARTY.md](THIRD_PARTY.md).
 
 ## Build desktop distributions
 
@@ -289,6 +304,7 @@ python3 -m venv .desktop-venv
 .desktop-venv/bin/python -m pip install -r requirements-build.txt
 .desktop-venv/bin/python desktop.py --self-test
 .desktop-venv/bin/python -m unittest discover -s tests -v
+.desktop-venv/bin/python build_desktop.py --target macos-x86_64
 .desktop-venv/bin/python build_desktop.py --target macos-arm64
 .desktop-venv/bin/python build_desktop.py --target windows-x86_64
 .desktop-venv/bin/python build_desktop.py --target linux-x86_64
@@ -296,6 +312,6 @@ python3 -m venv .desktop-venv
 
 Use a clean committed checkout for release builds. `--allow-dirty` is for local development; the updater rejects those archives. `desktop-build-lock.json` pins every Python runtime, wheel, and bundled Linux X11 library by URL, size, and SHA-256. `--prepare-lock` deliberately refreshes the runtime/wheel lock and requires review before committing.
 
-The macOS launcher requires Apple's compiler and `iconutil`; Windows launcher compilation requires MinGW-w64 GCC/windres (cross-compilation from macOS is supported). Linux uses the included freestanding ELF launcher, with its source/binary hashes checked during assembly; rebuild it on Linux with `sh packaging/build-linux-launcher.sh` after editing its C source. A shell launcher is also included. This assembles target-specific prebuilt runtimes and wheels; assembly alone is not an execution test of a foreign platform.
+The macOS launcher requires Apple's compiler and `iconutil`; Windows launcher compilation requires MinGW-w64 GCC/windres (cross-compilation from macOS is supported). Mac builds inspect all Mach-O binaries for the requested architecture, declared deployment target, and hardcoded library dependencies outside the bundle or system locations. Unused Qt SQL plugins with external database dependencies are omitted. Linux uses the included freestanding ELF launcher, with its source/binary hashes checked during assembly; rebuild it on Linux with `sh packaging/build-linux-launcher.sh` after editing its C source. A shell launcher is also included. This assembles target-specific prebuilt runtimes and wheels; assembly alone is not an execution test of a foreign platform.
 
 Each desktop ZIP contains its full checksum inventory and source revision in `DESKTOP.json`. Bundled libraries retain their license notices and remain dynamically replaceable. See [THIRD_PARTY.md](THIRD_PARTY.md).

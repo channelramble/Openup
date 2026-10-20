@@ -52,7 +52,8 @@ def operation_arguments(action, settings, *, apply=False, backup=None, install_o
         if install_only and apply:
             raise ResetError("Choose either download or run.")
         if apply and settings.model == "iPhone1,2" and not settings.armv6_tools:
-            raise ResetError("iPhone 3G recovery needs compatible ARMv6 executables. Choose their folder first.")
+            from .armv6_payloads import read_bundled_payloads
+            read_bundled_payloads()
         if settings.model:
             args += ["--model", settings.model]
         if settings.armv6_tools:

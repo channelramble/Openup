@@ -1,3 +1,78 @@
+Bruteforce Legacy iOS 2.0.1 — Intel Monterey and bundled 3G tools
+Verification date: 2026-10-20
+
+Mac compatibility:
+  Intel x86-64 targets macOS 12.0 Monterey; Apple Silicon stays at macOS 14.0.
+  Both Mac targets include Python 3.13.16 and Qt/PySide6/Shiboken 6.9.3.
+  Intel uses cryptography 48.0.1; the other targets retain 50.0.2.
+  The builder validates every loadable Mach-O image's selected architecture,
+  declared deployment version, and hardcoded dylib dependency locations.
+  Unused Qt SQL driver plugins with external database dependencies are omitted.
+  Initial Intel development package: 225 native binaries checked, with a
+  maximum declared deployment target of macOS 12.0.0.
+  The included interpreter and six-page GUI self-test passed under Rosetta
+  on the MacBook running macOS 27. This is not a Monterey execution test.
+  Actual Intel Monterey hardware has not been tested.
+
+  A retrospective v2.0.0 audit found 29 Qt/PySide/Shiboken images declaring
+  macOS 26.0, another 203 Qt images declaring 14.4, and three optional SQL
+  plugins linked to external database libraries. Its historical macOS 14+
+  label did not match all bundled binaries. The v2.0.1 dependency selection
+  and mandatory native-binary checks address that packaging problem.
+
+iPhone 3G ARMv6 payload checks:
+  Source: nabla-c0d3/iphone-dataprotection
+  Revision: 572dd5cd8c07f5f14f7ea9488041031dd22a26bb
+  Tools: bruteforce, device_infos, restored_external.
+  A documented source patch removes automatic filesystem-repair calls and adds
+  a bounded native wait mode before device initialization. Original source
+  copies and the patch accompany the modified sources.
+  Built for ARMv6 with the iPhoneOS 4.2 SDK and a true iOS 4.0 minimum target.
+  Two builds produced identical executables.
+  All imports in all three tools resolved against the actual 4.2.1 ramdisk.
+  The bundled ZIP preserves SHA-1 and SHA-256 code signatures and avoids
+  host macOS signing rewriting the on-device executables.
+  The app verifies hashes before automatic extraction into a private
+  per-operation temporary directory; no separate tools folder is required.
+  Complete sources, rebuild recipe, provenance, notices, and license terms
+  accompany the payloads in the app and source distribution.
+
+3G firmware profiles:
+  Passcode recovery: 4.2.1 / 8C148 ramdisk and matching kernel. Kernel input
+  hash and all seven expected patch patterns must match before patching.
+  Both iBSS and iBEC require exact original and patched hashes, and both get
+  explicit RAM-disk boot arguments without nand-enable-reformat.
+  Managed startup skips the upstream read/write mount script. The recovery
+  executable mounts data read-only. Required ramdisk mutations and uploads
+  stop on failure; stock restore startup cannot be used after a failed edit.
+  Timer reset: separate Legacy iOS Kit 3.1.3 / 7E18 boot profile, retaining
+  local IPSW validation. These boot profiles do not downgrade installed iOS.
+
+  The complete adapted create_sshrd preparation pipeline passed offline with
+  cached Apple components and real firmware tools. Extracted output contained
+  the exact three payloads, managed startup, and separate wait helper, all 0755.
+  iBSS, iBEC, and kernel roundtrips matched their validated profiles; the decoded
+  DeviceTree parsed successfully. Every managed shell command was available.
+  Exact hashes, modes, and command checks are recorded in
+  docs/iphone3g-offline-verification.json. This was a host preparation test;
+  no phone was accessed, booted, or modified during this check.
+
+Remaining limits:
+  No physical DFU boot, firmware boot, mount, timer clearance, or passcode
+  recovery has been validated on an iPhone. Import and architecture checks
+  do not establish working on-device behavior.
+  Native Windows/ConPTY execution and WSL USB passthrough remain unverified.
+  macOS signing is ad-hoc, without Developer ID signing or notarization.
+  Windows binaries are not Authenticode signed.
+  USB drivers, WSL, and external backend system tools remain host requirements.
+  Final package checks, exact test totals, and release-specific CI results:
+  https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.0.1
+
+Historical verification follows. These records describe the indicated older
+releases; the v2.0.1 findings above supersede their Mac compatibility claims
+and statements that compatible ARMv6 executables are unavailable.
+============================================================
+
 Bruteforce Legacy iOS 2.0.0 — desktop GUI
 Verification date: 2026-10-20
 

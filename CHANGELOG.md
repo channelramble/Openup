@@ -1,5 +1,17 @@
 # Changes
 
+## 2.0.1
+
+- Add an Intel Mac desktop archive targeting macOS 12 Monterey, including Python 3.13.16, Qt 6.9.3, and cryptography 48.0.1.
+- Use Qt 6.9.3 on Apple Silicon as well; retain the macOS 14 minimum and cryptography 50.0.2 on that target.
+- Inspect every Mac native binary's architecture, deployment version, and hardcoded library dependencies before signing. Omit unused Qt SQL drivers that require external database libraries.
+- Forward command-line arguments from the native Mac launcher, including `--self-test` and `--original`.
+- Include reproducibly built iPhone 3G ARMv6 recovery executables, their source/build recipe, provenance, and original license notices. Verify the bundled archive and extract it automatically into a private temporary directory; preserve its legacy code signatures.
+- Require the matching 4.2.1/8C148 ramdisk and kernel for 3G passcode recovery, with input-hash verification and all seven expected kernel patch patterns. Keep timer-reset preparation on its separate 3.1.3/7E18 profile.
+- Validate exact iBSS/iBEC hashes and RAM-disk boot arguments. Use managed startup with a bundled native wait helper, no automatic filesystem repair or read/write data mounts, and stop on preparation failures. Verify the complete preparation pipeline offline.
+
+The Intel development build passed its six-page GUI self-test under Rosetta on macOS 27. Actual Monterey hardware, native Windows execution, and physical iPhone recovery remain untested. The following entries describe earlier releases; the ARMv6 availability and Mac compatibility changes above supersede their corresponding limitations. Release-specific verification is recorded with [v2.0.1](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.0.1).
+
 ## 2.0.0
 
 - Replace the terminal-first experience with a Qt desktop workspace: devices, timer reset, recovery backend, backups, updates, and diagnostics.
