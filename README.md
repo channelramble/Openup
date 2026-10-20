@@ -153,7 +153,7 @@ The suite covers plist formats and types, compatibility checks, corruption, inte
 
 `VERIFICATION.txt` records the checks performed. The simulated server is not an iPhone emulator.
 
-CI runs on macOS with Python 3.9 and 3.13 and Linux with Python 3.13. Linux CI validates host logic and transport simulations; the integrated device-preparation workflow remains macOS-only.
+CI is configured for macOS with Python 3.9 and 3.13 and Linux with Python 3.13. GitHub blocked the initial run before testing because of account billing/spending limits; see `VERIFICATION.txt`. Linux CI covers host logic and transport simulations; the integrated device-preparation workflow remains macOS-only.
 
 For a regular Python environment, `python3 -m pip install .` exposes `bruteforce-legacy-ios`; the previous `iphone-timeout-reset` command remains an alias.
 

@@ -53,10 +53,14 @@ Test coverage:
   USB records, read-only data volumes, full dependency drift detection.
 
 Remote CI:
-  .github/workflows/ci.yml runs on macOS/Python 3.9 and 3.13,
-  and Linux/Python 3.13. Results are recorded by GitHub for each commit:
+  .github/workflows/ci.yml is configured for macOS/Python 3.9 and 3.13,
+  and Linux/Python 3.13. Results are recorded by GitHub:
   https://github.com/channelramble/Bruteforce-Legacy-iOS/actions/workflows/ci.yml
-  This local record does not substitute for a successful CI run.
+  Run 39432998022 for commit 9a81d186c759769449fc4e680d8b718120f4e2b9
+  was blocked before any job steps started. GitHub reported failed account
+  payments or a spending limit requiring an increase. No remote test passed
+  or failed; all three jobs were prevented from starting.
+  Billing settings were not changed. Hosted CI remains unverified.
 
 Limits:
   The SSH/SFTP fixture is not an iPhone emulator.
