@@ -27,7 +27,7 @@ The build recipe and linker patch were added for this distribution. One payload 
 filesystem repair while retaining device readiness checks and USB initialization.
 It also provides a bounded --sleep SECONDS mode (0..3600), returning before any
 hardware initialization, for RAM disks lacking an external sleep utility.
-It verifies that the root is the HFS RAM disk /dev/md0 and updates it through
+It verifies the HFS root device number against /dev/md0 and updates it through
 the mount system call only when read-only, checking the resulting writable state.
 This avoids mount_hfs reopening the mounted RAM device and printing EBUSY (16).
 The original file is retained in original/ramdisk_tools/restored_external.c; the

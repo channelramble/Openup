@@ -31,6 +31,7 @@ class RamdiskRootTests(unittest.TestCase):
         harness.write_text(r'''
 #include <sys/types.h>
 #include <sys/mount.h>
+#include <sys/stat.h>
 #include <hfs/hfs_mount.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,12 +50,24 @@ static int test_statfs(const char *path, struct statfs *out) {
     }
     memset(out, 0, sizeof(*out));
     strcpy(out->f_mntonname, !strcmp(scenario, "wrong-target") ? "/mnt2" : "/");
-    strcpy(out->f_mntfromname, !strcmp(scenario, "nand") ? "/dev/disk0s1" : "/dev/md0");
+    strcpy(out->f_mntfromname, "root_device");
     strcpy(out->f_fstypename, !strcmp(scenario, "wrong-fs") ? "apfs" : "hfs");
     out->f_flags = MNT_NOATIME | MNT_ROOTFS | MNT_LOCAL;
     if (strcmp(scenario, "writable") &&
         (queries == 1 || !strcmp(scenario, "stays-readonly")))
         out->f_flags |= MNT_RDONLY;
+    return 0;
+}
+static int test_stat(const char *path, struct stat *out) {
+    memset(out, 0, sizeof(*out));
+    if (!strcmp(scenario, "identity-query-fails")) { errno = EIO; return -1; }
+    if (!strcmp(path, "/")) {
+        out->st_dev = !strcmp(scenario, "nand") ? 99 : 7;
+    } else {
+        assert(!strcmp(path, "/dev/md0"));
+        out->st_rdev = 7;
+        out->st_mode = !strcmp(scenario, "not-block-device") ? S_IFREG : S_IFBLK;
+    }
     return 0;
 }
 static int test_mount(const char *type, const char *path, int flags, void *data) {
@@ -71,6 +84,7 @@ static int test_mount(const char *type, const char *path, int flags, void *data)
     return 0;
 }
 #define statfs(path, out) test_statfs(path, out)
+#define stat(path, out) test_stat(path, out)
 #define mount(type, path, flags, data) test_mount(type, path, flags, data)
 ''' + helper.group(0) + r'''
 int main(int argc, char **argv) {
@@ -99,7 +113,7 @@ int main(int argc, char **argv) {
                 self.assertEqual(result.stderr, "")
 
     def test_unknown_root_or_query_failure_never_reaches_mount(self):
-        for scenario in ("nand", "wrong-target", "wrong-fs", "query-fails"):
+        for scenario in ("nand", "wrong-target", "wrong-fs", "query-fails", "identity-query-fails", "not-block-device"):
             with self.subTest(scenario=scenario):
                 result = self.run_helper(scenario)
                 self.assertEqual(result.returncode, 1)

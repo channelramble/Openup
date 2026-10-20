@@ -59,16 +59,22 @@ checked against the actual ARMv6 libraries from Apple's iPhone1,2 4.2.1 8C148
 restore ramdisk. VALIDATION.json records exact firmware/library hashes and
 signature results. Source/kernel compatibility still requires the matching
 4.2.1 ramdisk and the kernel patches supplied by the host application's adapter.
-No iPhone execution, ramdisk boot, or physical-device recovery has been tested.
+The rebuilt restored_external booted on the owner's iPhone1,2 in a diagnostic
+4.2.1 RAM disk. Authenticated SSH/SFTP verified the binary hash and writable
+/dev/md0 root, with only devfs mounted alongside it. Its --sleep 1 and invalid
+--sleep 3601 paths were also exercised. Passcode recovery, device_infos and
+timer clearing were not run. See the host application VERIFICATION.txt for scope.
 
 Automatic repair policy
 
 The application does not automatically run filesystem repair. The restored_external
 payload waits for the data partition without invoking fsck_hfs. Its USB setup is retained.
-The RAM root helper checks statfs, requires an HFS /dev/md0 root, and skips
+The RAM root helper checks statfs, requires an HFS root whose device number matches the /dev/md0 block device,
+and skips
 an already writable root. A required read-only-to-writable update uses mount(2)
 with the pinned XNU hfs_mount_args header. This avoids mount_hfs reopening the
-mounted block device and emitting GetMasterBlock EBUSY (16). Ownership, encoding,
+mounted block device and emitting GetMasterBlock EBUSY (16). XNU initially labels
+the root root_device; the identity check does not depend on that label. Ownership, encoding,
 permissions and timezone are retained. Failed or ineffective updates stop startup.
 The original mountDataPartition implementation
 used by bruteforce mounts the data partition with MNT_RDONLY. Kernel NAND boot

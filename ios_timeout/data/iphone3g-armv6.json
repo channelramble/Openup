@@ -12,18 +12,18 @@
     "original_project_license": "BSD-3-Clause",
     "original_project_metadata": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/iphone-dataprotection/project.json",
     "original_project_metadata_sha256": "da7a37449fb69b584351f4b9aee89b6bbc4e03426d925c33534c46d76578eed8",
-    "modification": "Removed three automatic fsck_hfs commands from restored_external, retaining partition readiness checks, USB initialization, kernel boot arguments and original read-only data mounting. Added a strict decimal --sleep SECONDS mode (0..3600) which returns before hardware initialization and resumes interrupted libc sleep calls. Require an HFS /dev/md0 root; skip an already writable root, otherwise use a checked mount(2) update with the pinned XNU HFS arguments to avoid mount_hfs reopening the mounted RAM device.",
+    "modification": "Removed three automatic fsck_hfs commands from restored_external, retaining partition readiness checks, USB initialization, kernel boot arguments and original read-only data mounting. Added a strict decimal --sleep SECONDS mode (0..3600) which returns before hardware initialization and resumes interrupted libc sleep calls. Verify the HFS root's device number against the /dev/md0 block device, accepting XNU's initial root_device label. Skip an already writable root; otherwise use a checked mount(2) update with the pinned XNU HFS arguments to avoid mount_hfs reopening the mounted RAM device.",
     "patch": {
       "file": "payload-no-auto-fsck.patch",
-      "sha256": "f3464927e0d5dc573c42d167a912766e91f4189b71ea5b9d0d7a4b5287da2891",
+      "sha256": "aa67cfbe9c616cc7117b0f59a44ab9388388daeec74492a561a6fa4be670d9e6",
       "original_file": "original/ramdisk_tools/restored_external.c",
       "original_sha256": "061d0aa178d1123da9208744f64d054be5333d521a052bec7f06ea06f0a547bd",
       "modified_file": "source/ramdisk_tools/restored_external.c",
-      "modified_sha256": "d11cc879dc7ba886a89bd7c8b1e2a15c0a6f7014a01b39a143bc17011c4a43d1"
+      "modified_sha256": "9f587d285f4e12058196e33e93a2041dad3b800498dc25f3c000c32d3fb14e2f"
     },
     "license_mapping_evidence": "licenses/google-code-license-mapping.json"
   },
-  "archive_sha256": "3be9a86c7ca3ebf2b9a7140686c1a61c9e90bf3ce3222decd09e4804dc7171ec",
+  "archive_sha256": "103edd0188e1080be6742ef2e798b6c12417ec4329defe169eadd41ae9880613",
   "files": {
     "bruteforce": {
       "sha256": "a3819ed32d424d88bcfcaff6e8bfd6ebba4720765e758dd43612d3f499db3823",
@@ -34,7 +34,7 @@
       "size": 115872
     },
     "restored_external": {
-      "sha256": "61ae9f34fee62a0ed234cb5a1d59348c4c12b2ffae0f6fbcae848cc4efdf60c4",
+      "sha256": "daff3018878a7e8112bbfc2fedcc9ab7027942940affa680757f89569209d5ea",
       "size": 136832
     }
   }

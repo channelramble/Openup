@@ -34,7 +34,18 @@ SHA1/SHA256 code signatures and all imports against actual 4.2.1 ramdisk librari
 helper compiled with stubbed Darwin filesystem calls to test wrong-root,
 already-writable, failed-update and ineffective-update paths.
 
-Direct RAM-root update hardware confirmation is pending a fresh button entry.
+The first direct-update diagnostic did not establish SSH. Its strict mount-name
+check did not account for XNU initially naming the root root_device; returning
+from the diagnostic allowed launchctl to continue into its normal bootstrap
+with missing-directory warnings. The corrected helper verifies the actual root
+device number against stat(/dev/md0), requires a block device, and accepts the
+placeholder label. A fresh physical boot of the corrected binary established
+authenticated SSH and SFTP again. Its exact SHA-256 was verified on the phone:
+daff3018878a7e8112bbfc2fedcc9ab7027942940affa680757f89569209d5ea
+Mount output showed /dev/md0 on / (hfs, local) and devfs only. The one-second
+ARMv6 wait mode returned zero and an out-of-range delay returned the expected
+usage error. The diagnostic holds on startup failure rather than falling
+through into stock launchctl bootstrap.
 No passcode recovery or timer clearing was performed in these diagnostics.
 The separate 3.1.3 timer route was not physically revalidated. Native Windows,
 Linux USB and Intel-Mac USB execution are not established by the Apple Silicon

@@ -186,21 +186,31 @@ static int make_ramdisk_writable(void)
 {
     struct statfs rootfs;
     struct hfs_mount_args args;
+    struct stat rootstat, ramstat;
     if (statfs("/", &rootfs) != 0) {
         perror("Checking RAM disk root");
         return 1;
     }
     if (strcmp(rootfs.f_mntonname, "/") ||
-        strcmp(rootfs.f_mntfromname, "/dev/md0") ||
-        strcmp(rootfs.f_fstypename, "hfs")) {
+        strcmp(rootfs.f_fstypename, "hfs") || !(rootfs.f_flags & MNT_ROOTFS)) {
         fprintf(stderr, "Refusing to update an unexpected root filesystem\n");
+        return 1;
+    }
+    /* XNU calls the initial mount "root_device" until userspace updates it.
+       Validate the actual device identity, never that placeholder label. */
+    if (stat("/", &rootstat) != 0 || stat("/dev/md0", &ramstat) != 0) {
+        perror("Checking RAM disk device identity");
+        return 1;
+    }
+    if (!S_ISBLK(ramstat.st_mode) || rootstat.st_dev != ramstat.st_rdev) {
+        fprintf(stderr, "Root filesystem is not the /dev/md0 RAM disk\n");
         return 1;
     }
     if (!(rootfs.f_flags & MNT_RDONLY))
         return 0;
 
     memset(&args, 0, sizeof(args));
-    args.fspec = rootfs.f_mntfromname;
+    args.fspec = "/dev/md0";
     /* VNOVAL preserves the existing ownership, mask, encoding and timezone. */
     args.hfs_uid = (uid_t)-1;
     args.hfs_gid = (gid_t)-1;

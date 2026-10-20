@@ -17,7 +17,7 @@
  #include <sys/sysctl.h>
  #include <net/if.h>
  #include <assert.h>
-@@ -151,8 +154,76 @@
+@@ -151,8 +154,86 @@
  size_t bootargs_len = 255;
  char bootargs[256]={0};
  
@@ -53,21 +53,31 @@
 +{
 +    struct statfs rootfs;
 +    struct hfs_mount_args args;
++    struct stat rootstat, ramstat;
 +    if (statfs("/", &rootfs) != 0) {
 +        perror("Checking RAM disk root");
 +        return 1;
 +    }
 +    if (strcmp(rootfs.f_mntonname, "/") ||
-+        strcmp(rootfs.f_mntfromname, "/dev/md0") ||
-+        strcmp(rootfs.f_fstypename, "hfs")) {
++        strcmp(rootfs.f_fstypename, "hfs") || !(rootfs.f_flags & MNT_ROOTFS)) {
 +        fprintf(stderr, "Refusing to update an unexpected root filesystem\n");
++        return 1;
++    }
++    /* XNU calls the initial mount "root_device" until userspace updates it.
++       Validate the actual device identity, never that placeholder label. */
++    if (stat("/", &rootstat) != 0 || stat("/dev/md0", &ramstat) != 0) {
++        perror("Checking RAM disk device identity");
++        return 1;
++    }
++    if (!S_ISBLK(ramstat.st_mode) || rootstat.st_dev != ramstat.st_rdev) {
++        fprintf(stderr, "Root filesystem is not the /dev/md0 RAM disk\n");
 +        return 1;
 +    }
 +    if (!(rootfs.f_flags & MNT_RDONLY))
 +        return 0;
 +
 +    memset(&args, 0, sizeof(args));
-+    args.fspec = rootfs.f_mntfromname;
++    args.fspec = "/dev/md0";
 +    /* VNOVAL preserves the existing ownership, mask, encoding and timezone. */
 +    args.hfs_uid = (uid_t)-1;
 +    args.hfs_gid = (gid_t)-1;
@@ -94,7 +104,7 @@
      int i;
      int nandReadOnly=0;
      struct stat st;
-@@ -195,21 +266,19 @@
+@@ -195,21 +276,19 @@
      else
      {
          printf("Waiting for data partition\n");
@@ -117,7 +127,7 @@
                  break;
              }
              sleep(5);
-@@ -218,8 +287,10 @@
+@@ -218,8 +297,10 @@
      init_usb(CFDictionaryGetValue(deviceInfos, CFSTR("udid")));
      printf("USB init done\n");
  
