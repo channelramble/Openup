@@ -114,7 +114,7 @@ elif tool in ("xpwntool", "bspatch"):
     shutil.copyfile(args[0], args[1])
 elif tool == "managed-python":
     if args[:2] == ["-m", "ios_timeout.upstream"]:
-        os.execv(sys.executable, [sys.executable] + args)
+        os.execv(sys.executable, [sys.executable, "-B"] + args)
     if args[:2] not in (
         ["-m", "ios_timeout.armv6_boot"],
         ["-m", "ios_timeout.armv6_kernel"],
@@ -194,12 +194,14 @@ class UpstreamShellIntegrationTests(unittest.TestCase):
         stub = self.root / "stub_tool.py"
         stub.write_text(STUB_TOOL)
         # All backend tool paths resolve to this fixture. Unexpected tools fail.
+        # Its fresh environment omits inherited Python flags; -B also protects
+        # signed bundled runtimes when the fixture is used for packaged QA.
         for name in ("jq", "pzb", "xpwntool", "bspatch", "hfsplus",
                      "managed-python", "irecovery", "iBoot32Patcher",
                      "python3", "curl", "sudo", "ssh", "iproxy"):
             wrapper = self.bin / name
             wrapper.write_text(
-                "#!/bin/sh\nexec " + shlex.quote(sys.executable) + " "
+                "#!/bin/sh\nexec " + shlex.quote(sys.executable) + " -B "
                 + shlex.quote(str(stub)) + " " + shlex.quote(name) + ' "$@"\n')
             wrapper.chmod(0o700)
         self.destination = self.backend / "saved/iPhone1,2/ramdisk_8C148"

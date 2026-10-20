@@ -188,7 +188,7 @@ assert all((Path(destination) / name).read_bytes() == data for name, data in val
 print(json.dumps({"tools": sorted(values), "build": manifest["ramdisk_build"]}))
 """
         completed = subprocess.run(
-            [sys.executable, "-I", "-c", script, str(runner), str(self.root / "from-zip")],
+            [sys.executable, "-I", "-B", "-c", script, str(runner), str(self.root / "from-zip")],
             cwd=self.root, capture_output=True, text=True, check=True, timeout=30,
         )
         self.assertEqual(
