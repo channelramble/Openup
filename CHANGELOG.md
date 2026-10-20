@@ -3,6 +3,7 @@
 ## 2.2.1
 
 - Run the 3G button countdown from monotonic deadlines with a single, bounded USB query in flight. USB disconnects and slow queries no longer extend each displayed second.
+- Preserve the Linux backend's terminal session for cached sudo authorization; background queries cannot request a hidden password.
 - Restore the Mac device-agent coordination omitted by the passcode adapter. A detached guardian pauses only the current user's three exact Apple system agent paths and resumes the same process identities when the backend exits or its parent dies. Already-stopped agents are left alone.
 - Keep a recovery journal for interrupted guardian cleanup, and stop before launching the backend if the Mac session cannot be reserved.
 - Clear the stale “Response sent” status when active guidance resumes. Terminal and manual input remain off by default.

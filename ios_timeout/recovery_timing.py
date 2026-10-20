@@ -16,7 +16,13 @@ class RecoveryProbe:
     """At most one query is in flight; a missing phone cannot stop the clock."""
 
     def __init__(self, command, clock=time.monotonic, timeout=2.0):
-        self.command = [*command, "-q"]
+        uses_sudo = os.path.basename(command[0]) == "sudo"
+        # Linux's backend authenticates sudo in its PTY before this helper.
+        # A new session would discard that tty-scoped ticket. Queries must
+        # never request another password through their captured output.
+        self.command = ([command[0], "-n", *command[1:], "-q"] if uses_sudo
+                        else [*command, "-q"])
+        self.owns_group = os.name != "nt" and not uses_sudo
         self.clock = clock
         self.timeout = timeout
         self.process = None
@@ -29,7 +35,7 @@ class RecoveryProbe:
                 self.process = subprocess.Popen(
                     self.command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                     stdin=subprocess.DEVNULL, text=True,
-                    start_new_session=os.name != "nt",
+                    start_new_session=self.owns_group,
                 )
                 self.started = now
             return None
@@ -49,7 +55,7 @@ class RecoveryProbe:
         if self.process is not None:
             process, self.process = self.process, None
             try:
-                if os.name != "nt":
+                if self.owns_group:
                     os.killpg(process.pid, signal.SIGKILL)
                 else:
                     process.kill()
