@@ -44,9 +44,14 @@ def desktop_zip(path, version="2.1.0", target="linux-x86_64", extra=None):
 
 class DesktopPlanningTests(unittest.TestCase):
     def test_desktop_entry_point_prevents_bytecode_in_backend_helper_children(self):
-        import desktop
+        import importlib.util
+        import ios_timeout
         from ios_timeout import cli
 
+        entry_path = Path(ios_timeout.__file__).resolve().parent.parent / "desktop.py"
+        spec = importlib.util.spec_from_file_location("desktop_under_test", entry_path)
+        desktop = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(desktop)
         with tempfile.TemporaryDirectory(prefix="backend helper with spaces ") as directory:
             root = Path(directory)
             (root / "fixture_import.py").write_text("VALUE = 'imported'\n", encoding="utf-8")
@@ -76,6 +81,9 @@ class DesktopPlanningTests(unittest.TestCase):
                  patch.object(sys, "dont_write_bytecode", False), \
                  patch.object(cli, "main", side_effect=launch_helper):
                 os.environ.pop("PYTHONDONTWRITEBYTECODE", None)
+                # The test interpreter is already running with its libraries
+                # loaded, including when tests target a Linux desktop bundle.
+                os.environ["BL_IOS_LIBRARIES_ROOT"] = str(entry_path.parent)
                 self.assertEqual(desktop.main(), 0)
             self.assertEqual(children, [{"no_bytecode": True, "value": "imported"}])
             self.assertEqual(list(root.rglob("__pycache__")), [])
