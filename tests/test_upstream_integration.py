@@ -131,6 +131,8 @@ elif tool == "managed-python":
                 return result.stdout if result.returncode == 0 else ""
             def close(self):
                 pass
+            def bootloader_console(self):
+                return subprocess.run(command + ["-s"], input="/exit\n", capture_output=True, text=True).stdout
         def advance(_):
             now[0] += 0.5
         try:
@@ -157,7 +159,10 @@ elif tool == "sudo":
         raise SystemExit("Unexpected sudo target")
     os.execv(args[0], args)
 elif tool == "irecovery":
-    if args == ["-q"]:
+    if args == ["-s"]:
+        assert sys.stdin.read() == "/exit\n"
+        print(os.environ.get("BL_TEST_BOOT_CONSOLE", "iBSS for n82ap, Copyright Apple Inc.\nBUILD_TAG: iBoot-636.66.33\n"))
+    elif args == ["-q"]:
         sequence = os.environ.get("BL_TEST_RECOVERY_SEQUENCE")
         if sequence:
             states = json.loads(sequence)
@@ -352,6 +357,16 @@ mv() {
         self.assert_stopped(result, "Recovery command failed: ramdisk")
         self.assertFalse(any(entry["args"][-1].endswith("Kernelcache.dec")
                              for entry in self.trace_entries() if entry["args"]))
+
+    def test_installed_recovery_iboot_cannot_pass_the_ibss_gate(self):
+        recovery = PATCHED.replace("DFU", "Recovery")
+        result = self.run_boot(BL_TEST_RECOVERY_SEQUENCE=json.dumps([PATCHED, PATCHED, recovery]),
+                               BL_TEST_BOOT_CONSOLE="iBoot for n82ap, Copyright Apple Inc.\nBUILD_TAG: iBoot-931.71.16\n")
+        self.assert_stopped(result, "no ramdisk was sent")
+        self.assertIn("uploaded iBSS was not verified", result.stdout + result.stderr)
+        transfers = [entry["args"] for entry in self.trace_entries()
+                     if entry["tool"] == "irecovery" and entry["args"][:1] == ["-f"]]
+        self.assertEqual(transfers, [["-f", str(self.destination / "iBSS")]])
 
     def test_early_wtf_branch_rejects_missing_pwnd_and_wrong_srtg(self):
         result = self.run_functions(

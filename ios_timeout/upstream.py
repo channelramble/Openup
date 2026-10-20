@@ -417,7 +417,7 @@ def adapt_script(original):
         raise ResetError("The reviewed ramdisk transition layout changed.")
     transition = '''if [[ $device_type == "iPhone1,2" ]]; then
         "$BL_IOS_PYTHON" -m ios_timeout.recovery_timing --after-ibss "$device_type" -- ${irecovery} ||
-            error "iBSS did not reach verified Recovery mode; no ramdisk was sent."
+            error "iBSS handoff verification failed; no ramdisk was sent."
         device_mode=Recovery
     else
         device_find_mode Recovery

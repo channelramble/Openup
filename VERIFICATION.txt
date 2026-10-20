@@ -1,3 +1,35 @@
+Candidate validation correction — Recovery is not proof of uploaded iBSS
+Verification date: 2026-10-20
+
+A fresh physical button sequence reached WTF, then patched DFU with verified
+board identity. Uploading the candidate 3.1.3 iBSS returned zero and the device
+reappeared in Recovery. The initial diagnostic ended and restored Mac agents.
+
+A later diagnostic uploaded the 4.2.1 ramdisk, device tree, and kernel, with
+automatic passcode recovery disabled and replacement startup scripts that
+omit NVRAM changes and stock restore actions. USB transfer/command return codes
+were zero, but no ramdisk SSH service appeared. The device remained in Recovery.
+Reading the bootloader console identified "iBoot for n82ap" with build tag
+iBoot-931.71.16, rather than the expected "iBSS for n82ap" / iBoot-636.66.33.
+
+The earlier Recovery transition therefore does NOT establish that the uploaded
+iBSS was running. Its identity was not read before the first diagnostic restored
+the Mac agents, so the exact intervening transition is still undetermined.
+The candidate now requires matching iBSS name, board, and build in the boot
+console before any ramdisk upload. Missing, ambiguous, or stock-iBoot banners
+fail closed. Only public board/build fields are exposed in that diagnostic.
+The full 320-test suite passes, including stock-iBoot rejection after a valid
+Recovery USB identity and checks that later ramdisk transfers remain blocked.
+
+A combined test was prepared to keep Mac device handling reserved across all
+stages and read the console immediately. Its two-minute window ended without a
+fresh button entry, so it sent no additional firmware. Mac agents were restored.
+Another physical DFU entry is required. Neither the candidate bootloader nor
+the complete ramdisk boot is claimed as validated; no fixed release is published.
+
+Historical records follow.
+============================================================
+
 Candidate 3.1.3 first stage — physical stock-image comparison
 Verification date: 2026-10-20
 

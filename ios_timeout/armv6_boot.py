@@ -12,7 +12,9 @@ from .core import ResetError, read_local_file, secure_write
 from .host import reject_link
 
 # iBSS comes from Apple's 3.1.3/7E18 IPSW: its original image reached Recovery
-# on the tested 3G where 4.2.1 iBSS remained in DFU. The ramdisk/kernel and iBEC
+# on the tested 3G where 4.2.1 iBSS remained in DFU. That mode alone did not prove
+# execution: a later console read identified installed iBoot instead. This
+# candidate therefore also requires a matching iBSS console. The ramdisk/kernel and iBEC
 # still come from 4.2.1/8C148. These are decoded component hashes, not firmware.
 # The reviewed LukeZGD patcher
 # returns 1 on success; the exact output hash is the acceptance criterion.

@@ -2,6 +2,7 @@ import os
 import json
 from pathlib import Path
 import shlex
+import subprocess
 import sys
 import tempfile
 import time
@@ -9,11 +10,12 @@ import unittest
 from unittest.mock import Mock, patch
 
 from ios_timeout.core import ResetError
-from ios_timeout.recovery_timing import RecoveryProbe, guide, wait_bootloader
+from ios_timeout.recovery_timing import RecoveryProbe, guide, wait_bootloader, verify_ibss_console
 
 
 WTF = "MODE: WTF\nCPID: 8900\nBDID: 00\n"
 STOCK = "MODE: DFU\nCPID: 8900\nBDID: 04\nSRTG: iBoot-596.24\n"
+IBSS_CONSOLE = "\x00:: iBSS for n82ap, Copyright 2009, Apple Inc.\n\x00:: BUILD_TAG: iBoot-636.66.33\n"
 
 
 class Clock:
@@ -41,8 +43,41 @@ class Probe:
     def close(self):
         self.closed = True
 
+    def bootloader_console(self):
+        return IBSS_CONSOLE
+
 
 class RecoveryTimingTests(unittest.TestCase):
+    def test_console_requires_the_uploaded_ibss_not_installed_iboot(self):
+        self.assertIn("636.66.33", verify_ibss_console("iPhone1,2", IBSS_CONSOLE))
+        installed = IBSS_CONSOLE.replace("iBSS for", "iBoot for").replace("636.66.33", "931.71.16")
+        for console in (installed, "", IBSS_CONSOLE.replace("n82ap", "m68ap"),
+                        IBSS_CONSOLE.replace("636.66.33", "931.71.16"),
+                        IBSS_CONSOLE + installed):
+            with self.subTest(console=console), self.assertRaises(ResetError):
+                verify_ibss_console("iPhone1,2", console)
+
+    def test_installed_iboot_in_recovery_never_reports_ibss_running(self):
+        clock = Clock()
+        probe = Probe(clock, ready_at=0, result=STOCK.replace("DFU", "Recovery"))
+        probe.bootloader_console = lambda: IBSS_CONSOLE.replace("iBSS for", "iBoot for") + "ECID: private-id\n"
+        events = []
+        with self.assertRaisesRegex(ResetError, "uploaded iBSS was not verified") as failure:
+            wait_bootloader("iPhone1,2", probe, clock=clock, sleep=clock.sleep,
+                            emit=lambda *args: events.append(args), output=lambda *a, **k: None)
+        self.assertTrue(probe.closed)
+        self.assertNotIn("private-id", str(failure.exception))
+        self.assertFalse(any(event[0] == "Recovery bootloader detected" for event in events))
+
+    def test_console_reader_uses_local_exit_and_private_history_directory(self):
+        probe = RecoveryProbe(["/tool/irecovery"])
+        with patch("ios_timeout.recovery_timing.subprocess.run") as run:
+            run.return_value = subprocess.CompletedProcess([], 0, IBSS_CONSOLE)
+            self.assertEqual(probe.bootloader_console(), IBSS_CONSOLE)
+        self.assertEqual(run.call_args.args[0], ["/tool/irecovery", "-s"])
+        self.assertEqual(run.call_args.kwargs["input"], "/exit\n")
+        self.assertFalse(Path(run.call_args.kwargs["cwd"]).exists())
+
     def test_ibss_upload_requires_matching_recovery_mode(self):
         clock = Clock()
         probe = Probe(clock, ready_at=0.35, result=STOCK.replace("DFU", "Recovery"))

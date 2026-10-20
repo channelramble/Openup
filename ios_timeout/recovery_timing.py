@@ -3,13 +3,33 @@
 import argparse
 import math
 import os
+import re
 import signal
 import subprocess
+import tempfile
 import time
 
 from .core import ResetError
 from .desktop_protocol import progress
 from .upstream import early_dfu_state, early_dfu_summary
+
+
+def verify_ibss_console(model, console):
+    """Recovery USB identity alone also matches the phone's installed iBoot."""
+    if model != "iPhone1,2":
+        raise ResetError("No verified iBSS console profile exists for the selected phone.")
+    console = console.replace("\x00", "")
+    banners = set(re.findall(r"\b(iBSS|iBEC|iBoot) for ([a-zA-Z0-9]+),", console))
+    versions = set(re.findall(r"\bBUILD_TAG:\s*(iBoot-[0-9.]+)(?=\s|$)", console))
+    if banners != {("iBSS", "n82ap")} or versions != {"iBoot-636.66.33"}:
+        # Only public build/board fields are emitted; console logs can contain
+        # unique device identifiers and must not be copied into diagnostics.
+        observed = ", ".join(sorted(kind + " for " + board for kind, board in banners))
+        observed += (" / " + ", ".join(sorted(versions))) if versions else ""
+        observed = observed[:160] or "no recognizable bootloader banner"
+        raise ResetError("Recovery mode was detected, but the uploaded iBSS was not verified "
+                         "(" + observed + "). No ramdisk was uploaded.")
+    return "iBSS for n82ap / iBoot-636.66.33"
 
 
 class RecoveryProbe:
@@ -75,6 +95,24 @@ class RecoveryProbe:
             except subprocess.TimeoutExpired as exc:
                 process.stdout.close()
                 raise ResetError("USB query could not be stopped; recovery cancelled.") from exc
+
+    def bootloader_console(self):
+        self.close()
+        # The local /exit instruction only closes irecovery's console; it is
+        # intercepted by the CLI instead of being sent to the phone. Use a
+        # private working directory for its optional command-history file.
+        with tempfile.TemporaryDirectory(prefix="openup-boot-console-") as temporary:
+            try:
+                result = subprocess.run(
+                    [*self.command[:-1], "-s"], input="/exit\n", text=True,
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    timeout=5, cwd=temporary,
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise ResetError("Recovery console verification timed out. No ramdisk was uploaded.") from exc
+        if result.returncode:
+            raise ResetError("Recovery console could not be read. No ramdisk was uploaded.")
+        return result.stdout[:65536]
 
 
 def guide(model, probe, *, emit=progress, clock=time.monotonic, sleep=time.sleep,
@@ -148,7 +186,8 @@ def wait_bootloader(model, probe, *, timeout=30, emit=progress,
                 fields = dict(line.split(":", 1) for line in current.splitlines() if ":" in line)
                 mode = fields.get("MODE", "").strip()
                 if mode == "Recovery":
-                    output("[Log] iBSS Recovery mode and phone identity verified.", flush=True)
+                    identity = verify_ibss_console(model, probe.bootloader_console())
+                    output("[Log] Uploaded bootloader and phone identity verified: " + identity, flush=True)
                     emit("Recovery bootloader detected", "iBSS is running. Loading the ramdisk next.", 0)
                     return
             remaining = math.ceil(deadline - clock())
