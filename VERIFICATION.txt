@@ -1,3 +1,67 @@
+Bruteforce Legacy iOS 2.0.0 — desktop GUI
+Verification date: 2026-10-20
+
+Desktop implementation:
+  Six Qt screens: Overview, Timer reset, Passcode recovery, Backups,
+  Updates, and Diagnostics. Device work uses isolated PTY/ConPTY processes.
+  GUI workers invoke the included interpreter and never run pip or venv.
+  Existing transaction, backup, identity, and rollback protections remain.
+
+Completed local checks:
+  macOS arm64 / Darwin 27 / bundled Python 3.13.16 / Qt 6.12.0:
+    112 automated tests passed, including real GUI-to-worker diagnostics.
+    All six pages render; recovery and update screens were visually inspected.
+    Bundled runtime launch passed with PATH restricted to /usr/bin:/bin and
+    without the development virtual environment or user Python packages.
+    Native .app launch succeeded; USB enumeration returned no connected phone.
+    codesign --verify --deep --strict passed for the assembled application.
+    The package inventory is outside the signed .app to preserve its signature.
+    Accessibility activation of navigation buttons is covered by GUI tests.
+  Ubuntu 22.04 x86-64 container in a temporary Colima VM on the MacBook:
+    112 automated tests passed using the packaged interpreter and libraries.
+    Headless Qt launch and real X11 launch under Xvfb both passed.
+    The freestanding native ELF launcher opened all six GUI pages in its
+    self-test. It links no libc or third-party launcher runtime.
+    The test image supplied normal display services, graphics drivers,
+    fonts, and unzip; Python, Qt, and SSH packages came from the app archive.
+    Missing XCB libraries found during testing are now bundled from pinned
+    Ubuntu packages, with their license notices. No end-user apt step runs.
+  Windows x86-64 package inspection:
+    Native PE executable built with the Windows GUI subsystem; its imports
+    are Windows system DLLs. No console window or external compiler DLL is
+    required by the launcher. Windows Python/pythonw, Qt, SSH libraries,
+    pywinpty, and a separate Linux Python/SSH runtime for WSL are present.
+    Windows/ConPTY execution has not been tested on a Windows host.
+
+Update and distribution checks:
+  Desktop tests cover platform selection, native-launcher/runtime inventory,
+  GitHub SHA-256 validation, archive traversal, modified runtime detection,
+  token removal on cross-host redirects, cancellation before activation,
+  retry, rollback, and preservation of backups.
+  Runtime and wheel downloads are pinned by original URL, size and SHA-256.
+  The Linux X11 package inventory is pinned against Ubuntu package metadata.
+  The Linux launcher binary is paired with its source hash and rebuild script.
+  Source archive tests check exclusions, provenance, checksums, and repeatability.
+  Final published asset checks and release-specific CI results are recorded in:
+  https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.0.0
+
+Limits:
+  macOS desktop binary: Apple Silicon, macOS 14 or newer. No Intel Mac binary.
+  Linux desktop was exercised under x86-64 emulation and Xvfb, not on a
+  physical Linux workstation or a Wayland desktop.
+  macOS ad-hoc signing is not Developer ID signing or Apple notarization.
+  The Windows executable is not Authenticode signed.
+  GitHub hosted CI was previously blocked by account billing/spending limits;
+  those account settings were not changed.
+  No physical phone was modified. DFU, firmware boot, USB passthrough, timer
+  clearance, and passcode recovery remain unverified on real hardware.
+  The 3G recovery backend still requires separately supplied ARMv6 executables.
+  USB drivers, WSL, and external backend system tools are host requirements;
+  bundling the GUI runtime does not replace them.
+
+Historical CLI verification (1.2.0) follows.
+============================================================
+
 Bruteforce Legacy iOS 1.2.0
 Verification date: 2026-10-20
 

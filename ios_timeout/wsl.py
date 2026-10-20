@@ -3,6 +3,7 @@
 import shutil
 import subprocess
 import zipfile
+import os
 from importlib import resources
 from pathlib import Path
 
@@ -62,10 +63,13 @@ def run_in_wsl(arguments, options):
     if not shutil.which("wsl.exe"):
         raise ResetError("Install WSL 2 with a Linux distribution, then use usbipd-win to attach the phone.")
     prefix = wsl_prefix(options.wsl_distro)
-    available = subprocess.run(prefix + ["python3", "-c",
+    desktop_root = Path(os.environ.get("BL_IOS_APP_ROOT", "."))
+    bundled_python = desktop_root / "wsl-runtime/bin/python3"
+    bundled = os.environ.get("BL_IOS_DESKTOP") == "1" and bundled_python.is_file()
+    available = None if bundled else subprocess.run(prefix + ["python3", "-c",
                                         "import sys; sys.exit(0 if sys.version_info >= (3,9) else 1)"],
                                capture_output=True, text=True, timeout=30)
-    if available.returncode:
+    if available is not None and available.returncode:
         raise ResetError("The selected WSL distribution needs Python 3.9+, python3-venv, Git, and Bash.")
 
     def translate(value):
@@ -78,6 +82,13 @@ def run_in_wsl(arguments, options):
         if not path.startswith("/") or "\n" in path:
             raise ResetError("WSL returned an invalid translated path.")
         return path
+
+    if bundled:
+        forwarded = translated_arguments(arguments, translate)
+        print("Using the bundled Linux Python and SSH libraries inside WSL 2.", flush=True)
+        print("The phone must be attached to WSL with usbipd; DFU transitions may require reattachment.", flush=True)
+        return subprocess.run(prefix + [translate(str(bundled_python)), "-I", "-B", "-u",
+                                       translate(str(desktop_root / "desktop.py")), "--cli"] + forwarded).returncode
 
     directory = state_directory() / "wsl"
     with host_lock(directory):

@@ -1,5 +1,17 @@
 # Changes
 
+## 2.0.0
+
+- Replace the terminal-first experience with a Qt desktop workspace: devices, timer reset, recovery backend, backups, updates, and diagnostics.
+- Ship platform archives containing Python, Qt, SSH libraries, native launchers, and package dependencies; opening the desktop app never invokes pip.
+- Include a Linux Python/SSH runtime inside the Windows archive for WSL operations.
+- Run device operations in separate terminal processes with live output and interactive replies; preserve the existing transaction engine.
+- Add full desktop package updates, direct private GitHub authentication, platform/digest/inventory checks, staged activation, cancellation, and rollback.
+- Keep credentials in memory and session logs unsaved unless explicitly exported.
+- Add pinned runtime/wheel build inputs, native launcher source, and desktop regression tests.
+
+USB drivers, WSL, and external backend system tools remain platform requirements. Hardware validation and compatible 3G ARMv6 recovery binaries remain outstanding.
+
 ## 1.2.0
 
 - Integrate a pinned 32bit-Bruteforce-Passcode checkout without bundling third-party executables.

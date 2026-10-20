@@ -1,0 +1,2 @@
+-r requirements-desktop.txt
+zstandard==0.25.0

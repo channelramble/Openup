@@ -2,13 +2,46 @@
 
 [![Test and package](https://github.com/channelramble/Bruteforce-Legacy-iOS/actions/workflows/ci.yml/badge.svg)](https://github.com/channelramble/Bruteforce-Legacy-iOS/actions/workflows/ci.yml)
 
-A command-line app for legacy iPhone recovery. Version **1.2.0** includes a backed-up timer reset, integration with [32bit-Bruteforce-Passcode](https://github.com/tuanemss/32bit-Bruteforce-Passcode), macOS/Linux/Windows launchers, and a built-in updater.
+A desktop app for legacy iPhone recovery. Version **2.0.0** replaces the terminal menu with a GUI for device selection, timer reset, [32bit-Bruteforce-Passcode](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, diagnostics, and updates.
 
-**Hardware validation is pending.** Local automated tests run on macOS. Windows, WSL USB passthrough, Linux device operations, physical ramdisk boot, passcode recovery, and on-screen timer clearance have not been validated. See `VERIFICATION.txt`.
+**Desktop downloads include Python, Qt, SSH libraries, and their Python dependencies. No Python, pip, virtual environment, or package installation is needed to open the app.** The Windows archive also includes the Linux Python/SSH runtime used by its WSL bridge.
+
+![Desktop recovery workspace](docs/desktop-overview.png)
+
+## Download and open
+
+Get the platform archive from [version 2.0.0](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.0.0) and extract it completely.
+
+| Computer | Download suffix | Open |
+|---|---|---|
+| Apple Silicon Mac, macOS 14+ | `macos-arm64.zip` | `Bruteforce Legacy iOS.app` |
+| Windows x64 | `windows-x86_64.zip` | `Bruteforce Legacy iOS.exe` |
+| Linux x64 desktop, Ubuntu 22.04+ or equivalent | `linux-x86_64.zip` | `Bruteforce Legacy iOS` |
+
+Keep the extracted Windows/Linux folder together; it contains the bundled runtime. The Mac `.app` can be moved to Applications. These downloads are not Developer ID notarized or Windows Authenticode signed, so operating-system download protection may require an explicit open action. An Intel Mac binary is not included: the pinned cryptography release no longer publishes that platform's wheel.
+
+USB access still depends on the host: macOS's usbmuxd service, Apple Mobile Device Service on Windows, or usbmuxd/USB permissions on Linux. Windows ramdisk backends use WSL 2 and usbipd-win. The external recovery backends may request their own system tools or elevated access. Bundling the desktop runtime does not replace drivers, WSL, firmware downloads, or compatible on-device executables.
+
+## Use the GUI
+
+1. **Overview:** refresh the USB list and choose a phone. DFU-only devices appear after booting an SSH ramdisk.
+2. **Timer reset:** choose the model, optionally select a local 3G IPSW, then use **Prepare and inspect**. When the backend reaches its SSH Ramdisk Menu, choose Exit while leaving the ramdisk running. Review the session output before **Apply timer reset**.
+3. **Passcode recovery:** download or start the pinned backend. Reply to its prompts in the session input. Replies are hidden by default.
+4. **Backups:** select a saved transaction to restore original files or finish cleanup. Invalid backups cannot be selected for recovery.
+5. **Updates:** check, install, relaunch, or roll back. Because this repository is private, enter a GitHub token with repository read access. It stays in memory and is never saved. GitHub CLI is not required.
+6. **Diagnostics:** inspect platform requirements and connection options.
+
+Long operations run outside the GUI process. **Interrupt** sends a graceful terminal interrupt; file-writing workflows ask before interruption and retain the engine's rollback behavior. Output stays in memory unless you choose **Save output**. The window remains open while an operation or cleanup is active.
+
+Desktop updates verify the GitHub asset digest, platform, clean source revision, archive paths, and all packaged file checksums. They stage a complete replacement runtime, then switch versions. The original launcher remains your entry point; rollback selects the previous installation. A damaged update falls back to the original app's recovery UI.
+
+**Hardware validation is pending.** Physical ramdisk boot, passcode recovery, USB passthrough, and on-screen timer clearance remain unverified. The upstream ARMv7 executables still cannot run on an ARMv6 iPhone 3G; compatible ARMv6 tools must be supplied separately. See `VERIFICATION.txt`.
 
 The `reset` workflow still requires the correct passcode afterward. The separate `bruteforce` command runs the externally downloaded recovery backend. Activation Lock removal and setup.app removal are outside this app's scope.
 
-## Run
+## Source edition and CLI
+
+The unqualified `Bruteforce-Legacy-iOS-2.0.0.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
 
 Download the ZIP from [Releases](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases) and extract the whole folder onto the computer connected to the phone. Python 3.9 or newer is required.
 
@@ -85,7 +118,7 @@ These ARMv6 builds are not included or compiled by this release. A Mach-O archit
 
 The upstream backend runs its own firmware and on-device recovery workflow. The transaction backups and rollback described below apply to this app's `reset` operation, not to upstream ramdisk tools. Backend prompts remain interactive. Connect one phone for preparation.
 
-## Built-in updater
+## CLI updater
 
 Use menu option **9**, or:
 
@@ -95,7 +128,7 @@ Use menu option **9**, or:
 ./Launch.command update --rollback
 ```
 
-The first command checks, the second installs, and the third selects the previous installation. Omit `--prerelease` to accept stable releases only. Version 1.1.0 needs a one-time manual download of 1.2.0 to gain the updater.
+The first command checks, the second installs, and the third selects the previous installation. Omit `--prerelease` to accept stable releases only. CLI and desktop updates are separate: download a platform desktop archive once to switch to the GUI.
 
 Because this repository is private, install [GitHub CLI](https://cli.github.com/) and run `gh auth login` with an account that can access it. The app uses that sign-in without saving a token.
 
@@ -246,3 +279,23 @@ python3 build_release.py
 The archive in `dist/` contains only explicitly selected source, documentation, and tests. It includes file checksums, a `SOURCE.json` revision record, and an executable launcher. Runtime data, downloaded firmware, dependencies, and backups are excluded.
 
 The MIT license covers this app's code. External backend source, executables, and firmware are downloaded separately and retain their respective terms and attribution.
+
+## Build desktop distributions
+
+Maintainers need Python 3.13 and the development tools below; end users do not.
+
+```sh
+python3 -m venv .desktop-venv
+.desktop-venv/bin/python -m pip install -r requirements-build.txt
+.desktop-venv/bin/python desktop.py --self-test
+.desktop-venv/bin/python -m unittest discover -s tests -v
+.desktop-venv/bin/python build_desktop.py --target macos-arm64
+.desktop-venv/bin/python build_desktop.py --target windows-x86_64
+.desktop-venv/bin/python build_desktop.py --target linux-x86_64
+```
+
+Use a clean committed checkout for release builds. `--allow-dirty` is for local development; the updater rejects those archives. `desktop-build-lock.json` pins every Python runtime, wheel, and bundled Linux X11 library by URL, size, and SHA-256. `--prepare-lock` deliberately refreshes the runtime/wheel lock and requires review before committing.
+
+The macOS launcher requires Apple's compiler and `iconutil`; Windows launcher compilation requires MinGW-w64 GCC/windres (cross-compilation from macOS is supported). Linux uses the included freestanding ELF launcher, with its source/binary hashes checked during assembly; rebuild it on Linux with `sh packaging/build-linux-launcher.sh` after editing its C source. A shell launcher is also included. This assembles target-specific prebuilt runtimes and wheels; assembly alone is not an execution test of a foreign platform.
+
+Each desktop ZIP contains its full checksum inventory and source revision in `DESKTOP.json`. Bundled libraries retain their license notices and remain dynamically replaceable. See [THIRD_PARTY.md](THIRD_PARTY.md).

@@ -13,6 +13,8 @@ jobs:
     name: ${{ matrix.os }} / Python ${{ matrix.python }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
+    env:
+      QT_QPA_PLATFORM: offscreen
     strategy:
       fail-fast: false
       matrix:
@@ -38,6 +40,12 @@ jobs:
           python -m pip install --no-deps .
           python -m pip check
           python check_dependencies.py
+      - name: Install desktop test libraries
+        if: matrix.python == '3.13'
+        run: python -m pip install -r requirements-build.txt
+      - name: Install Linux display services for GUI tests
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libopengl0 libxkbcommon0 libdbus-1-3
       - name: Test recovery, USB and SSH transport
         run: python -m unittest discover -s tests -v
       - name: Check launcher and installed CLI
@@ -50,3 +58,18 @@ jobs:
           bruteforce-legacy-ios bruteforce --help
       - name: Build verified source archive
         run: python build_release.py
+      - name: Exercise desktop without dependency installation
+        if: matrix.python == '3.13'
+        run: python desktop.py --self-test
+      - name: Install Windows cross-compiler for desktop packaging
+        if: runner.os == 'macOS' && matrix.python == '3.13'
+        run: brew list mingw-w64 || brew install mingw-w64
+      - name: Assemble all desktop platforms
+        if: runner.os == 'macOS' && matrix.python == '3.13'
+        run: python build_desktop.py --all
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: runner.os == 'macOS' && matrix.python == '3.13'
+        with:
+          name: desktop-downloads
+          path: dist/
+          retention-days: 14

@@ -329,7 +329,7 @@ def main(argv=None):
     try:
         arguments = list(sys.argv[1:] if argv is None else argv)
         from .updates import dispatch
-        dispatched = dispatch(arguments)
+        dispatched = None if os.environ.get("BL_IOS_DESKTOP") == "1" else dispatch(arguments)
         if dispatched is not None:
             return dispatched
         options = parser().parse_args(arguments)
