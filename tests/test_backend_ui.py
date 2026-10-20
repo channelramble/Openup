@@ -48,12 +48,15 @@ class BackendUiTests(unittest.TestCase):
         self.root = Path(self.temporary.name)
         self.trace = self.root / "events.jsonl"
         self.python = self.root / "emit with spaces"
-        self.python.write_text(
-            "#!" + sys.executable + "\n"
+        emit_code = (
             "import json, os, sys\n"
             "with open(os.environ['BL_TEST_TRACE'], 'a') as output:\n"
             "    output.write(json.dumps(sys.argv[1:]) + '\\n')\n"
             "print('TEST_UI_EVENT')\n"
+        )
+        self.python.write_text(
+            "#!/bin/sh\nexec " + shlex.quote(sys.executable)
+            + " -c " + shlex.quote(emit_code) + ' "$@"\n'
         )
         self.python.chmod(0o700)
 
@@ -67,6 +70,11 @@ class BackendUiTests(unittest.TestCase):
                  "BL_TEST_REPLY": reply}, timeout=10,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotRegex(
+            result.stderr.lower(),
+            r"bad interpreter|cannot execute: required file not found",
+            result.stdout + result.stderr,
+        )
         events = ([json.loads(line)[2:] for line in self.trace.read_text().splitlines()]
                   if self.trace.exists() else [])
         return result, events
