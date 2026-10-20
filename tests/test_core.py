@@ -2,6 +2,7 @@ import json
 import os
 import plistlib
 import stat
+import sys
 import tempfile
 import unittest
 from dataclasses import replace
@@ -181,9 +182,10 @@ class CoreTests(unittest.TestCase):
         self.assertNotIn(JOURNAL, d.files)
         self.assertEqual(d.files[PREFS][1], META)
         self.assertEqual(json.loads((folder / "manifest.json").read_text())["status"], "committed")
-        self.assertEqual(stat.S_IMODE(folder.stat().st_mode), 0o700)
-        for file in folder.iterdir():
-            self.assertEqual(stat.S_IMODE(file.stat().st_mode), 0o600)
+        if sys.platform != "win32":
+            self.assertEqual(stat.S_IMODE(folder.stat().st_mode), 0o700)
+            for file in folder.iterdir():
+                self.assertEqual(stat.S_IMODE(file.stat().st_mode), 0o600)
         restore_backup(d, IDENTITY, folder)
         self.assertEqual(d.files, originals)
         self.assertIsNone(d.lock)

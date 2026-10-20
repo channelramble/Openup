@@ -2,15 +2,27 @@
 
 [![Test and package](https://github.com/channelramble/Bruteforce-Legacy-iOS/actions/workflows/ci.yml/badge.svg)](https://github.com/channelramble/Bruteforce-Legacy-iOS/actions/workflows/ci.yml)
 
-A macOS command-line tool that automates a **one-time passcode timer reset on legacy 32-bit iPhones** through an offline SSH ramdisk. Version **1.1.0** handles USB transport, plist editing, backups, verification, and transaction recovery. Cyberduck and a separate iproxy process are unnecessary.
+A command-line app for legacy iPhone recovery. Version **1.2.0** includes a backed-up timer reset, integration with [32bit-Bruteforce-Passcode](https://github.com/tuanemss/32bit-Bruteforce-Passcode), macOS/Linux/Windows launchers, and a built-in updater.
 
-**Hardware validation is pending.** The host software passes automated and simulated SSH/SFTP integration tests. No physical iPhone was available during development. Clearing the on-screen timer is not a verified result of this release.
+**Hardware validation is pending.** Local automated tests run on macOS. Windows, WSL USB passthrough, Linux device operations, physical ramdisk boot, passcode recovery, and on-screen timer clearance have not been validated. See `VERIFICATION.txt`.
 
-The correct passcode remains required. Passcode guessing is not implemented. This release also excludes Activation Lock removal, setup.app removal, and computer pairing/Trust timeouts.
+The `reset` workflow still requires the correct passcode afterward. The separate `bruteforce` command runs the externally downloaded recovery backend. Activation Lock removal and setup.app removal are outside this app's scope.
 
 ## Run
 
-Download the ZIP from [Releases](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases), then extract the whole folder onto the Mac physically connected to the phone. Python 3.9 or newer is required.
+Download the ZIP from [Releases](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases) and extract the whole folder onto the computer connected to the phone. Python 3.9 or newer is required.
+
+| Host | Launcher | USB SSH / timer reset | Ramdisk preparation and recovery backend |
+|---|---|---|---|
+| macOS | `Launch.command` | Native usbmuxd | Native Bash tools |
+| Linux | `bash Launch.sh` | Native usbmuxd | Native Linux tools; USB permissions required |
+| Windows | `Launch.cmd` | Native Apple Mobile Device Service | WSL 2 Linux distribution plus usbipd-win |
+
+Windows ramdisk operations are **not a native Win32 port** of the upstream Unix binaries. Install WSL 2, Python 3.9+, `python3-venv`, Git, Bash, and usbmuxd in the distribution. Attach the phone using usbipd-win before selecting `prepare` or `bruteforce`. The app forwards these commands into WSL without shell interpolation; `--wsl-distro Ubuntu` selects a distribution. DFU transitions may require USB reattachment. [Microsoft USB passthrough guide](https://learn.microsoft.com/en-us/windows/wsl/connect-usb)
+
+For a phone still attached to WSL, use `--wsl` on `devices`, `inspect`, `reset`, `restore`, or `finalize`. Example: `Launch.cmd restore "/home/user/backup-folder" --wsl --mount --apply`. Absolute Linux paths pass through; Windows paths are translated with `wslpath`.
+
+On Linux, install/start usbmuxd and configure access to the USB device. Backend tools may prompt for sudo. `doctor` reports the selected host's requirements.
 
 Double-click `Launch.command`, or open Terminal in the extracted folder:
 
@@ -24,7 +36,72 @@ If the executable bit was lost during transfer:
 bash Launch.command
 ```
 
-First launch downloads the pinned Python dependencies into this folder's `.venv`. Every launch checks all locked versions and the native SSH dependencies. The menu offers inspection, reset, ramdisk preparation, recovery, and interrupted-cleanup finalization.
+First launch creates a separate virtual environment for this version under the user's state directory and downloads the pinned dependencies. Every launch checks locked versions and native imports. Runtime dependencies, backups, and downloaded backends stay outside the app folder.
+
+## iPhone 3G on iOS 4
+
+Select menu option **8**, or run:
+
+```sh
+./Launch.command prepare --model iPhone1,2 --apply
+```
+
+Use `bash Launch.sh` on Linux or `Launch.cmd` on Windows with the same arguments.
+
+The 3G is `iPhone1,2` / `n82ap`. `m68ap` belongs to the original iPhone; an `iBSS.m68ap.RELEASE.dfu` error on a 3G can indicate incorrect device selection. The explicit 3G route selects `n82ap` and the **3.1.3 / 7E18 boot ramdisk** used by Legacy iOS Kit. This does not downgrade the installed iOS 4 system. The reset adapter recognizes the older `/dev/disk0s1` and `/dev/disk0s2` partitions.
+
+If downloading the boot components fails, provide a complete local **iPhone 3G 3.1.3 / 7E18** IPSW:
+
+```sh
+./Launch.command prepare --model iPhone1,2 --ipsw "/path/iPhone1,2_3.1.3_7E18_Restore.ipsw" --apply
+```
+
+The app validates the IPSW product, build, and `iBSS.n82ap.RELEASE.dfu` entry before copying it into the backend cache. An exact failure log and a connected 3G are still needed to confirm that the reported failure is resolved on hardware.
+
+## Integrated passcode-recovery backend
+
+Preview or install the pinned integration without connecting a phone:
+
+```sh
+./Launch.command bruteforce
+./Launch.command bruteforce --install-only
+```
+
+Run it for a supported legacy iPhone:
+
+```sh
+./Launch.command bruteforce --apply
+```
+
+The backend is downloaded directly from tuanemss at commit `4949674b318767de83eb149e57bcc543a6453d6e`. Its script hash and checkout are checked before compatibility edits are applied. The adapter fixes fallback iBSS/iBEC filenames, cross-checks chip/board IDs, rejects incompatible executables, and stops when patching or pwnDFU verification fails.
+
+**The upstream bundle's on-device executables are ARMv7. They cannot run on an ARMv6 iPhone 3G.** The app stops before booting them. To use that backend on a 3G, supply compatible, ramdisk-tested ARMv6 builds of `bruteforce`, `device_infos`, and `restored_external`:
+
+```sh
+./Launch.command bruteforce --model iPhone1,2 --armv6-tools "/path/armv6-tools" --apply
+```
+
+These ARMv6 builds are not included or compiled by this release. A Mach-O architecture check establishes CPU compatibility, not end-to-end recovery compatibility. The 3G timer-reset command above is available independently.
+
+The upstream backend runs its own firmware and on-device recovery workflow. The transaction backups and rollback described below apply to this app's `reset` operation, not to upstream ramdisk tools. Backend prompts remain interactive. Connect one phone for preparation.
+
+## Built-in updater
+
+Use menu option **9**, or:
+
+```sh
+./Launch.command update --prerelease
+./Launch.command update --prerelease --apply
+./Launch.command update --rollback
+```
+
+The first command checks, the second installs, and the third selects the previous installation. Omit `--prerelease` to accept stable releases only. Version 1.1.0 needs a one-time manual download of 1.2.0 to gain the updater.
+
+Because this repository is private, install [GitHub CLI](https://cli.github.com/) and run `gh auth login` with an account that can access it. The app uses that sign-in without saving a token.
+
+Updates verify GitHub's archive SHA-256, the complete internal checksum inventory, source version/revision, ZIP paths, and size limits. They stage into a separate version folder and switch the active version only after verification. Relaunch the original launcher to use the update. Previous source and version-specific Python environments remain available for rollback. Backups and backend caches are preserved.
+
+## Timer-reset preparation
 
 To start with pwnDFU/ramdisk preparation and then apply the reset:
 
@@ -72,6 +149,7 @@ These are the versions the program **accepts for inspection**, not a hardware-te
 
 | iPhone | Product types | Accepted installed iOS |
 |---|---|---|
+| 3G | iPhone1,2 | 4.0–4.2.1 |
 | 4 | iPhone3,1 / 3,2 / 3,3 | 6.0–7.1.2 |
 | 4S | iPhone4,1 | 6.0–9.3.6 |
 | 5 | iPhone5,1 / 5,2 | 6.0–10.3.4 |
@@ -139,7 +217,9 @@ The default SSH credential is the ramdisk's `root` / `alpine`, not the phone's p
 
 The first SSH host key is trusted over the selected local USB connection and saved in the state directory. If a rebuilt ramdisk changes its key, inspect the device selection and use `--trust-new-key` once. This does not alter system SSH settings.
 
-The default macOS state directory is `~/Library/Application Support/Bruteforce Legacy iOS`. Backups and downloaded backends live there, outside the source/install directory. Set `--state-dir` to use another private directory, including the previous `~/Library/Application Support/iPhone Timeout Reset` directory. `--backups` and `--kit` can override their individual locations.
+The default state directory is `~/Library/Application Support/Bruteforce Legacy iOS` on macOS, `$XDG_STATE_HOME/bruteforce-legacy-ios` (or `~/.local/state/bruteforce-legacy-ios`) on Linux, and `%LOCALAPPDATA%\Bruteforce Legacy iOS` on Windows. Windows files inherit the profile directory's ACLs; POSIX files use private permission modes. WSL has its own Linux state directory.
+
+Use `--state-dir` on device commands for another location. `--backups` and `--kit` override individual locations. The launcher and updater use the default state directory.
 
 The program never runs filesystem repair automatically. Read-only data volumes are accepted for inspection and rejected for writes. If volumes cannot mount, stop and investigate disk/ramdisk compatibility before trying again.
 
@@ -153,7 +233,7 @@ The suite covers plist formats and types, compatibility checks, corruption, inte
 
 `VERIFICATION.txt` records the checks performed. The simulated server is not an iPhone emulator.
 
-CI is configured for macOS with Python 3.9 and 3.13 and Linux with Python 3.13. GitHub blocked the initial run before testing because of account billing/spending limits; see `VERIFICATION.txt`. Linux CI covers host logic and transport simulations; the integrated device-preparation workflow remains macOS-only.
+CI is configured for macOS/Python 3.9 and 3.13, Linux/Python 3.13, and Windows/Python 3.13. POSIX filesystem fixtures are skipped on Windows; portable transaction and transport tests remain enabled. GitHub blocked earlier runs because of account billing/spending limits; see `VERIFICATION.txt`. CI does not exercise USB hardware.
 
 For a regular Python environment, `python3 -m pip install .` exposes `bruteforce-legacy-ios`; the previous `iphone-timeout-reset` command remains an alias.
 
@@ -164,3 +244,5 @@ python3 build_release.py
 ```
 
 The archive in `dist/` contains only explicitly selected source, documentation, and tests. It includes file checksums, a `SOURCE.json` revision record, and an executable launcher. Runtime data, downloaded firmware, dependencies, and backups are excluded.
+
+The MIT license covers this app's code. External backend source, executables, and firmware are downloaded separately and retain their respective terms and attribution.

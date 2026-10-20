@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import tempfile
 import unittest
 from dataclasses import replace
@@ -147,6 +148,7 @@ class RecoveryTests(unittest.TestCase):
         with self.assertRaisesRegex(ResetError, "permitted transformation"):
             load_backup(folder)
 
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "POSIX FIFO")
     def test_backup_manifest_fifo_is_rejected_without_blocking(self):
         folder = self.backups / "fifo"
         folder.mkdir(parents=True)
@@ -154,6 +156,7 @@ class RecoveryTests(unittest.TestCase):
         with self.assertRaises(ResetError):
             load_backup(folder)
 
+    @unittest.skipIf(sys.platform == "win32", "POSIX symlink fixture")
     def test_symlink_manifest_rejected(self):
         d = MemoryDevice()
         folder = self.backup(d)
@@ -163,6 +166,7 @@ class RecoveryTests(unittest.TestCase):
         with self.assertRaises(ResetError):
             load_backup(folder)
 
+    @unittest.skipIf(sys.platform == "win32", "POSIX symlink fixture")
     def test_symlink_backup_rejected(self):
         d = MemoryDevice()
         folder = self.backup(d)

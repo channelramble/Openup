@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Optional
 
 from . import __version__
+from .host import open_regular, replace_file, sync_directory
 
 
 class ResetError(Exception):
@@ -33,6 +34,7 @@ SYSTEM_VERSION = "/mnt1/System/Library/CoreServices/SystemVersion.plist"
 ALLOWED_PATHS = (PREFS, JOURNAL)
 MAX_FILE = 8 * 1024 * 1024
 SUPPORTED = {
+    "iPhone1,2": ("iPhone 3G", (4, 0, 0), (4, 2, 1)),
     "iPhone3,1": ("iPhone 4", (6, 0, 0), (7, 1, 2)),
     "iPhone3,2": ("iPhone 4", (6, 0, 0), (7, 1, 2)),
     "iPhone3,3": ("iPhone 4", (6, 0, 0), (7, 1, 2)),
@@ -68,7 +70,7 @@ def plist(data, label):
 def compatible(model, version):
     if not isinstance(model, str) or model not in SUPPORTED:
         raise ResetError(
-            f"{model!r} is unsupported. This release accepts iPhone 4/4S/5/5c "
+            f"{model!r} is unsupported. Timer reset accepts iPhone 3G/4/4S/5/5c "
             "only; iPhone 5s and newer are excluded."
         )
     if not isinstance(version, str) or not re.fullmatch(r"[0-9]{1,2}\.[0-9]{1,2}(?:\.[0-9]{1,2})?", version):
@@ -165,7 +167,7 @@ def make_plan(device, identity):
 def read_local_file(path, limit):
     """Bounded reads that reject symlinks, directories, FIFOs and devices."""
     try:
-        fd = os.open(str(path), os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        fd = open_regular(path, os.O_RDONLY)
         with os.fdopen(fd, "rb") as stream:
             before = os.fstat(stream.fileno())
             if not stat.S_ISREG(before.st_mode) or before.st_size > limit:
@@ -190,12 +192,8 @@ def secure_write(path, data):
             stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(str(temporary), str(path))
-        directory_fd = os.open(str(path.parent), os.O_RDONLY)
-        try:
-            os.fsync(directory_fd)
-        finally:
-            os.close(directory_fd)
+        replace_file(temporary, path)
+        sync_directory(path.parent)
     finally:
         if temporary.exists():
             temporary.unlink()
@@ -219,11 +217,7 @@ def make_backup(plan, root):
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     folder = root / f"{stamp}-{token}"
     folder.mkdir(mode=0o700)
-    parent_fd = os.open(str(root), os.O_RDONLY)
-    try:
-        os.fsync(parent_fd)
-    finally:
-        os.close(parent_fd)
+    sync_directory(root)
     manifest = {
         "schema": 1, "tool_version": __version__, "transaction": token,
         "created_utc": stamp, "identity": asdict(plan.identity),

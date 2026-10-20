@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import build_release
 import check_dependencies
+from ios_timeout import __version__
 
 
 class DistributionTests(unittest.TestCase):
@@ -27,7 +28,11 @@ class DistributionTests(unittest.TestCase):
                 launcher = package.getinfo("Bruteforce-Legacy-iOS/Launch.command")
                 self.assertEqual((launcher.external_attr >> 16) & 0o777, 0o755)
                 source = json.loads(package.read("Bruteforce-Legacy-iOS/SOURCE.json"))
-                self.assertEqual(source["version"], "1.1.0")
+                self.assertEqual(source["version"], __version__)
+                self.assertEqual(
+                    package.read("Bruteforce-Legacy-iOS/requirements-lock.txt"),
+                    package.read("Bruteforce-Legacy-iOS/ios_timeout/runtime-requirements.txt"),
+                )
 
     def test_dependency_drift_and_missing_transitive_packages_are_detected(self):
         with tempfile.TemporaryDirectory() as folder:

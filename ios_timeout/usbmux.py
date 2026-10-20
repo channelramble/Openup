@@ -4,6 +4,7 @@ import plistlib
 import re
 import socket
 import struct
+import sys
 
 from .core import ResetError
 from . import __version__
@@ -44,8 +45,13 @@ def request(sock, message, tag=1):
     return reply
 
 
-def connect_socket(path=SOCKET_PATH):
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+def default_endpoint():
+    return ("127.0.0.1", 27015) if sys.platform == "win32" else SOCKET_PATH
+
+
+def connect_socket(path=None):
+    path = default_endpoint() if path is None else path
+    sock = socket.socket(socket.AF_INET if isinstance(path, tuple) else socket.AF_UNIX, socket.SOCK_STREAM)
     sock.settimeout(15)
     try:
         sock.connect(path)
@@ -53,12 +59,13 @@ def connect_socket(path=SOCKET_PATH):
         sock.close()
         raise ResetError(
             f"Cannot contact usbmuxd at {path}: {exc}. "
-            "Run on the Mac physically connected to the phone."
+            "Use the computer connected to the phone. On Windows, install/start "
+            "Apple Mobile Device Service; on Linux, install/start usbmuxd."
         ) from exc
     return sock
 
 
-def list_devices(path=SOCKET_PATH):
+def list_devices(path=None):
     with connect_socket(path) as sock:
         reply = request(sock, {"MessageType": "ListDevices"})
     devices = reply.get("DeviceList")
@@ -100,7 +107,7 @@ def select_device(devices, udid=None):
     return matches[0]
 
 
-def tunnel(device_id, port=22, path=SOCKET_PATH, expected_udid=None):
+def tunnel(device_id, port=22, path=None, expected_udid=None):
     if type(port) is not int or not 1 <= port <= 65535:
         raise ResetError("SSH device port must be between 1 and 65535.")
     if type(device_id) is not int or not 0 < device_id < 2**32:

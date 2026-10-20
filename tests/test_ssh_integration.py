@@ -12,6 +12,7 @@ import shlex
 import shutil
 import socket
 import stat
+import sys
 import tempfile
 import threading
 import unittest
@@ -148,14 +149,16 @@ class Server(paramiko.ServerInterface):
                     output = root + " on / (hfs, local)\n"
                     if self.owner.mounted:
                         options = "hfs, local, read-only" if self.owner.read_only else "hfs, local"
-                        output += f"/dev/disk0s1s1 on /mnt1 (hfs, local)\n/dev/disk0s1s2 on /mnt2 ({options})\n"
+                        prefix = "/dev/disk0s" if self.owner.model == "iPhone1,2" else "/dev/disk0s1s"
+                        output += f"{prefix}1 on /mnt1 (hfs, local)\n{prefix}2 on /mnt2 ({options})\n"
                 elif command.decode().startswith("if test -x /bin/ps;"):
                     output = "/sbin/launchd\n/usr/sbin/sshd\n"
                     if self.owner.springboard:
                         output += "/System/Library/CoreServices/SpringBoard.app/SpringBoard\n"
                 elif args[:1] == ["/sbin/mount_hfs"]:
                     self.owner.mounted = True
-                elif command.decode() == "test -b /dev/disk0s1s1 && test -b /dev/disk0s1s2":
+                elif command.decode() in ("test -b /dev/disk0s1s1 && test -b /dev/disk0s1s2",
+                                          "test -b /dev/disk0s1 && test -b /dev/disk0s2"):
                     pass
                 elif args[:2] == ["/bin/cp", "-p"]:
                     shutil.copy2(self.root / args[2].lstrip("/"), self.root / args[3].lstrip("/"))
@@ -174,6 +177,7 @@ class Server(paramiko.ServerInterface):
         return True
 
 
+@unittest.skipIf(sys.platform == "win32", "Server fixture requires POSIX ownership and symlink semantics")
 class SSHTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -271,6 +275,20 @@ class SSHTests(unittest.TestCase):
             with self.assertRaises(ResetError):
                 device.inspect()
             self.assertEqual(device.inspect(mount=True).version, "9.3.5")
+
+    def test_3g_ios4_uses_old_partition_layout_and_recovers(self):
+        self.model = "iPhone1,2"
+        self.mounted = False
+        version = self.root / SYSTEM_VERSION.lstrip("/")
+        version.write_bytes(plistlib.dumps({"ProductVersion": "4.2.1", "ProductBuildVersion": "8C148"}))
+        from ios_timeout.core import make_plan, apply_plan, restore_backup
+        original = (self.root / PREFS.lstrip("/")).read_bytes()
+        with self.device() as device:
+            identity = device.inspect(mount=True, writable=True)
+            self.assertEqual(identity.model, "iPhone1,2")
+            folder = apply_plan(device, make_plan(device, identity), self.backups)
+            restore_backup(device, identity, folder)
+        self.assertEqual((self.root / PREFS.lstrip("/")).read_bytes(), original)
 
     def test_symlink_target_is_rejected(self):
         prefs = self.root / PREFS.lstrip("/")

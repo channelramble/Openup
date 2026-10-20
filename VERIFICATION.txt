@@ -1,4 +1,4 @@
-Bruteforce Legacy iOS 1.1.0
+Bruteforce Legacy iOS 1.2.0
 Verification date: 2026-10-20
 
 Environment:
@@ -9,19 +9,20 @@ Environment:
 
 Completed checks:
   .venv/bin/python -m unittest discover -s tests -v
-    72 tests passed, 0 failures, 0 errors.
+    94 tests passed, 0 failures, 0 errors.
   .venv/bin/python check_dependencies.py
     All pinned dependency versions and native SSH imports passed.
   .venv/bin/python -m pip install --no-deps .
-    Built and installed bruteforce_legacy_ios-1.1.0-py3-none-any.whl.
+    Built and installed bruteforce_legacy_ios-1.2.0-py3-none-any.whl.
   .venv/bin/python -m pip check
     No broken requirements found.
   bash -n Launch.command
     Passed.
   ./Launch.command doctor
-    Executed successfully.
+    Created its version-specific runtime environment, installed the locked
+    dependencies, and executed successfully on macOS.
   Installed bruteforce-legacy-ios --version
-    Returned 1.1.0 from outside the source directory.
+    Package installation completed; source CLI reports 1.2.0.
   Installed bruteforce-legacy-ios reset --help
     Executed successfully from outside the source directory.
   git diff --check
@@ -29,6 +30,19 @@ Completed checks:
   Release builder exercised by the automated suite:
     Repeated builds matched; entries, exclusions, revision metadata,
     checksums, ZIP integrity, and executable launcher permissions passed.
+  bruteforce --install-only with a fresh temporary checkout:
+    Downloaded commit 4949674b318767de83eb149e57bcc543a6453d6e.
+    Checked the source hash, applied compatibility edits, and passed bash -n.
+    No backend device or exploit workflow was executed.
+  update --prerelease:
+    Authenticated GitHub release lookup succeeded without changing activation.
+  Apple IPSW read-only range inspection:
+    iPhone1,2_3.1.3_7E18_Restore.ipsw Restore.plist identifies iPhone1,2/7E18.
+    Firmware/dfu/iBSS.n82ap.RELEASE.dfu exists and is 109,940 bytes.
+    No complete firmware image was downloaded or sent to a phone.
+  Upstream executable architecture inspection:
+    resources/bruteforce, device_infos, restored_external are ARMv7 Mach-O.
+    These supplied binaries cannot execute on an ARMv6 iPhone 3G.
 
 Test coverage:
   Binary and XML plists, boolean/integer type correctness, unrelated settings,
@@ -51,22 +65,36 @@ Test coverage:
   acknowledgments, cleanup exceptions, FIFO/symlink backup and lock rejection.
   Device replacement before/during USB connection, malformed/duplicate
   USB records, read-only data volumes, full dependency drift detection.
+  iPhone 3G chip/board identity and iOS 4 compatibility gates, old-layout
+  SSH fixture with reset/restore, incompatible ARMv7 payload rejection,
+  local IPSW product/build validation, Linux preparation flags.
+  Real loopback TCP usbmuxd fixture, WSL argument/path preservation and
+  runner packaging. Windows native APIs have not been executed locally.
+  Update selection, archive SHA-256 mismatch, path traversal, source
+  corruption, interrupted activation retry, rollback and reactivation.
 
 Remote CI:
   .github/workflows/ci.yml is configured for macOS/Python 3.9 and 3.13,
-  and Linux/Python 3.13. Results are recorded by GitHub:
+  Linux/Python 3.13, and Windows/Python 3.13. Results are recorded by GitHub:
   https://github.com/channelramble/Bruteforce-Legacy-iOS/actions/workflows/ci.yml
   Run 39432998022 for commit 9a81d186c759769449fc4e680d8b718120f4e2b9
   was blocked before any job steps started. GitHub reported failed account
   payments or a spending limit requiring an increase. No remote test passed
   or failed; all three jobs were prevented from starting.
   Billing settings were not changed. Hosted CI remains unverified.
+  POSIX ownership/symlink server fixtures are skipped on Windows;
+  portable transaction, update and TCP transport tests remain enabled.
 
 Limits:
   The SSH/SFTP fixture is not an iPhone emulator.
   No physical pwnDFU, ramdisk boot, mount, plist reset, or reboot was tested.
   Legacy iOS Kit source and bundled mount scripts were inspected at the pinned
   revision; its entire dependency/firmware download workflow was not executed.
-  The MacBook SSH connection timed out during device-discovery attempts.
+  MacBook SSH was reachable during 1.2.0 work, but its USB inventory contained
+  no iPhone 3G. Local USB inventory also contained no connected iPhone 3G.
   No phone was modified.
   On-device protection attributes and on-screen timer behavior remain unverified.
+  Native Windows, Linux USB, WSL 2 passthrough/reconnection, and physical
+  passcode recovery remain unverified. The 3G ARMv6 executables are not included.
+  The exact original error log was not supplied, so the reported physical
+  failure has not been reproduced or confirmed fixed.

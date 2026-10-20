@@ -41,11 +41,12 @@ def build(destination, root=ROOT):
     archive_path = destination / f"{PREFIX}-{__version__}.zip"
     names = [
         "README.md", "RESEARCH.md", "VERIFICATION.txt", "CHANGELOG.md", "LICENSE",
-        "Launch.command", "pyproject.toml", "requirements-lock.txt",
+        "Launch.command", "Launch.sh", "Launch.cmd", "bootstrap.py", "pyproject.toml", "requirements-lock.txt",
         ".gitignore", ".gitattributes", "build_release.py", "check_dependencies.py",
     ]
     paths = [root / name for name in names]
     paths += sorted((root / "ios_timeout").glob("*.py"))
+    paths += sorted((root / "ios_timeout").glob("*.txt"))
     paths += sorted((root / "tests").glob("*.py"))
     paths += sorted((root / ".github").rglob("*.yml"))
     entries = {}
@@ -64,7 +65,7 @@ def build(destination, root=ROOT):
             info = zipfile.ZipInfo(f"{PREFIX}/{name}", date_time=(1980, 1, 1, 0, 0, 0))
             info.create_system = 3
             info.compress_type = zipfile.ZIP_DEFLATED
-            info.external_attr = (0o100755 if name == "Launch.command" else 0o100644) << 16
+            info.external_attr = (0o100755 if name in ("Launch.command", "Launch.sh") else 0o100644) << 16
             archive.writestr(info, data)
     with zipfile.ZipFile(archive_path) as archive:
         if archive.testzip() is not None:

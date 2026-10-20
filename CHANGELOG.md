@@ -1,5 +1,18 @@
 # Changes
 
+## 1.2.0
+
+- Integrate a pinned 32bit-Bruteforce-Passcode checkout without bundling third-party executables.
+- Correct fallback boot-image names; cross-check recovery chip/board IDs and Mach-O architectures.
+- Add an explicit iPhone 3G/iOS 4 timer-reset route, matching 7E18 boot profile, local IPSW validation, and old partition layout support.
+- Reject upstream ARMv7 executables for the ARMv6 3G; accept separately supplied compatible ARMv6 builds.
+- Add native Linux preparation, Windows USB SSH support, three platform launchers, and a Windows-to-WSL bridge for Unix ramdisk tools.
+- Add authenticated GitHub update checks, bounded archive and checksum validation, staged activation, and rollback.
+- Keep separate Python environments per app version.
+- Extend CI configuration to Windows and add compatibility/update regression tests.
+
+Physical device operations, native Windows execution, and WSL USB passthrough remain unverified. The upstream ARMv6 executable gap remains a limitation for 3G passcode recovery.
+
 ## 1.1.0
 
 Published under the requested project name, **Bruteforce Legacy iOS**. The implemented function remains a one-time timer-state reset for eligible legacy iPhones.

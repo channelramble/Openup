@@ -1,4 +1,5 @@
 import os
+import sys
 import tempfile
 import threading
 import unittest
@@ -42,6 +43,7 @@ class BoundariesTests(unittest.TestCase):
         for connection in connections:
             connection.close.assert_called_once()
 
+    @unittest.skipIf(sys.platform == "win32", "POSIX symlink fixture; Windows reparse checks run separately")
     def test_state_directory_and_lock_symlinks_are_rejected(self):
         with tempfile.TemporaryDirectory() as folder:
             real = Path(folder) / "real"
@@ -57,10 +59,11 @@ class BoundariesTests(unittest.TestCase):
                 self.fail("must not enter")
             self.assertEqual(target.read_text(), "untouched")
 
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "POSIX FIFO")
     def test_fifo_session_lock_is_rejected_without_blocking(self):
         with tempfile.TemporaryDirectory() as folder:
             os.mkfifo(Path(folder) / "session.lock")
-            with self.assertRaises(ResetError), host_lock(Path(folder)):
+            with self.assertRaises((ResetError, OSError)), host_lock(Path(folder)):
                 self.fail("must not enter")
 
     def test_two_host_sessions_cannot_run_together(self):

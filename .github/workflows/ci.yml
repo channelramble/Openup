@@ -23,6 +23,8 @@ jobs:
             python: "3.13"
           - os: ubuntu-24.04
             python: "3.13"
+          - os: windows-2022
+            python: "3.13"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -39,9 +41,12 @@ jobs:
       - name: Test recovery, USB and SSH transport
         run: python -m unittest discover -s tests -v
       - name: Check launcher and installed CLI
+        shell: bash
         run: |
           bash -n Launch.command
+          bash -n Launch.sh
           bruteforce-legacy-ios --version
           bruteforce-legacy-ios reset --help
+          bruteforce-legacy-ios bruteforce --help
       - name: Build verified source archive
         run: python build_release.py

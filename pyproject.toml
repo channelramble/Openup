@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "bruteforce-legacy-ios"
 dynamic = ["version"]
-description = "Backed-up, one-time lockout-state reset for legacy 32-bit iPhones"
+description = "Legacy iPhone timer reset and integrated passcode-recovery ramdisk tools"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.9"
@@ -24,3 +24,6 @@ version = {attr = "ios_timeout.__version__"}
 
 [tool.setuptools.packages.find]
 include = ["ios_timeout*"]
+
+[tool.setuptools.package-data]
+ios_timeout = ["*.txt"]

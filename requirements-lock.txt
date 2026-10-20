@@ -1,4 +1,4 @@
-# Runtime dependency versions verified for release 1.1.0.
+# Runtime dependency versions verified for release 1.2.0.
 paramiko==5.1.0
 bcrypt==5.0.0
 cffi==2.0.0

@@ -19,6 +19,7 @@ from .core import (
 )
 
 BOARD_MODELS = {
+    "n82ap": "iPhone1,2",
     "n90ap": "iPhone3,1", "n90bap": "iPhone3,2", "n92ap": "iPhone3,3",
     "n94ap": "iPhone4,1", "n41ap": "iPhone5,1", "n42ap": "iPhone5,2",
     "n48ap": "iPhone5,3", "n49ap": "iPhone5,4",
@@ -323,12 +324,13 @@ class USBDevice:
         )
         if re.search(r"(?:^|/|\.|\s)SpringBoard(?:\s|$)", processes):
             raise ResetError("SpringBoard is running. Use an offline SSH ramdisk.")
+        disk_prefix = "/dev/disk0s" if model == "iPhone1,2" else "/dev/disk0s1s"
         def mounted_volumes(output):
             result = set()
             for number in ("1", "2"):
                 found = re.search(r"^(\S+) on /mnt" + number + r" \(([^)]*)\)", output, re.MULTILINE)
                 if found:
-                    if found.group(1) != "/dev/disk0s1s" + number:
+                    if found.group(1) != disk_prefix + number:
                         raise ResetError(f"Unexpected volume mounted at /mnt{number}.")
                     if "hfs" not in [part.strip() for part in found.group(2).split(",")]:
                         raise ResetError(f"/mnt{number} is not an HFS filesystem.")
@@ -340,14 +342,14 @@ class USBDevice:
         if not mounted and mount:
             # Use only the known HFS partitions, without mount.sh's repair
             # fallback for other disk layouts.
-            self.command("test -b /dev/disk0s1s1 && test -b /dev/disk0s1s2")
+            self.command(f"test -b {disk_prefix}1 && test -b {disk_prefix}2")
             for number in ("1", "2"):
                 if number not in volumes:
                     attributes = self.sftp.lstat("/mnt" + number)
                     if not stat.S_ISDIR(attributes.st_mode):
                         raise ResetError(f"/mnt{number} is not a regular mount directory.")
                     self.command(
-                        f"/sbin/mount_hfs /dev/disk0s1s{number} /mnt{number}", timeout=60
+                        f"/sbin/mount_hfs {disk_prefix}{number} /mnt{number}", timeout=60
                     )
             mounts = self.command("/sbin/mount")
             mounted = len(mounted_volumes(mounts)) == 2
@@ -357,7 +359,7 @@ class USBDevice:
                 "Retry with --mount to mount the known legacy HFS volumes. "
                 "Filesystem repair is not performed automatically."
             )
-        data_mount = re.search(r"^/dev/disk0s1s2 on /mnt2 \(([^)]*)\)", mounts, re.MULTILINE)
+        data_mount = re.search(r"^" + re.escape(disk_prefix) + r"2 on /mnt2 \(([^)]*)\)", mounts, re.MULTILINE)
         if writable and "read-only" in [part.strip() for part in data_mount.group(1).split(",")]:
             raise ResetError("The data volume is read-only; no transaction was started.")
         version_data, _ = self.read(SYSTEM_VERSION)
