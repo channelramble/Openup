@@ -23,7 +23,7 @@ import paramiko
 
 from ios_timeout import cli
 from ios_timeout.core import JOURNAL, PREFS, SYSTEM_VERSION, ResetError
-from ios_timeout.device import USBDevice
+from ios_timeout.device import LOCK, USBDevice
 from tests.test_core import encoded
 
 
@@ -77,6 +77,19 @@ class TestSFTP(paramiko.SFTPServerInterface):
         try:
             self.local(path).rmdir()
             return paramiko.SFTP_OK
+        except OSError as exc:
+            return paramiko.SFTPServer.convert_errno(exc.errno)
+
+    def symlink(self, target_path, path):
+        try:
+            os.symlink(target_path, self.local(path))
+            return paramiko.SFTP_OK
+        except OSError as exc:
+            return paramiko.SFTPServer.convert_errno(exc.errno)
+
+    def readlink(self, path):
+        try:
+            return os.readlink(self.local(path))
         except OSError as exc:
             return paramiko.SFTPServer.convert_errno(exc.errno)
 
@@ -134,7 +147,8 @@ class Server(paramiko.ServerInterface):
                     root = "/dev/md0" if self.owner.ramdisk else "/dev/disk0s1s1"
                     output = root + " on / (hfs, local)\n"
                     if self.owner.mounted:
-                        output += "/dev/disk0s1s1 on /mnt1 (hfs, local)\n/dev/disk0s1s2 on /mnt2 (hfs, local)\n"
+                        options = "hfs, local, read-only" if self.owner.read_only else "hfs, local"
+                        output += f"/dev/disk0s1s1 on /mnt1 (hfs, local)\n/dev/disk0s1s2 on /mnt2 ({options})\n"
                 elif command.decode().startswith("if test -x /bin/ps;"):
                     output = "/sbin/launchd\n/usr/sbin/sshd\n"
                     if self.owner.springboard:
@@ -175,6 +189,7 @@ class SSHTests(unittest.TestCase):
         self.ramdisk = True
         self.springboard = False
         self.mounted = True
+        self.read_only = False
         self.selected = {"udid": "e" * 40, "device_id": 9}
         for path, data in (
             (PREFS, encoded()),
@@ -198,7 +213,7 @@ class SSHTests(unittest.TestCase):
             except (EOFError, OSError):
                 pass
 
-    def connect(self, *_args):
+    def connect(self, *_args, **_kwargs):
         client, server_socket = socket.socketpair()
         transport = paramiko.Transport(server_socket)
         transport.add_server_key(self.key)
@@ -272,6 +287,46 @@ class SSHTests(unittest.TestCase):
             self.device()
         with self.device(trust_new_key=True):
             pass
+
+    def test_atomic_lock_carries_owner_and_releases_idempotently(self):
+        token = "f" * 32
+        with self.device() as device:
+            device.acquire(token)
+            lock = self.root / LOCK.lstrip("/")
+            self.assertTrue(lock.is_symlink())
+            self.assertEqual(os.readlink(lock), token)
+            with self.assertRaises(ResetError):
+                device.acquire("a" * 32)
+            device.acquire(token, recover=True)
+            device.release(token)
+            device.release(token)
+            self.assertFalse(lock.is_symlink())
+
+    def test_version_one_directory_lock_can_be_recovered(self):
+        token = "f" * 32
+        lock = self.root / LOCK.lstrip("/")
+        lock.mkdir()
+        (lock / "owner").write_text(token)
+        with self.device() as device:
+            device.acquire(token, recover=True)
+            device.release(token)
+        self.assertFalse(lock.exists())
+
+    def test_read_only_volume_can_be_inspected_but_not_written(self):
+        self.read_only = True
+        with self.device() as device:
+            self.assertEqual(device.inspect().model, self.model)
+            with self.assertRaisesRegex(ResetError, "read-only"):
+                device.inspect(writable=True)
+        self.assertFalse(self.backups.exists())
+
+    def test_symlink_parent_is_rejected(self):
+        folder = self.root / Path(PREFS.lstrip("/")).parent
+        saved = folder.with_name("SavedPreferences")
+        folder.rename(saved)
+        folder.symlink_to(saved, target_is_directory=True)
+        with self.device() as device, self.assertRaises(ResetError):
+            device.read(PREFS)
 
 
 if __name__ == "__main__":

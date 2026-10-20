@@ -3,14 +3,24 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "iphone-timeout-reset"
-version = "1.0.0"
+name = "bruteforce-legacy-ios"
+dynamic = ["version"]
 description = "Backed-up, one-time lockout-state reset for legacy 32-bit iPhones"
+readme = "README.md"
+license = {text = "MIT"}
 requires-python = ">=3.9"
 dependencies = ["paramiko==5.1.0"]
 
 [project.scripts]
+bruteforce-legacy-ios = "ios_timeout.cli:main"
 iphone-timeout-reset = "ios_timeout.cli:main"
+
+[project.urls]
+Repository = "https://github.com/channelramble/Bruteforce-Legacy-iOS"
+Issues = "https://github.com/channelramble/Bruteforce-Legacy-iOS/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "ios_timeout.__version__"}
 
 [tool.setuptools.packages.find]
 include = ["ios_timeout*"]

@@ -1,0 +1,47 @@
+name: Test and package
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            python: "3.9"
+          - os: macos-14
+            python: "3.13"
+          - os: ubuntu-24.04
+            python: "3.13"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install locked runtime and package
+        run: |
+          python -m pip install -r requirements-lock.txt
+          python -m pip install --no-deps .
+          python -m pip check
+          python check_dependencies.py
+      - name: Test recovery, USB and SSH transport
+        run: python -m unittest discover -s tests -v
+      - name: Check launcher and installed CLI
+        run: |
+          bash -n Launch.command
+          bruteforce-legacy-ios --version
+          bruteforce-legacy-ios reset --help
+      - name: Build verified source archive
+        run: python build_release.py

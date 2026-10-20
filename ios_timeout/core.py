@@ -23,6 +23,10 @@ class ResetError(Exception):
     pass
 
 
+class LockBusy(ResetError):
+    """Another transaction owns the device; acquisition made no changes."""
+
+
 PREFS = "/mnt2/mobile/Library/Preferences/com.apple.springboard.plist"
 JOURNAL = "/mnt2/mobile/Library/SpringBoard/LockoutStateJournal.plist"
 SYSTEM_VERSION = "/mnt1/System/Library/CoreServices/SystemVersion.plist"
@@ -62,12 +66,12 @@ def plist(data, label):
 
 
 def compatible(model, version):
-    if model not in SUPPORTED:
+    if not isinstance(model, str) or model not in SUPPORTED:
         raise ResetError(
             f"{model!r} is unsupported. This release accepts iPhone 4/4S/5/5c "
             "only; iPhone 5s and newer are excluded."
         )
-    if not re.fullmatch(r"\d+\.\d+(?:\.\d+)?", version):
+    if not isinstance(version, str) or not re.fullmatch(r"[0-9]{1,2}\.[0-9]{1,2}(?:\.[0-9]{1,2})?", version):
         raise ResetError(f"Unrecognized installed iOS version: {version!r}.")
     parts = tuple(int(x) for x in version.split("."))
     parts += (0,) * (3 - len(parts))
@@ -85,9 +89,9 @@ class Identity:
     build: str
 
     def validate(self):
-        if not re.fullmatch(r"[A-Za-z0-9-]{8,128}", self.udid):
+        if not isinstance(self.udid, str) or not re.fullmatch(r"[A-Za-z0-9-]{8,128}", self.udid):
             raise ResetError("Missing or invalid USB device identifier.")
-        if not re.fullmatch(r"[A-Za-z0-9]{3,24}", self.build):
+        if not isinstance(self.build, str) or not re.fullmatch(r"[A-Za-z0-9]{3,24}", self.build):
             raise ResetError("Missing or invalid installed iOS build.")
         compatible(self.model, self.version)
 
@@ -114,9 +118,7 @@ class Plan:
     notes: list
 
 
-def make_plan(device, identity):
-    identity.validate()
-    original, metadata = device.read(PREFS)
+def patch_preferences(original):
     values = plist(original, "SpringBoard preferences")
     known = set(REMOVE_KEYS) | {"SBDeviceLockBlocked", "SBDeviceLockFailedAttempts"}
     if not known.intersection(values):
@@ -128,6 +130,15 @@ def make_plan(device, identity):
     patched["SBDeviceLockFailedAttempts"] = 0
     for key in REMOVE_KEYS:
         patched.pop(key, None)
+    fmt = plistlib.FMT_BINARY if original.startswith(b"bplist00") else plistlib.FMT_XML
+    return (plistlib.dumps(patched, fmt=fmt, sort_keys=False),
+            plistlib.dumps(values, fmt=fmt, sort_keys=False), values)
+
+
+def make_plan(device, identity):
+    identity.validate()
+    original, metadata = device.read(PREFS)
+    after, before_normal, values = patch_preferences(original)
     notes = [
         "Reset failed-attempt count to 0 and blocked state to false.",
         "Remove known cached timer/state entries; preserve other preferences.",
@@ -138,9 +149,6 @@ def make_plan(device, identity):
     changes = []
     # Compare the serialized format as well as values: bool and int compare equal
     # in Python, but plist boolean and integer have different meanings.
-    fmt = plistlib.FMT_BINARY if original.startswith(b"bplist00") else plistlib.FMT_XML
-    after = plistlib.dumps(patched, fmt=fmt, sort_keys=False)
-    before_normal = plistlib.dumps(values, fmt=fmt, sort_keys=False)
     if after != before_normal:
         changes.append(Change(PREFS, original, after, metadata))
     try:
@@ -152,6 +160,24 @@ def make_plan(device, identity):
         changes.append(Change(JOURNAL, journal, None, journal_meta))
         notes.append("Archive the old lockout journal so iOS can recreate it.")
     return Plan(identity, changes, notes)
+
+
+def read_local_file(path, limit):
+    """Bounded reads that reject symlinks, directories, FIFOs and devices."""
+    try:
+        fd = os.open(str(path), os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, "rb") as stream:
+            before = os.fstat(stream.fileno())
+            if not stat.S_ISREG(before.st_mode) or before.st_size > limit:
+                raise ResetError(f"{path}: expected a regular file of at most {limit} bytes.")
+            data = stream.read(limit + 1)
+            after = os.fstat(stream.fileno())
+            if (len(data) != before.st_size or before.st_size != after.st_size
+                    or before.st_mtime_ns != after.st_mtime_ns):
+                raise ResetError(f"{path}: file changed while being read.")
+            return data
+    except OSError as exc:
+        raise ResetError(f"Cannot read {path}: {exc}") from exc
 
 
 def secure_write(path, data):
@@ -193,6 +219,11 @@ def make_backup(plan, root):
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     folder = root / f"{stamp}-{token}"
     folder.mkdir(mode=0o700)
+    parent_fd = os.open(str(root), os.O_RDONLY)
+    try:
+        os.fsync(parent_fd)
+    finally:
+        os.close(parent_fd)
     manifest = {
         "schema": 1, "tool_version": __version__, "transaction": token,
         "created_utc": stamp, "identity": asdict(plan.identity),
@@ -253,16 +284,25 @@ def restore_files(device, manifest, originals):
     device.sync()
 
 
-def apply_plan(device, plan, backup_root):
+def apply_plan(device, plan, backup_root, on_backup=None):
+    plan.identity.validate()
     if not plan.changes:
         return None
     folder, manifest = make_backup(plan, backup_root)
     token = manifest["transaction"]
     locked = False
     mutated = False
+    acquiring = False
+    committed = False
     try:
+        if on_backup is not None:
+            on_backup(folder)
+        manifest["status"] = "acquiring"
+        save_manifest(folder, manifest)
+        acquiring = True
         device.acquire(token)
         locked = True
+        acquiring = False
         # Recheck every original before making any device changes.
         for change, item in zip(plan.changes, manifest["files"]):
             same(device, change.path, change.before, change.metadata)
@@ -275,12 +315,14 @@ def apply_plan(device, plan, backup_root):
                 mutated = True
                 device.stage(change.path, item["stage_path"], change.after, change.metadata)
                 same(device, item["stage_path"], change.after, change.metadata)
+        device.sync()  # Make all staged bytes durable before the first rename.
         manifest["status"] = "committing"
         save_manifest(folder, manifest)
         for change, item in zip(plan.changes, manifest["files"]):
             same(device, change.path, change.before, change.metadata)
             mutated = True
             device.rename(change.path, item["original_path"])
+            device.sync()  # Preserve the original before publishing its replacement.
             if change.after is not None:
                 device.rename(item["stage_path"], change.path)
         device.sync()
@@ -290,6 +332,7 @@ def apply_plan(device, plan, backup_root):
                     raise ResetError("Lockout journal unexpectedly reappeared.")
             else:
                 same(device, change.path, change.after, change.metadata)
+        committed = True
         manifest["status"] = "committed"
         save_manifest(folder, manifest)
         device.release(token)
@@ -297,6 +340,17 @@ def apply_plan(device, plan, backup_root):
         return folder
     except BaseException as exc:
         # Includes Ctrl-C: attempt rollback before leaving a partial transaction.
+        if committed:
+            manifest["status"] = "committed_lock_pending"
+            manifest["error"] = str(exc)
+            try:
+                save_manifest(folder, manifest)
+            except Exception:
+                pass
+            raise ResetError(
+                f"Reset files were committed and verified, but cleanup failed: {exc}\n"
+                f"Keep the phone in its ramdisk and run finalize on: {folder}"
+            ) from exc
         recovery = None
         if locked:
             try:
@@ -306,7 +360,11 @@ def apply_plan(device, plan, backup_root):
                 locked = False
             except BaseException as rollback_exc:
                 recovery = str(rollback_exc)
-        manifest["status"] = "recovery_required" if recovery else "rolled_back"
+        elif acquiring and not isinstance(exc, LockBusy):
+            # A lost acknowledgment can mean acquisition succeeded remotely.
+            recovery = "Lock acquisition outcome is uncertain."
+        manifest["status"] = ("recovery_required" if recovery else
+                              "not_started" if isinstance(exc, LockBusy) else "rolled_back")
         manifest["error"] = str(exc)
         if recovery:
             manifest["recovery_error"] = recovery
@@ -322,11 +380,9 @@ def apply_plan(device, plan, backup_root):
 def load_backup(folder):
     folder = Path(folder).expanduser().resolve()
     manifest_path = folder / "manifest.json"
-    if manifest_path.is_symlink() or manifest_path.stat().st_size > 128 * 1024:
-        raise ResetError("Invalid backup manifest.")
     try:
-        manifest = json.loads(manifest_path.read_text())
-        if manifest["schema"] != 1:
+        manifest = json.loads(read_local_file(manifest_path, 128 * 1024))
+        if type(manifest["schema"]) is not int or manifest["schema"] != 1:
             raise ValueError("unsupported schema")
         token = manifest["transaction"]
         if not re.fullmatch(r"[a-f0-9]{32}", token):
@@ -349,9 +405,7 @@ def load_backup(folder):
             if item["backup"] != expected_name:
                 raise ValueError("invalid backup filename")
             backup = folder / expected_name
-            if backup.is_symlink() or backup.stat().st_size > MAX_FILE:
-                raise ValueError("invalid backup file")
-            data = backup.read_bytes()
+            data = read_local_file(backup, MAX_FILE)
             if digest(data) != item["before_sha256"]:
                 raise ValueError("backup checksum mismatch")
             plist(data, "Backup")
@@ -363,6 +417,9 @@ def load_backup(folder):
             after = item["after_sha256"]
             if after is not None and not re.fullmatch(r"[a-f0-9]{64}", after):
                 raise ValueError("invalid post-reset checksum")
+            expected_after = digest(patch_preferences(data)[0]) if path == PREFS else None
+            if after != expected_after:
+                raise ValueError("post-reset checksum does not match the permitted transformation")
             originals.append(data)
         return folder, manifest, identity, originals
     except (KeyError, TypeError, ValueError) as exc:
@@ -374,14 +431,16 @@ def restore_backup(device, identity, folder):
     if identity != saved_identity:
         raise ResetError("Backup device/model/iOS/build do not match the connected phone.")
     token = manifest["transaction"]
-    device.acquire(token, recover=True)
+    restored = False
     try:
+        device.acquire(token, recover=True)
         restore_files(device, manifest, originals)
+        restored = True
         manifest["status"] = "restored"
         save_manifest(folder, manifest)
         device.release(token)
     except BaseException as exc:
-        manifest["status"] = "recovery_required"
+        manifest["status"] = "restored_lock_pending" if restored else "recovery_required"
         try:
             save_manifest(folder, manifest)
         except Exception:
@@ -389,4 +448,37 @@ def restore_backup(device, identity, folder):
         raise ResetError(
             f"Restore stopped: {exc}\nKeep the phone in its ramdisk. Backup: {folder}"
         ) from exc
+    return folder
+
+
+def finalize_backup(device, identity, folder):
+    """Complete interrupted lock cleanup without rolling back verified changes."""
+    folder, manifest, saved_identity, originals = load_backup(folder)
+    if identity != saved_identity:
+        raise ResetError("Backup identity does not match the connected phone.")
+    if manifest.get("status") not in (
+        "committing", "committed", "committed_lock_pending", "restored", "restored_lock_pending",
+    ):
+        raise ResetError("This transaction requires restore, not finalize.")
+    token = manifest["transaction"]
+    device.acquire(token, recover=True)
+    restoring = manifest["status"] in ("restored", "restored_lock_pending")
+    for item, original in zip(manifest["files"], originals):
+        if restoring:
+            same(device, item["path"], original, Metadata(**item["metadata"]))
+        else:
+            same(device, item["original_path"], original, Metadata(**item["metadata"]))
+            if item["after_sha256"] is None:
+                if device.exists(item["path"]):
+                    raise ResetError("Lockout journal changed after commit; cannot finalize.")
+            else:
+                current, current_meta = device.read(item["path"])
+                if (digest(current) != item["after_sha256"]
+                        or current_meta != Metadata(**item["metadata"])):
+                    raise ResetError("Preferences changed after commit; cannot finalize.")
+    device.sync()
+    device.release(token)
+    manifest["status"] = "restored" if restoring else "committed"
+    manifest.pop("error", None)
+    save_manifest(folder, manifest)
     return folder

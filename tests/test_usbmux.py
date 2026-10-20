@@ -87,9 +87,41 @@ class USBMuxTests(unittest.TestCase):
             usbmux.request(Socket(response({})[:-10]), {})
 
     def test_invalid_device_port(self):
-        for port in (0, -1, 65536):
+        for port in (0, -1, 65536, True, 22.5):
             with self.assertRaises(ResetError):
                 usbmux.tunnel(1, port)
+
+    def test_device_replacement_before_connect_is_rejected(self):
+        with patch.object(usbmux, "list_devices", return_value=[{"udid": "a" * 40, "device_id": 9}]), \
+             patch.object(usbmux, "connect_socket") as connection, self.assertRaises(ResetError):
+            usbmux.tunnel(8, expected_udid="a" * 40)
+        connection.assert_not_called()
+
+    def test_device_replacement_during_connect_closes_tunnel(self):
+        sock = Socket(response({"Number": 0}))
+        with patch.object(usbmux, "connect_socket", return_value=sock), \
+             patch.object(usbmux, "list_devices", side_effect=[
+                 [{"udid": "a" * 40, "device_id": 9}],
+                 [{"udid": "a" * 40, "device_id": 10}],
+             ]), self.assertRaises(ResetError):
+            usbmux.tunnel(9, expected_udid="a" * 40)
+        self.assertTrue(sock.closed)
+
+    def test_malformed_and_duplicate_usb_entries_are_rejected(self):
+        valid = {"DeviceID": 3, "Properties": {"ConnectionType": "USB", "SerialNumber": "a" * 40}}
+        for entries in ([None], [{"Properties": None}], [valid, valid],
+                        [{"DeviceID": True, "Properties": valid["Properties"]}]):
+            # plist cannot represent None; exercise parsed daemon response directly.
+            with patch.object(usbmux, "connect_socket", return_value=Socket(b"")), \
+                 patch.object(usbmux, "request", return_value={"DeviceList": entries}), \
+                 self.subTest(entries=entries), self.assertRaises(ResetError):
+                usbmux.list_devices()
+
+    def test_boolean_connect_result_is_rejected(self):
+        sock = Socket(response({"Number": False}))
+        with patch.object(usbmux, "connect_socket", return_value=sock), self.assertRaises(ResetError):
+            usbmux.tunnel(1)
+        self.assertTrue(sock.closed)
 
 
 if __name__ == "__main__":

@@ -1,10 +1,12 @@
 """Minimal local usbmuxd plist client; no TCP listener or iproxy is needed."""
 
 import plistlib
+import re
 import socket
 import struct
 
 from .core import ResetError
+from . import __version__
 
 SOCKET_PATH = "/var/run/usbmuxd"
 HEADER = struct.Struct("<IIII")
@@ -24,8 +26,8 @@ def recv_exact(sock, size):
 
 def request(sock, message, tag=1):
     payload = {
-        "ClientVersionString": "iphone-timeout-reset/1.0.0",
-        "ProgName": "iphone-timeout-reset", "kLibUSBMuxVersion": 3,
+        "ClientVersionString": f"bruteforce-legacy-ios/{__version__}",
+        "ProgName": "bruteforce-legacy-ios", "kLibUSBMuxVersion": 3,
         **message,
     }
     body = plistlib.dumps(payload)
@@ -63,13 +65,26 @@ def list_devices(path=SOCKET_PATH):
     if not isinstance(devices, list):
         raise ResetError("usbmuxd did not return a device list.")
     usb = []
+    seen_ids, seen_udids = set(), set()
     for device in devices:
+        if not isinstance(device, dict):
+            raise ResetError("usbmuxd returned a malformed device entry.")
         properties = device.get("Properties", {})
+        if not isinstance(properties, dict):
+            raise ResetError("usbmuxd returned malformed device properties.")
         if properties.get("ConnectionType") == "USB":
             identifier = properties.get("SerialNumber")
-            if isinstance(identifier, str) and isinstance(device.get("DeviceID"), int):
-                usb.append({"udid": identifier, "device_id": device["DeviceID"],
-                            "product_id": properties.get("ProductID")})
+            device_id = device.get("DeviceID")
+            if (not isinstance(identifier, str)
+                    or not re.fullmatch(r"[A-Za-z0-9-]{8,128}", identifier)
+                    or type(device_id) is not int or not 0 < device_id < 2**32):
+                raise ResetError("usbmuxd returned an invalid USB device identity.")
+            if device_id in seen_ids or identifier in seen_udids:
+                raise ResetError("usbmuxd returned ambiguous duplicate USB identities.")
+            seen_ids.add(device_id)
+            seen_udids.add(identifier)
+            usb.append({"udid": identifier, "device_id": device_id,
+                        "product_id": properties.get("ProductID")})
     return usb
 
 
@@ -85,20 +100,31 @@ def select_device(devices, udid=None):
     return matches[0]
 
 
-def tunnel(device_id, port=22, path=SOCKET_PATH):
-    if not 1 <= port <= 65535:
+def tunnel(device_id, port=22, path=SOCKET_PATH, expected_udid=None):
+    if type(port) is not int or not 1 <= port <= 65535:
         raise ResetError("SSH device port must be between 1 and 65535.")
+    if type(device_id) is not int or not 0 < device_id < 2**32:
+        raise ResetError("Invalid USB connection identifier.")
+
+    def verify_selection():
+        if expected_udid is not None:
+            current = select_device(list_devices(path), expected_udid)
+            if current["device_id"] != device_id:
+                raise ResetError("USB device changed during connection. Re-run device selection.")
+
+    verify_selection()
     sock = connect_socket(path)
     try:
         reply = request(sock, {
             "MessageType": "Connect", "DeviceID": device_id,
             "PortNumber": socket.htons(port),
         })
-        if reply.get("Number") != 0:
+        if type(reply.get("Number")) is not int or reply["Number"] != 0:
             raise ResetError(
                 f"Cannot connect to ramdisk SSH port {port} "
                 f"(usbmuxd result {reply.get('Number')!r}). Boot an SSH ramdisk first."
             )
+        verify_selection()
         return sock
     except BaseException:
         sock.close()

@@ -1,14 +1,16 @@
-# iPhone Timeout Reset 1.0.0
+# Bruteforce Legacy iOS
 
-A macOS command-line tool that automates a **one-time passcode timer reset on legacy 32-bit iPhones** through an offline SSH ramdisk. It handles USB transport, plist editing, backups, verification, and transaction recovery. Cyberduck and a separate iproxy process are unnecessary.
+[![Test and package](https://github.com/channelramble/Bruteforce-Legacy-iOS/actions/workflows/ci.yml/badge.svg)](https://github.com/channelramble/Bruteforce-Legacy-iOS/actions/workflows/ci.yml)
+
+A macOS command-line tool that automates a **one-time passcode timer reset on legacy 32-bit iPhones** through an offline SSH ramdisk. Version **1.1.0** handles USB transport, plist editing, backups, verification, and transaction recovery. Cyberduck and a separate iproxy process are unnecessary.
 
 **Hardware validation is pending.** The host software passes automated and simulated SSH/SFTP integration tests. No physical iPhone was available during development. Clearing the on-screen timer is not a verified result of this release.
 
-The passcode remains required. This is not permanent removal of future lockout delays, passcode discovery, Activation Lock removal, setup.app removal, or a fix for computer pairing/Trust timeouts.
+The correct passcode remains required. Passcode guessing is not implemented. This release also excludes Activation Lock removal, setup.app removal, and computer pairing/Trust timeouts.
 
 ## Run
 
-Extract the whole folder onto the Mac physically connected to the phone. Python 3.9 or newer is required.
+Download the ZIP from [Releases](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases), then extract the whole folder onto the Mac physically connected to the phone. Python 3.9 or newer is required.
 
 Double-click `Launch.command`, or open Terminal in the extracted folder:
 
@@ -22,7 +24,7 @@ If the executable bit was lost during transfer:
 bash Launch.command
 ```
 
-First launch downloads the pinned Python dependencies into this folder's `.venv`. The menu offers inspection, reset, ramdisk preparation, and recovery.
+First launch downloads the pinned Python dependencies into this folder's `.venv`. Every launch checks all locked versions and the native SSH dependencies. The menu offers inspection, reset, ramdisk preparation, recovery, and interrupted-cleanup finalization.
 
 To start with pwnDFU/ramdisk preparation and then apply the reset:
 
@@ -36,7 +38,7 @@ This downloads an official Legacy iOS Kit checkout at the revision recorded in `
 ./Launch.command prepare --kit "/path/to/Legacy-iOS-Kit" --apply
 ```
 
-Follow the backend's dependency and physical DFU prompts. When it reaches the **SSH Ramdisk Menu**, select **Exit**, keeping the phone in the ramdisk. The reset resumes automatically. Do not select a restore or erase operation.
+Connect only one phone for the backend's DFU preparation; `--udid` selects the device after ramdisk boot. Follow the backend's dependency and physical DFU prompts. When it reaches the **SSH Ramdisk Menu**, select **Exit**, keeping the phone in the ramdisk. The reset resumes automatically. Do not select a restore or erase operation.
 
 The pwnDFU exploit and ramdisk builder belong to Legacy iOS Kit; they are not newly implemented here. First-time setup, physical DFU button presses, and backend menus remain interactive. The plist stage is automated. [Upstream ramdisk documentation](https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/SSH-Ramdisk)
 
@@ -98,9 +100,9 @@ This narrower one-time reset is an implementation choice. Community procedures o
 
 ## Backup and recovery
 
-Every transaction saves private local copies under `backups/<timestamp>-<transaction>/`, with a checksum manifest. Original files also remain on the phone as hidden `.itr-<transaction>-<filename>.original` files. Keep both sets.
+Every transaction saves private local copies under `~/Library/Application Support/Bruteforce Legacy iOS/backups/<timestamp>-<transaction>/`, with a checksum manifest. The exact path is printed before device changes begin. Original files also remain on the phone as hidden `.itr-<transaction>-<filename>.original` files. Keep both sets.
 
-Changes are staged before commit. Each individual rename is atomic; the two-file transaction as a whole is not. On a handled error or Ctrl-C, the tool attempts rollback. A cable disconnect, power loss, or forced process termination may require recovery.
+Changes are staged and synced before commit. The original is archived and synced before its replacement is published. Each individual rename is atomic; the two-file transaction as a whole is not. On a pre-commit error or Ctrl-C, the tool attempts rollback. A cable disconnect, power loss, or forced process termination may require recovery.
 
 While the phone is still in its ramdisk:
 
@@ -109,6 +111,16 @@ While the phone is still in its ramdisk:
 ```
 
 Recovery requires the same USB identifier, model, installed version, and build. It checks the saved checksums and refuses to overwrite unexpected new contents. Prefer recovery **before rebooting**; after iOS runs, its files may change and recovery can refuse. If connectivity is lost during a write, keep the phone in its ramdisk and reconnect before running recovery.
+
+If the program says the files were committed and verified but lock cleanup failed, finish cleanup without undoing the reset:
+
+```sh
+./Launch.command finalize "/path/to/backups/transaction-folder" --mount --apply
+```
+
+`finalize` rechecks the completed transaction before releasing its lock. It also handles cleanup interrupted after a completed restore. A failed commit still requires `restore`. Do not remove transaction locks by hand.
+
+Version 1.1 uses an atomic device lock whose owner is stored in the link itself, avoiding a separate owner-file write. Version 1.0 backup manifests and intact directory locks remain recoverable.
 
 Backup originals on the phone retain their original inodes. Staged preferences use `cp -p`, and permissions and ownership are verified after writing. Preservation of every iOS-specific extended attribute/protection class has not been validated on hardware.
 
@@ -125,9 +137,11 @@ Backup originals on the phone retain their original inodes. Staged preferences u
 
 The default SSH credential is the ramdisk's `root` / `alpine`, not the phone's passcode. Use `--ask-password` for a custom ramdisk SSH password. Passwords are not saved.
 
-The first SSH host key is trusted over the selected local USB connection and saved in `~/Library/Application Support/iPhone Timeout Reset`. If a rebuilt ramdisk changes its key, inspect the device selection and use `--trust-new-key` once. This does not alter system SSH settings.
+The first SSH host key is trusted over the selected local USB connection and saved in the state directory. If a rebuilt ramdisk changes its key, inspect the device selection and use `--trust-new-key` once. This does not alter system SSH settings.
 
-The program never runs filesystem repair automatically. If volumes cannot mount, stop and investigate the disk/ramdisk compatibility before trying again.
+The default macOS state directory is `~/Library/Application Support/Bruteforce Legacy iOS`. Backups and downloaded backends live there, outside the source/install directory. Set `--state-dir` to use another private directory, including the previous `~/Library/Application Support/iPhone Timeout Reset` directory. `--backups` and `--kit` can override their individual locations.
+
+The program never runs filesystem repair automatically. Read-only data volumes are accepted for inspection and rejected for writes. If volumes cannot mount, stop and investigate disk/ramdisk compatibility before trying again.
 
 ## Validation
 
@@ -138,3 +152,15 @@ The program never runs filesystem repair automatically. If volumes cannot mount,
 The suite covers plist formats and types, compatibility checks, corruption, interrupted commits, rollback, wrong-device recovery, changed files, symlinks, USB packet framing, multi-device selection, SSH host-key changes, and a real SSH/SFTP protocol round trip against a simulated filesystem.
 
 `VERIFICATION.txt` records the checks performed. The simulated server is not an iPhone emulator.
+
+CI runs on macOS with Python 3.9 and 3.13 and Linux with Python 3.13. Linux CI validates host logic and transport simulations; the integrated device-preparation workflow remains macOS-only.
+
+For a regular Python environment, `python3 -m pip install .` exposes `bruteforce-legacy-ios`; the previous `iphone-timeout-reset` command remains an alias.
+
+To build the source ZIP:
+
+```sh
+python3 build_release.py
+```
+
+The archive in `dist/` contains only explicitly selected source, documentation, and tests. It includes file checksums, a `SOURCE.json` revision record, and an executable launcher. Runtime data, downloaded firmware, dependencies, and backups are excluded.

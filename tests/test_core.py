@@ -8,7 +8,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from ios_timeout.core import (
-    Identity, JOURNAL, Metadata, PREFS, ResetError, apply_plan, compatible,
+    Identity, JOURNAL, LockBusy, Metadata, PREFS, ResetError, apply_plan, compatible,
     load_backup, make_plan, restore_backup,
 )
 
@@ -82,11 +82,13 @@ class MemoryDevice:
     def acquire(self, token, recover=False):
         self.available()
         if self.lock is not None and not (recover and self.lock == token):
-            raise ResetError("locked")
+            raise LockBusy("locked")
         self.lock = token
 
     def release(self, token):
         self.available()
+        if self.lock is None:
+            return
         if self.lock != token:
             raise ResetError("wrong lock")
         self.lock = None

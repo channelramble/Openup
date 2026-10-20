@@ -11,13 +11,21 @@ python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else "Python 3.
 if [ ! -x "$PROJECT_DIR/.venv/bin/python" ]; then
     python3 -m venv "$PROJECT_DIR/.venv"
 fi
-if ! "$PROJECT_DIR/.venv/bin/python" -c 'import paramiko; assert paramiko.__version__ == "5.1.0"' 2>/dev/null; then
-    echo "Installing the pinned SSH dependency into this folder's virtual environment..."
-    "$PROJECT_DIR/.venv/bin/python" -m pip install --disable-pip-version-check -r "$PROJECT_DIR/requirements-lock.txt"
+if ! "$PROJECT_DIR/.venv/bin/python" "$PROJECT_DIR/check_dependencies.py" 2>/dev/null; then
+    echo "Installing the locked dependencies into this folder's virtual environment..."
+    "$PROJECT_DIR/.venv/bin/python" -m pip install --disable-pip-version-check --force-reinstall -r "$PROJECT_DIR/requirements-lock.txt"
+    "$PROJECT_DIR/.venv/bin/python" "$PROJECT_DIR/check_dependencies.py"
 fi
 if [ "$#" -eq 0 ]; then
-    "$PROJECT_DIR/.venv/bin/python" -m ios_timeout wizard
-    read -r -p "Press Return to close." _
+    if "$PROJECT_DIR/.venv/bin/python" -m ios_timeout wizard; then
+        LAUNCH_STATUS=0
+    else
+        LAUNCH_STATUS=$?
+    fi
+    if [ -t 0 ]; then
+        read -r -p "Press Return to close." _ || true
+    fi
+    exit "$LAUNCH_STATUS"
 else
     exec "$PROJECT_DIR/.venv/bin/python" -m ios_timeout "$@"
 fi

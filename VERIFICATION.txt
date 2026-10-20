@@ -1,4 +1,4 @@
-iPhone Timeout Reset 1.0.0
+Bruteforce Legacy iOS 1.1.0
 Verification date: 2026-10-20
 
 Environment:
@@ -9,18 +9,26 @@ Environment:
 
 Completed checks:
   .venv/bin/python -m unittest discover -s tests -v
-    41 tests passed, 0 failures, 0 errors.
+    72 tests passed, 0 failures, 0 errors.
+  .venv/bin/python check_dependencies.py
+    All pinned dependency versions and native SSH imports passed.
+  .venv/bin/python -m pip install --no-deps .
+    Built and installed bruteforce_legacy_ios-1.1.0-py3-none-any.whl.
   .venv/bin/python -m pip check
     No broken requirements found.
   bash -n Launch.command
     Passed.
   ./Launch.command doctor
     Executed successfully.
-  ./Launch.command --help
-  ./Launch.command prepare --help
-    Executed successfully.
-  ./Launch.command devices
-    Local usbmuxd query succeeded; returned no USB devices.
+  Installed bruteforce-legacy-ios --version
+    Returned 1.1.0 from outside the source directory.
+  Installed bruteforce-legacy-ios reset --help
+    Executed successfully from outside the source directory.
+  git diff --check
+    Passed.
+  Release builder exercised by the automated suite:
+    Repeated builds matched; entries, exclusions, revision metadata,
+    checksums, ZIP integrity, and executable launcher permissions passed.
 
 Test coverage:
   Binary and XML plists, boolean/integer type correctness, unrelated settings,
@@ -36,12 +44,25 @@ Test coverage:
   offline/live OS gates, explicit mounting, older-SFTP rename fallback.
   Mocked backend bootstrap: pinned revision, paths containing spaces,
   failed-download cleanup, preserving existing checkout, backend failure.
+  Lost lock/release acknowledgments, verified-commit cleanup failure,
+  interrupted restore cleanup, sync failure at each commit boundary,
+  legacy backup/lock recovery, strict allowed-transform verification.
+  Atomic device locks, local session exclusion, bounded SSH request
+  acknowledgments, cleanup exceptions, FIFO/symlink backup and lock rejection.
+  Device replacement before/during USB connection, malformed/duplicate
+  USB records, read-only data volumes, full dependency drift detection.
+
+Remote CI:
+  .github/workflows/ci.yml runs on macOS/Python 3.9 and 3.13,
+  and Linux/Python 3.13. Results are recorded by GitHub for each commit:
+  https://github.com/channelramble/Bruteforce-Legacy-iOS/actions/workflows/ci.yml
+  This local record does not substitute for a successful CI run.
 
 Limits:
   The SSH/SFTP fixture is not an iPhone emulator.
   No physical pwnDFU, ramdisk boot, mount, plist reset, or reboot was tested.
   Legacy iOS Kit source and bundled mount scripts were inspected at the pinned
   revision; its entire dependency/firmware download workflow was not executed.
-  The MacBook SSH connection timed out during both connection attempts.
+  The MacBook SSH connection timed out during device-discovery attempts.
   No phone was modified.
   On-device protection attributes and on-screen timer behavior remain unverified.

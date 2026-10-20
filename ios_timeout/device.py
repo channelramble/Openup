@@ -8,12 +8,14 @@ import re
 import shlex
 import stat
 import time
+import threading
+from contextlib import contextmanager, suppress
 from pathlib import Path, PurePosixPath
 
 from . import usbmux
 from .core import (
-    Identity, MAX_FILE, Metadata, ResetError, SUPPORTED, SYSTEM_VERSION,
-    plist, secure_write,
+    Identity, LockBusy, MAX_FILE, Metadata, ResetError, SUPPORTED, SYSTEM_VERSION,
+    plist, read_local_file, secure_write,
 )
 
 BOARD_MODELS = {
@@ -22,10 +24,39 @@ BOARD_MODELS = {
     "n48ap": "iPhone5,3", "n49ap": "iPhone5,4",
 }
 LOCK = "/mnt2/.iphone-timeout-reset.lock"
+IO_TIMEOUT = 20
 
 
 def metadata(attributes):
+    if any(type(v) is not int or v < 0
+           for v in (attributes.st_mode, attributes.st_uid, attributes.st_gid)):
+        raise ResetError("SFTP returned incomplete file ownership/mode metadata.")
     return Metadata(attributes.st_mode, attributes.st_uid, attributes.st_gid)
+
+
+@contextmanager
+def channel_deadline(channel, seconds):
+    """Bound SSH request acknowledgments as well as subsequent I/O."""
+    expired = threading.Event()
+
+    def abort():
+        expired.set()
+        with suppress(Exception):
+            channel.close()
+
+    timer = threading.Timer(seconds, abort)
+    timer.daemon = True
+    timer.start()
+    try:
+        yield
+        if expired.is_set():
+            raise ResetError("SSH operation exceeded its deadline.")
+    except Exception as exc:
+        if expired.is_set():
+            raise ResetError("SSH operation exceeded its deadline.") from exc
+        raise
+    finally:
+        timer.cancel()
 
 
 class USBDevice:
@@ -41,8 +72,12 @@ class USBDevice:
         except ImportError as exc:
             raise ResetError("Install dependencies first: python3 -m pip install .") from exc
         try:
-            self.socket = usbmux.tunnel(selected["device_id"], port)
+            self.socket = usbmux.tunnel(selected["device_id"], port, expected_udid=selected["udid"])
             self.transport = paramiko.Transport(self.socket)
+            self.transport.banner_timeout = 15
+            self.transport.auth_timeout = 15
+            self.transport.handshake_timeout = 15
+            self.transport.channel_timeout = 15
             self.transport.start_client(timeout=15)
             key = self.transport.get_remote_server_key()
             self.fingerprint = "SHA256:" + base64.b64encode(
@@ -51,10 +86,8 @@ class USBDevice:
             state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
             key_path = state_dir / f"ssh-{selected['udid']}.json"
             key_record = {"type": key.get_name(), "key": key.get_base64()}
-            if key_path.exists():
-                if key_path.is_symlink() or key_path.stat().st_size > 16384:
-                    raise ResetError("Invalid saved SSH host-key record.")
-                previous = json.loads(key_path.read_text())
+            if key_path.exists() or key_path.is_symlink():
+                previous = json.loads(read_local_file(key_path, 16384))
                 if previous != key_record and not trust_new_key:
                     raise ResetError(
                         "The ramdisk SSH host key changed. Check that the selected phone "
@@ -63,8 +96,16 @@ class USBDevice:
             # One known ramdisk SSH credential, never the iPhone passcode.
             self.transport.auth_password("root", password, fallback=False)
             secure_write(key_path, json.dumps(key_record).encode())
-            self.sftp = paramiko.SFTPClient.from_transport(self.transport)
-            self.sftp.get_channel().settimeout(20)
+            channel = self.transport.open_session(timeout=15)
+            try:
+                channel.settimeout(IO_TIMEOUT)
+                with channel_deadline(channel, IO_TIMEOUT):
+                    channel.invoke_subsystem("sftp")
+                    self.sftp = paramiko.SFTPClient(channel)
+            except BaseException:
+                with suppress(Exception):
+                    channel.close()
+                raise
         except BaseException:
             self.close()
             raise
@@ -76,16 +117,25 @@ class USBDevice:
         self.close()
 
     def close(self):
-        if self.sftp is not None:
-            self.sftp.close()
-        if self.transport is not None:
-            self.transport.close()
-        if self.socket is not None:
-            self.socket.close()
+        # Cleanup must not hide a transaction/recovery error.
+        for attribute in ("sftp", "transport", "socket"):
+            connection = getattr(self, attribute, None)
+            setattr(self, attribute, None)
+            if connection is not None:
+                with suppress(Exception):
+                    connection.close()
 
     def command(self, command, timeout=30):
         channel = self.transport.open_session(timeout=15)
         channel.settimeout(15)
+        try:
+            with channel_deadline(channel, timeout):
+                return self._command_output(channel, command, timeout)
+        finally:
+            with suppress(Exception):
+                channel.close()
+
+    def _command_output(self, channel, command, timeout):
         stdout, stderr = bytearray(), bytearray()
         deadline = time.monotonic() + timeout
         try:
@@ -109,7 +159,8 @@ class USBDevice:
                 raise ResetError(f"Ramdisk command failed ({code}): {command}\n{detail}")
             return stdout.decode("utf-8", "replace")
         finally:
-            channel.close()
+            with suppress(Exception):
+                channel.close()
 
     def safe_parents(self, path):
         parsed = PurePosixPath(path)
@@ -143,12 +194,14 @@ class USBDevice:
             raise
         if not stat.S_ISREG(before.st_mode):
             raise ResetError(f"{path}: symlinks and non-regular files are unsupported.")
-        if before.st_size > MAX_FILE:
-            raise ResetError(f"{path}: file is too large.")
-        with self.sftp.open(path, "rb") as stream:
-            data = stream.read(MAX_FILE + 1)
+        if type(before.st_size) is not int or not 0 <= before.st_size <= MAX_FILE:
+            raise ResetError(f"{path}: invalid or excessive file size.")
+        with channel_deadline(self.sftp.get_channel(), IO_TIMEOUT):
+            with self.sftp.open(path, "rb") as stream:
+                data = stream.read(MAX_FILE + 1)
         after = self.sftp.lstat(path)
-        if (len(data) != before.st_size or metadata(before) != metadata(after)
+        if (not stat.S_ISREG(after.st_mode)
+                or len(data) != before.st_size or metadata(before) != metadata(after)
                 or before.st_mtime != after.st_mtime or before.st_size != after.st_size):
             raise ResetError(f"{path}: file changed while being read.")
         return data, metadata(before)
@@ -161,10 +214,11 @@ class USBDevice:
         # Darwin cp -p retains original metadata; truncating the copy keeps its
         # inode. The original inode is archived unchanged during commit.
         self.command("/bin/cp -p " + shlex.quote(source) + " " + shlex.quote(destination))
-        with self.sftp.open(destination, "r+b") as stream:
-            stream.truncate(0)
-            stream.write(contents)
-            stream.flush()
+        with channel_deadline(self.sftp.get_channel(), IO_TIMEOUT):
+            with self.sftp.open(destination, "r+b") as stream:
+                stream.truncate(0)
+                stream.write(contents)
+                stream.flush()
         self.sftp.chown(destination, original_metadata.uid, original_metadata.gid)
         self.sftp.chmod(destination, stat.S_IMODE(original_metadata.mode))
 
@@ -192,36 +246,59 @@ class USBDevice:
         self.command("/bin/sync")
 
     def acquire(self, token, recover=False):
+        if not re.fullmatch(r"[a-f0-9]{32}", token):
+            raise ResetError("Invalid lock transaction identifier.")
+        self.safe_parents(LOCK)
+        # The link target *is* the owner token. Creating one directory entry is
+        # atomic, unlike mkdir followed by a separate owner-file write.
+        try:
+            self.sftp.symlink(token, LOCK)
+        except OSError as exc:
+            owner, _ = self._lock_owner()
+            if owner is None:
+                raise
+            if not recover or owner != token:
+                raise LockBusy(
+                    f"Device transaction {owner} holds the lock. Restore or finalize its backup first."
+                ) from exc
+        self.sync()
+
+    def _lock_owner(self):
         self.safe_parents(LOCK)
         try:
-            self.sftp.mkdir(LOCK, mode=0o700)
-        except OSError as exc:
-            if not self.exists(LOCK):
-                raise
             attributes = self.sftp.lstat(LOCK)
-            if not stat.S_ISDIR(attributes.st_mode):
-                raise ResetError("Device transaction lock is not a directory.") from exc
+        except OSError as exc:
+            if exc.errno == errno.ENOENT:
+                return None, False
+            raise
+        legacy = stat.S_ISDIR(attributes.st_mode)
+        if legacy:
             try:
-                owner, _ = self.read(LOCK + "/owner")
-            except (OSError, ResetError) as read_exc:
-                raise ResetError("An incomplete transaction lock exists on the phone.") from read_exc
-            if not recover or owner != token.encode():
-                raise ResetError(
-                    "A device transaction lock already exists. Restore its backup first."
-                ) from exc
-            return
-        with self.sftp.open(LOCK + "/owner", "wx") as stream:
-            stream.write(token.encode())
-        self.sftp.chmod(LOCK + "/owner", 0o600)
+                owner = self.read(LOCK + "/owner")[0].decode("ascii")
+            except (OSError, UnicodeError) as exc:
+                raise ResetError("An incomplete 1.0 lock exists; keep the ramdisk running.") from exc
+        elif stat.S_ISLNK(attributes.st_mode):
+            owner = self.sftp.readlink(LOCK)
+        else:
+            raise ResetError("Device transaction lock has an unexpected file type.")
+        if not re.fullmatch(r"[a-f0-9]{32}", owner):
+            raise ResetError("Device transaction lock contains an invalid owner.")
+        return owner, legacy
 
     def release(self, token):
-        owner, _ = self.read(LOCK + "/owner")
-        if owner != token.encode():
-            raise ResetError("Device transaction lock owner changed.")
-        self.sftp.remove(LOCK + "/owner")
-        self.sftp.rmdir(LOCK)
+        owner, legacy = self._lock_owner()
+        if owner is None:
+            return  # Also handles a successful unlink whose acknowledgment was lost.
+        if owner != token:
+            raise LockBusy("Device transaction lock owner changed.")
+        if legacy:
+            self.sftp.remove(LOCK + "/owner")
+            self.sftp.rmdir(LOCK)
+        else:
+            self.sftp.remove(LOCK)
+        self.sync()
 
-    def inspect(self, mount=False):
+    def inspect(self, mount=False, writable=False):
         model = None
         for command in ("/usr/sbin/sysctl -n hw.machine", "/usr/sbin/sysctl -n hw.model",
                         "/sbin/sysctl -n hw.machine", "/sbin/sysctl -n hw.model"):
@@ -249,10 +326,12 @@ class USBDevice:
         def mounted_volumes(output):
             result = set()
             for number in ("1", "2"):
-                found = re.search(r"^(\S+) on /mnt" + number + r" \(", output, re.MULTILINE)
+                found = re.search(r"^(\S+) on /mnt" + number + r" \(([^)]*)\)", output, re.MULTILINE)
                 if found:
                     if found.group(1) != "/dev/disk0s1s" + number:
                         raise ResetError(f"Unexpected volume mounted at /mnt{number}.")
+                    if "hfs" not in [part.strip() for part in found.group(2).split(",")]:
+                        raise ResetError(f"/mnt{number} is not an HFS filesystem.")
                     result.add(number)
             return result
 
@@ -278,6 +357,9 @@ class USBDevice:
                 "Retry with --mount to mount the known legacy HFS volumes. "
                 "Filesystem repair is not performed automatically."
             )
+        data_mount = re.search(r"^/dev/disk0s1s2 on /mnt2 \(([^)]*)\)", mounts, re.MULTILINE)
+        if writable and "read-only" in [part.strip() for part in data_mount.group(1).split(",")]:
+            raise ResetError("The data volume is read-only; no transaction was started.")
         version_data, _ = self.read(SYSTEM_VERSION)
         installed = plist(version_data, "Installed SystemVersion.plist")
         identity = Identity(self.selected["udid"], model,
@@ -293,8 +375,10 @@ class USBDevice:
         # an exit status is expected, so report only that a request was sent.
         channel = self.transport.open_session(timeout=15)
         try:
-            channel.exec_command(
-                "if test -x /sbin/reboot_bak; then /sbin/reboot_bak; else /sbin/reboot; fi"
-            )
+            with channel_deadline(channel, IO_TIMEOUT):
+                channel.exec_command(
+                    "if test -x /sbin/reboot_bak; then /sbin/reboot_bak; else /sbin/reboot; fi"
+                )
         finally:
-            channel.close()
+            with suppress(Exception):
+                channel.close()
