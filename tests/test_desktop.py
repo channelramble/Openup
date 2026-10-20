@@ -154,6 +154,76 @@ class DesktopPlanningTests(unittest.TestCase):
 
 
 class DesktopUpdateTests(unittest.TestCase):
+    def downloaded_fixture(self, root, target="linux-x86_64", version="99.0.0"):
+        archive = root / f"Bruteforce-Legacy-iOS-{version}-{target}.zip"
+        digest = desktop_zip(archive, version=version, target=target)
+        checksum = Path(str(archive) + ".sha256")
+        checksum.write_text(f"{digest}  {archive.name}\n")
+        return archive, checksum
+
+    def test_downloaded_update_installs_without_network_on_each_target_and_rolls_back(self):
+        for target in sorted(updates.TARGETS):
+            with self.subTest(target=target), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                archive, checksum = self.downloaded_fixture(root, target)
+                with patch.object(updates, "target", return_value=target), patch.object(updates, "open_github") as network:
+                    result = updates.install_downloaded(archive, checksum, state=root / "state")
+                network.assert_not_called()
+                self.assertEqual(result["version"], "99.0.0")
+                updates.verify_bundle(result["path"], target, "99.0.0")
+                self.assertEqual(updates.read_pointer(root / "state")["current"], "99.0.0")
+                self.assertTrue(updates.rollback(root / "state"))
+                self.assertIsNone(updates.read_pointer(root / "state")["current"])
+
+    def test_downloaded_update_rejects_corruption_wrong_platform_and_old_release(self):
+        for problem in ("corrupt", "platform", "old", "checksum-name", "checksum-format"):
+            with self.subTest(problem=problem), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                archive, checksum = self.downloaded_fixture(root, version="1.0.0" if problem == "old" else "99.0.0")
+                if problem == "corrupt":
+                    with archive.open("ab") as output:
+                        output.write(b"changed after download")
+                if problem == "checksum-name":
+                    checksum.write_text(checksum.read_text().replace(archive.name, "other.zip"))
+                if problem == "checksum-format":
+                    checksum.write_text("not a checksum")
+                target = "windows-x86_64" if problem == "platform" else "linux-x86_64"
+                with patch.object(updates, "target", return_value=target), self.assertRaises(ResetError):
+                    updates.install_downloaded(archive, checksum, state=root / "state")
+                self.assertIsNone(updates.read_pointer(root / "state")["current"])
+
+    def test_downloaded_archive_changed_after_inspection_cannot_activate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            archive, checksum = self.downloaded_fixture(root)
+            original = updates.downloaded_release
+
+            def inspect_then_change(*args, **kwargs):
+                release = original(*args, **kwargs)
+                data = bytearray(archive.read_bytes())
+                data[50] ^= 1
+                archive.write_bytes(data)
+                return release
+
+            with patch.object(updates, "target", return_value="linux-x86_64"), \
+                 patch.object(updates, "downloaded_release", side_effect=inspect_then_change), \
+                 self.assertRaisesRegex(ResetError, "SHA-256"):
+                updates.install_downloaded(archive, checksum, state=root / "state")
+            self.assertIsNone(updates.read_pointer(root / "state")["current"])
+
+    def test_cancelled_downloaded_install_keeps_active_version(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            archive, checksum = self.downloaded_fixture(root)
+
+            def cancel(message):
+                if message.startswith("Activating"):
+                    raise ResetError("cancelled")
+
+            with patch.object(updates, "target", return_value="linux-x86_64"), self.assertRaisesRegex(ResetError, "cancelled"):
+                updates.install_downloaded(archive, checksum, state=root / "state", progress=cancel)
+            self.assertIsNone(updates.read_pointer(root / "state")["current"])
+
     def test_extract_and_verify_full_runtime_package(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

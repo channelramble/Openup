@@ -207,7 +207,7 @@ def installed_root(state, version, platform_target):
 
 def extract_archive(archive, destination, version, platform_target, checksum, progress=lambda text: None):
     if Path(archive).stat().st_size > MAX_DOWNLOAD or file_hash(archive) != checksum:
-        raise ResetError("The desktop download does not match GitHub's SHA-256.")
+        raise ResetError("The desktop download does not match the release SHA-256.")
     prefix = bundle_name(platform_target) + "/"
     with zipfile.ZipFile(archive) as package:
         members = {}
@@ -249,7 +249,81 @@ def extract_archive(archive, destination, version, platform_target, checksum, pr
     return manifest
 
 
+def downloaded_release(archive, checksum_file, platform_target=None):
+    """Inspect a user-selected release without credentials or network access."""
+    archive = Path(archive)
+    platform_target = platform_target or target()
+    size = archive.stat().st_size
+    if not 0 < size <= MAX_DOWNLOAD:
+        raise ResetError("The desktop archive is empty or exceeds the size limit.")
+    try:
+        checksum_text = read_local_file(Path(checksum_file), 4096).decode("ascii").strip()
+    except UnicodeError:
+        raise ResetError("Choose the matching .zip.sha256 file from the release downloads.") from None
+    match = re.fullmatch(r"([a-fA-F0-9]{64})(?:[ \t]+\*?([^\r\n]+))?", checksum_text)
+    if not match:
+        raise ResetError("Choose the matching .zip.sha256 file from the release downloads.")
+    checksum = match[1].lower()
+    if file_hash(archive) != checksum:
+        raise ResetError("The selected ZIP does not match its SHA-256 file. Download both files again.")
+    with zipfile.ZipFile(archive) as package:
+        try:
+            info = package.getinfo(bundle_name(platform_target) + "/DESKTOP.json")
+        except KeyError:
+            raise ResetError("Choose a desktop release ZIP for this computer, not the source archive.") from None
+        if info.file_size > 8 * 1024 * 1024:
+            raise ResetError("Desktop package inventory exceeds the size limit.")
+        manifest = json.loads(package.read(info))
+    if not isinstance(manifest, dict):
+        raise ResetError("Invalid desktop package inventory.")
+    version = manifest.get("version", "")
+    version_tuple(version)
+    validate_manifest(manifest, platform_target, version)
+    expected = f"Bruteforce-Legacy-iOS-{version}-{platform_target}.zip"
+    if match[2] is not None and match[2] != expected:
+        raise ResetError("The checksum file names a different desktop release.")
+    if version_tuple(version) <= version_tuple(__version__):
+        raise ResetError(f"This app is already version {__version__}. Choose a newer release, or use Restore previous app version.")
+    return {"version": version, "target": platform_target,
+            "asset": {"size": size, "digest": "sha256:" + checksum}}
+
+
+def copy_download(source, destination, size, progress, message):
+    received = 0
+    with destination.open("xb") as output:
+        while chunk := source.read(1024 * 1024):
+            received += len(chunk)
+            if received > size or received > MAX_DOWNLOAD:
+                raise ResetError("Desktop download exceeds its declared size.")
+            output.write(chunk)
+            progress(f"{message}… {received // (1024 * 1024)} / {(size + 1048575) // 1048576} MB")
+    if received != size:
+        raise ResetError("The desktop download was interrupted.")
+
+
+def install_downloaded(archive, checksum_file, state=None, progress=lambda text: None):
+    progress("Checking the downloaded release…")
+    release = downloaded_release(archive, checksum_file)
+
+    def fetch(destination):
+        with Path(archive).open("rb") as source:
+            copy_download(source, destination, release["asset"]["size"], progress, "Copying update")
+
+    # Recheck the staged copy too: the selected file could change during copying.
+    destination = _install(release, fetch, state, progress)
+    return {"version": release["version"], "path": str(destination)}
+
+
 def install(release, token="", state=None, progress=lambda text: None):
+    def fetch(destination):
+        asset = release["asset"]
+        with open_github(f"releases/assets/{asset['id']}", token, binary=True) as source:
+            copy_download(source, destination, asset["size"], progress, "Downloading")
+
+    return _install(release, fetch, state, progress)
+
+
+def _install(release, fetch, state, progress):
     state = Path(state or state_directory())
     version, platform_target = release["version"], release["target"]
     version_tuple(version)
@@ -265,16 +339,7 @@ def install(release, token="", state=None, progress=lambda text: None):
             with tempfile.TemporaryDirectory(prefix=".stage-", dir=area) as temporary:
                 archive = Path(temporary) / "desktop.zip"
                 asset = release["asset"]
-                received = 0
-                with open_github(f"releases/assets/{asset['id']}", token, binary=True) as source, archive.open("xb") as output:
-                    while chunk := source.read(1024 * 1024):
-                        received += len(chunk)
-                        if received > asset["size"] or received > MAX_DOWNLOAD:
-                            raise ResetError("Desktop download exceeds its declared size.")
-                        output.write(chunk)
-                        progress(f"Downloading… {received // (1024 * 1024)} / {(asset['size'] + 1048575) // 1048576} MB")
-                if received != asset["size"]:
-                    raise ResetError("The desktop download was interrupted.")
+                fetch(archive)
                 staging = Path(temporary) / bundle_name(platform_target)
                 extract_archive(archive, staging, version, platform_target, asset["digest"][7:], progress)
                 destination.parent.mkdir(parents=True, exist_ok=True)

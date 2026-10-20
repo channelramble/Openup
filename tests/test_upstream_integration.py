@@ -434,6 +434,26 @@ mv() {
         self.assertNotIn("Release TOP, keep holding HOME", result.stdout)
         self.assertIn("Patched S5L8900 DFU verified", result.stdout)
 
+    def test_normal_entry_requests_recovery_then_uses_the_same_verified_button_path(self):
+        invocation = '''
+device_mode=Normal
+device_enter_mode() {
+    [[ $1 == Recovery ]] || error "Wrong requested mode"
+    print "NORMAL_TO_RECOVERY"
+    device_mode=Recovery
+}
+enter_pwndfu
+'''
+        recovery = STOCK.replace("MODE: DFU", "MODE: Recovery")
+        result = self.run_functions(
+            EARLY_FUNCTIONS, invocation,
+            BL_TEST_RECOVERY_SEQUENCE=json.dumps(["", "", recovery, "", WTF, WTF, PATCHED]))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout.count("NORMAL_TO_RECOVERY"), 1)
+        self.assertIn("PAUSE", result.stdout)
+        self.assertIn("Patched S5L8900 DFU verified", result.stdout)
+        self.assertEqual(sum(entry["args"][:1] == ["-f"] for entry in self.trace_entries()), 1)
+
     def test_linux_wait_has_24_attempts_and_timeout_has_last_state(self):
         result = self.run_functions(
             EARLY_FUNCTIONS, "platform=linux\nenter_pwndfu",

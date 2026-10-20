@@ -1,3 +1,27 @@
+Bruteforce Legacy iOS 2.2.2 — GUI updates and running-version visibility
+Verification date: 2026-10-20
+
+Both fourth-session reports identify the running app as 2.2.0. Read-only
+inspection found 2.2.0 and 2.2.1 open simultaneously on the MacBook, with no
+active desktop-update record. The reports stop before firmware upload and
+do not test the 2.2.1 timing and Mac agent fixes retained in this release.
+
+The GUI now installs downloaded desktop ZIP/SHA-256 pairs without tokens or
+command-line tools. It retains direct authenticated checks/downloads, staged
+activation, cancellation, full inventory verification, and rollback. Running
+and restart-pending versions are explicit. Log operations carry UTC timestamps.
+Tests cover all four package targets, corrupt downloads, mismatched checksums,
+wrong platforms, older versions, source-file mutation, cancellation, and GUI
+file selection. The pinned backend fixture covers Normal -> Recovery -> WTF
+as well as stock DFU entry. USB transitions in those tests are simulated.
+
+Physical recovery on the latest version remains unverified. Final packaged
+test and updater results are recorded with the release:
+https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.2.2
+
+Historical records follow.
+============================================================
+
 Bruteforce Legacy iOS 2.2.1 — countdown timing and Mac device handling
 Verification date: 2026-10-20
 

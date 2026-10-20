@@ -473,6 +473,48 @@ class GuiTests(unittest.TestCase):
         self.window.set_busy(False)
         self.assertTrue(self.window.install_button.isEnabled())
 
+    def test_version_shortcut_opens_updates_and_restart_explains_running_version(self):
+        from ios_timeout import __version__
+        self.assertIn(__version__, self.window.windowTitle())
+        self.window.update_shortcut.click()
+        self.assertEqual(self.window.pages.currentIndex(), 4)
+        self.assertTrue(self.window.online_updates.content.isHidden())
+        self.assertFalse(self.window.local_update_button.isHidden())
+        self.window.token_edit.setText("fixture-private-token")
+        self.window.update_ready("99.0.0")
+        self.assertIn(__version__, self.window.update_info.text())
+        self.assertIn("99.0.0", self.window.relaunch_button.text())
+        self.assertFalse(self.window.relaunch_button.isHidden())
+        self.assertEqual(self.window.token_edit.text(), "")
+        self.assertNotIn("fixture-private-token", self.window.session_log.text())
+
+    def test_downloaded_update_picker_uses_adjacent_checksum_without_a_token(self):
+        with tempfile.TemporaryDirectory() as directory:
+            archive = Path(directory) / "release.zip"
+            checksum = Path(str(archive) + ".sha256")
+            checksum.write_text("fixture")
+            with patch("ios_timeout.gui.QFileDialog.getOpenFileName", return_value=(str(archive), "")) as choose, \
+                 patch("ios_timeout.gui.desktop_updates.install_downloaded", return_value={"version": "99.0.0"}) as install, \
+                 patch.object(self.window, "run_task") as run:
+                self.window.install_downloaded_update()
+                function, finished, _ = run.call_args.args
+                finished(function(lambda text: None))
+            choose.assert_called_once()
+            self.assertEqual(install.call_args.args, (str(archive), str(checksum)))
+            self.assertFalse(self.window.relaunch_button.isHidden())
+
+    def test_cancelled_update_file_selection_and_busy_window_do_not_install(self):
+        for selected in ([("", "")], [("/missing/release.zip", ""), ("", "")]):
+            with patch("ios_timeout.gui.QFileDialog.getOpenFileName", side_effect=selected), \
+                 patch.object(self.window, "run_task") as run:
+                self.window.install_downloaded_update()
+            run.assert_not_called()
+        self.window.set_busy(True)
+        self.assertFalse(self.window.local_update_button.isEnabled())
+        with patch("ios_timeout.gui.QFileDialog.getOpenFileName") as choose:
+            self.window.install_downloaded_update()
+        choose.assert_not_called()
+
     def test_excluding_prereleases_discards_the_previous_update_selection(self):
         self.window.prereleases.setChecked(True)
         self.window.pending_release = {"version": "99.0.0", "prerelease": True}

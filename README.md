@@ -2,7 +2,7 @@
 
 [![Test and package](https://github.com/channelramble/Bruteforce-Legacy-iOS/actions/workflows/ci.yml/badge.svg)](https://github.com/channelramble/Bruteforce-Legacy-iOS/actions/workflows/ci.yml)
 
-A desktop app for legacy iPhone recovery. Version **2.2.1** fixes slow button countdowns and restores scoped Mac device-agent coordination during passcode recovery. Its dark interface provides on-screen instructions, menu buttons, countdowns, and result cards. The terminal and manual input are optional Advanced controls, both off by default. It includes a guided timer reset, [32bit-Bruteforce-Passcode](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, and updates. iPhone 3G ARMv6 tools and Intel Mac builds targeting macOS 12 Monterey are included.
+A desktop app for legacy iPhone recovery. Version **2.2.2** makes updates available from a permanent GUI shortcut and supports installing downloaded releases without a token. It includes the 2.2.1 fixes for slow button countdowns and Mac device-agent coordination during passcode recovery. Its dark interface provides on-screen instructions, menu buttons, countdowns, and result cards. The terminal and manual input are optional Advanced controls, both off by default. It includes a guided timer reset, [32bit-Bruteforce-Passcode](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, and updates. iPhone 3G ARMv6 tools and Intel Mac builds targeting macOS 12 Monterey are included.
 
 **Desktop downloads include Python, Qt, SSH libraries, and their Python dependencies. No Python, pip, virtual environment, or package installation is needed to open the app.** The Windows archive also includes the Linux Python/SSH runtime used by its WSL bridge.
 
@@ -10,7 +10,7 @@ A desktop app for legacy iPhone recovery. Version **2.2.1** fixes slow button co
 
 ## Download and open
 
-Get the platform archive from [version 2.2.1](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.2.1) and extract it completely.
+Get the platform archive from [version 2.2.2](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.2.2) and extract it completely.
 
 | Computer | Download suffix | Open |
 |---|---|---|
@@ -32,7 +32,7 @@ USB access still depends on the host: macOS's usbmuxd service, Apple Mobile Devi
 3. **Timer reset:** follow **Prepare → Review & reset → Done**. Preparation boots the temporary ramdisk and inspects the phone. When the on-screen SSH Ramdisk Menu appears, choose Exit while leaving the ramdisk running. Review the proposed changes in the result card, then confirm the reset. If the phone is already prepared, use the inspection shortcut. Changing the selected phone or its settings requires a fresh review. After reboot, use the existing passcode.
 4. **Passcode recovery:** start recovery with one button; the app downloads the backend when needed. Use the on-screen choices and DFU countdown. A temporary masked field appears only if a password is requested. Reported passcodes appear in a result card. A session ending does not by itself mean a passcode was recovered.
 5. **Advanced options:** expand these only when needed, such as for a local 3G IPSW, a custom tools folder, or connection settings. The normal workflow uses the included tools and default settings.
-6. **Backups and updates:** use Backups to restore original files or finish interrupted cleanup. Use Updates to check, install, and relaunch; rollback remains available. This private repository requires a GitHub token with read access for desktop updates. The token stays in memory, and GitHub CLI is not required.
+6. **Backups and updates:** use Backups to restore original files or finish interrupted cleanup. Use the version/Updates button to open release downloads in your signed-in browser. Download your platform desktop ZIP and its matching `.zip.sha256`, then choose **Install downloaded update** and **Restart**. No token is needed for this route. Direct checks and downloads are also available in the expandable section using a GitHub read token, kept only in memory. Rollback remains available; GitHub CLI is not required.
 
 The **session card** displays the current step, requests a response when needed, and shows the result. The terminal stays closed even on failure. Open **Advanced · terminal** to inspect raw output; **Enable manual input** is a separate opt-in. Closing the terminal disables manual input again. Phone and settings controls are locked while an operation runs.
 
@@ -40,7 +40,7 @@ The 3G button helper uses elapsed-time deadlines, so a slow or missing USB respo
 
 Long operations run outside the GUI process. **Stop** requests a graceful stop; file-writing workflows ask before interruption and retain the engine's rollback behavior. Output stays in memory unless you choose **Save log**. Prompt responses are not added to the transcript by the app; backend-reported passcodes and other backend output can still appear in an export. Exports retain up to 16 MiB independently of the display's 2,500-line scrollback. If that limit is reached, the export preserves initial context and recent output with an explicit omission marker. Clearing the terminal clears both the display and export transcript. The window remains open while an operation or cleanup is active.
 
-Desktop updates verify the GitHub asset digest, platform, clean source revision, archive paths, and all packaged file checksums. They stage a complete replacement runtime, then switch versions. The original launcher remains your entry point; rollback selects the previous installation. A damaged update falls back to the original app's recovery UI.
+Desktop updates verify the GitHub asset digest (direct download) or the matching release SHA-256 file (browser download), platform, clean source revision, archive paths, and all packaged file checksums. Obtain both files from this repository’s release page; a locally supplied checksum checks integrity, not publisher identity. They stage a complete replacement runtime, then switch versions. The original launcher remains your entry point; rollback selects the previous installation. Downloading a newer app does not replace an already-open window: check the running version in the title bar and restart after installing. A damaged update falls back to the original app's recovery UI.
 
 **Hardware validation is pending.** Physical ramdisk boot, passcode recovery, USB passthrough, and on-screen timer clearance remain unverified. The included iPhone 3G executables have passed architecture, signature, reproducibility, and ramdisk import checks; those checks do not establish successful recovery on a phone. Native Windows execution also remains unverified. See `VERIFICATION.txt`.
 
@@ -48,7 +48,7 @@ The `reset` workflow still requires the correct passcode afterward. The separate
 
 ## Source edition and CLI
 
-The unqualified `Bruteforce-Legacy-iOS-2.2.1.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
+The unqualified `Bruteforce-Legacy-iOS-2.2.2.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
 
 Download the ZIP from [Releases](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases) and extract the whole folder onto the computer connected to the phone. Python 3.9 or newer is required.
 

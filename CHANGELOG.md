@@ -1,5 +1,15 @@
 # Changes
 
+## 2.2.2
+
+- Add a built-in installer for desktop release ZIPs and their matching SHA-256 files. Download through your signed-in browser, select the files in Updates, and restart without a terminal, GitHub CLI, token, or dependency installation. Direct authenticated downloads remain available in an expandable section.
+- Show the running version in the window title and a permanent Updates shortcut. After installing, clearly distinguish the running version from the version waiting for restart.
+- Verify local update archives, platform, clean source revision, complete file inventory, and staged contents before activation. Retain rollback and cancellation behavior for both update paths.
+- Timestamp each operation in exported logs and show update-bootstrap failures directly on the Updates page.
+- Exercise the Normal → Recovery → WTF transition in the adapted-backend tests alongside the stock-DFU entry path. This release retains the 2.2.1 countdown and Mac agent fixes; it does not add speculative firmware changes.
+
+The new reports still came from 2.2.0. Read-only inspection found 2.2.0 and 2.2.1 open simultaneously on the MacBook. No successful physical recovery is established by these logs or the simulated transition tests.
+
 ## 2.2.1
 
 - Run the 3G button countdown from monotonic deadlines with a single, bounded USB query in flight. USB disconnects and slow queries no longer extend each displayed second.
