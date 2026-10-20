@@ -166,8 +166,12 @@ def wait_bootloader(model, probe, *, timeout=30, emit=progress,
             reason = "The phone is still in DFU; iBSS did not start."
         else:
             reason = "The phone did not reappear in verified Recovery mode after iBSS."
-        raise ResetError(reason + " The ramdisk was not uploaded. Reconnect the iPhone 3G through "
-                         "a direct USB adapter instead of a hub, then retry.")
+        # This also reproduces on Intel Macs with a direct connection. USB
+        # enumeration and a successful transfer cannot identify the cause.
+        raise ResetError(reason + " The ramdisk was not uploaded. "
+                         "The cause of the boot handoff failure is not yet known. "
+                         "Save the session log. Before another attempt, force restart the phone "
+                         "and follow the on-screen button steps for a fresh session.")
     finally:
         probe.close()
 

@@ -1,3 +1,33 @@
+Unreleased investigation — Intel Mac / direct USB reproduction
+Verification date: 2026-10-20
+
+The new failure1/failure2 exports identify Openup 2.3.0 on macOS 12.7.6,
+x86_64. failure2 repeats the first attempt and adds a second attempt. Both
+begin in patched S5L8900 DFU, complete firmware preparation and iBSS transfer,
+then remain in DFU with SRTG iBoot-636.66.3x. No ramdisk is sent. The owner
+reports a direct USB connection. A hub is therefore not a sufficient
+explanation; the timeout message no longer attributes this failure to one.
+
+Offline comparison with pinned Legacy iOS Kit revision
+23622f8fe72c09952089d5145a7b008cfcc90d9b establishes:
+- The downloaded shared WTF image has the expected SHA-1
+  cb96954185a91712c47f20adb519db45a318c30f.
+- Both backends use the identical WTF patch (SHA-256
+  d12486bc101ec5a2df8dd4267b4f2c00cd4c8e2416b565c11af5051cb9f14d12).
+- The stock 3.1.3 and stock/patched 4.2.1 iBSS containers are well-formed IMG3
+  files with BORD 04 and SEPO 5. This does not prove that either image boots.
+- Legacy iOS Kit uses 3.1.3 iBSS for this board; Openup's recovery backend uses
+  4.2.1. Comparing those first-stage images on the same phone is an outstanding
+  diagnostic, not a validated replacement boot chain.
+
+Neither the local computer nor the SSH-accessible MacBook currently lists a
+USB phone. No additional firmware was sent during this investigation. The
+physical boot failure is unresolved. No new desktop release is claimed to
+fix it. Raw logs, device identifiers, and downloaded firmware remain excluded.
+
+Historical records follow.
+============================================================
+
 Openup 2.3.0 — branding, migration, and verified iBSS handoff
 Verification date: 2026-10-20
 

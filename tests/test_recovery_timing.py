@@ -58,7 +58,7 @@ class RecoveryTimingTests(unittest.TestCase):
         clock = Clock()
         probe = Probe(clock, ready_at=0, result=STOCK + "ECID: private-id\n")
         events, lines = [], []
-        with self.assertRaisesRegex(ResetError, "still in DFU.*ramdisk was not uploaded"):
+        with self.assertRaisesRegex(ResetError, "still in DFU.*ramdisk was not uploaded") as failure:
             wait_bootloader("iPhone1,2", probe, timeout=1, clock=clock,
                             sleep=clock.sleep, emit=lambda *a: events.append(a),
                             output=lambda value, **k: lines.append(value))
@@ -67,6 +67,9 @@ class RecoveryTimingTests(unittest.TestCase):
         self.assertTrue(all(event[0] == "Waiting for iBSS to start" for event in events))
         self.assertIn("MODE=DFU", "\n".join(lines))
         self.assertNotIn("private-id", str(events) + str(lines))
+        self.assertNotIn("hub", str(failure.exception))
+        self.assertIn("not yet known", str(failure.exception))
+        self.assertIn("force restart", str(failure.exception))
 
     def test_recovery_on_wrong_board_or_without_identity_is_rejected(self):
         for snapshot in ("MODE: Recovery\n", STOCK.replace("DFU", "Recovery").replace("04", "00")):
