@@ -1,5 +1,14 @@
 # Changes
 
+## 2.2.1
+
+- Run the 3G button countdown from monotonic deadlines with a single, bounded USB query in flight. USB disconnects and slow queries no longer extend each displayed second.
+- Restore the Mac device-agent coordination omitted by the passcode adapter. A detached guardian pauses only the current user's three exact Apple system agent paths and resumes the same process identities when the backend exits or its parent dies. Already-stopped agents are left alone.
+- Keep a recovery journal for interrupted guardian cleanup, and stop before launching the backend if the Mac session cannot be reserved.
+- Clear the stale “Response sent” status when active guidance resumes. Terminal and manual input remain off by default.
+
+The supplied log stops in stock DFU before upload. On the user's MacBook, all three agents were running; live normal-exit and forced-parent-death checks confirmed they are restored. This supports the host-interference diagnosis but does not establish a successful physical recovery. Final package and updater results are recorded with [v2.2.1](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.2.1).
+
 ## 2.1.0
 
 - Simplify the desktop around a shared phone selector and two starting choices: reset a lockout timer when the passcode is known, or start passcode recovery.

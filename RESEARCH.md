@@ -2,6 +2,29 @@
 
 Reviewed 2026-10-20.
 
+## Version 2.2.1 countdown and USB entry analysis
+
+The third recovery log remains in stock DFU (`iBoot-596.24`) throughout the
+button helper; it does not reach the shared-image upload. Version 2.2.0 put a
+blocking USB query and Python process startup after each one-second sleep,
+so its displayed countdown could run slower than wall time. The replacement
+uses monotonic deadlines and nonblocking USB observation.
+
+The passcode adapter also stripped the upstream script's Mac device-agent
+suspension. The reviewed [backend source](https://github.com/tuanemss/32bit-Bruteforce-Passcode/blob/4949674b318767de83eb149e57bcc543a6453d6e/Bruteforce.sh)
+pauses AMPDevicesAgent, AMPDeviceDiscoveryAgent, and MobileDeviceUpdater during
+the session and resumes them on exit. All three were running on the user's
+MacBook during the read-only inspection. Host auto-handling is therefore a
+plausible cause of the repeated stock-DFU state, not proof of what happened
+during the earlier button sequence.
+
+The managed replacement uses exact executable paths, current-user ownership,
+process start identity, a detached lease watcher, and a cleanup journal.
+Live tests on the MacBook confirmed all three processes resumed after normal
+exit and forced death of the disposable parent. No firmware was sent in those
+tests. Successful physical WTF entry, boot, and passcode recovery remain
+separate hardware checks.
+
 ## Version 2.0.2 failure analysis
 
 The supplied recovery log shows the pinned Legacy iOS Kit choosing `iPhone1,1` /

@@ -115,6 +115,27 @@ elif tool in ("xpwntool", "bspatch"):
 elif tool == "managed-python":
     if args[:2] == ["-m", "ios_timeout.upstream"]:
         os.execv(sys.executable, [sys.executable, "-B"] + args)
+    if args[:2] == ["-m", "ios_timeout.recovery_timing"]:
+        # Exercise the real guidance/identity contract with virtual button time.
+        # Nonblocking real query timing is covered in test_recovery_timing.
+        import subprocess
+        from ios_timeout.recovery_timing import guide
+        from ios_timeout.core import ResetError
+        now = [0.0]
+        class Probe:
+            def poll(self):
+                result = subprocess.run(args[4:] + ["-q"], capture_output=True, text=True)
+                return result.stdout if result.returncode == 0 else ""
+            def close(self):
+                pass
+        def advance(_):
+            now[0] += 0.5
+        try:
+            guide(args[2], Probe(), clock=lambda: now[0], sleep=advance)
+        except ResetError as exc:
+            print(str(exc), file=sys.stderr)
+            raise SystemExit(1)
+        raise SystemExit(0)
     if args[:2] not in (
         ["-m", "ios_timeout.armv6_boot"],
         ["-m", "ios_timeout.armv6_kernel"],
@@ -407,7 +428,7 @@ mv() {
     def test_button_helper_detects_wtf_during_countdown(self):
         result = self.run_functions(
             EARLY_FUNCTIONS, "enter_pwndfu",
-            BL_TEST_RECOVERY_SEQUENCE=json.dumps([STOCK, STOCK, "", WTF, PATCHED]))
+            BL_TEST_RECOVERY_SEQUENCE=json.dumps([STOCK, STOCK, "", WTF, WTF, PATCHED]))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("PAUSE", result.stdout)
         self.assertNotIn("Release TOP, keep holding HOME", result.stdout)

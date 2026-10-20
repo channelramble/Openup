@@ -1046,6 +1046,7 @@ class MainWindow(QMainWindow):
                 self.clear_prompt()
         elif kind == "progress" and not self.active_prompt:
             self.guidance_panel.show()
+            self.session_hint.setText("Follow the on-screen steps. You can stop this session at any time.")
             self.guidance_title.setText(event.get("title") or "Working on your phone")
             message = event.get("message", "")
             remaining = event.get("remaining")

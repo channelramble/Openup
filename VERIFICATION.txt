@@ -1,3 +1,26 @@
+Bruteforce Legacy iOS 2.2.1 — countdown timing and Mac device handling
+Verification date: 2026-10-20
+
+The third recovery log stops in stock DFU before the shared-image upload.
+The old helper added USB query latency and interpreter startup to every tick.
+The replacement uses monotonic phase deadlines and one nonblocking query.
+Tests cover missing/slow queries, real blocked subprocess cleanup, early
+detection, query failures, mismatched identity, and private-field redaction.
+
+The passcode adapter had removed upstream's Mac device-agent suspension.
+The replacement uses a detached lease watcher with exact per-user Apple paths,
+start identities, and a cleanup journal. Live MacBook checks confirmed all
+three agents paused and resumed after normal exit and forced parent death.
+No phone firmware was sent during these checks. The original failing sequence
+has not been reproduced with physical button input during this repair.
+
+The dark GUI and hidden terminal/input defaults remain. Active progress clears
+the stale response-waiting status. Final package tests and updater checks:
+https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.2.1
+
+Historical records follow.
+============================================================
+
 Bruteforce Legacy iOS 2.2.0 — dark GUI and 3G USB transition repair
 Verification date: 2026-10-20
 

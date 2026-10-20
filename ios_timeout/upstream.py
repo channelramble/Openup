@@ -148,32 +148,14 @@ bl_ios_early_prepare() {
     print "* Hold TOP and HOME for 10 seconds, then release TOP and keep holding HOME."
     print "* Release both buttons when the app detects WTF mode."
     pause
-    local seconds
-    print "* Hold TOP and HOME buttons..."
-    for ((seconds=10; seconds>0; seconds--)); do
-        printf '%s ' "$seconds"
-        sleep 1
-        bl_ios_early_read
-        if [[ $bl_ios_state == wtf || $bl_ios_state == patched ]]; then
-            echo
-            print "* USB entry mode detected. Release both buttons now."
-            return 0
-        fi
-    done
-    echo
-    print "* Release TOP, keep holding HOME..."
-    for ((seconds=15; seconds>0; seconds--)); do
-        printf '%s ' "$seconds"
-        sleep 1
-        bl_ios_early_read
-        if [[ $bl_ios_state == wtf || $bl_ios_state == patched ]]; then
-            echo
-            print "* USB entry mode detected. Release both buttons now."
-            return 0
-        fi
-    done
-    echo
-    bl_ios_early_wait wtf
+    "$BL_IOS_PYTHON" -m ios_timeout.recovery_timing "$device_type" -- ${irecovery} ||
+        error "USB entry was not verified; recovery cancelled."
+    # Recheck after the helper before the caller sends the shared image.
+    bl_ios_early_read
+    if [[ $bl_ios_state != wtf && $bl_ios_state != patched ]]; then
+        bl_ios_early_diagnostics
+        error "USB entry mode changed before upload. Restart the recovery session."
+    fi
 }
 
 bl_ios_early_before_ibss() {
@@ -401,7 +383,9 @@ def adapt_script(original):
     start = source.index('            warn "Failed to detect pwned DFU mode."')
     end = source.index('\n        fi', start)
     source = source[:start] + '            error "pwnDFU verification failed. Re-enter DFU before retrying."' + source[end:]
-    # Use the system usbmuxd service on Linux; never kill unrelated sessions.
+    # The Python guardian owns exact Mac process identities and restores them
+    # even if this shell dies. Keep upstream's global killall out of that lease.
+    # Linux continues to use its existing system usbmuxd service.
     source = re.sub(r'^.*(?:sudo killall -9 usbmuxd|sudo -b \$dir/usbmuxd|killall -STOP AMP|killall -CONT AMP).*\n',
                     '', source, flags=re.MULTILINE)
     source = source.replace('    [[ $(command -v systemctl) ]] && sudo systemctl restart usbmuxd\n', '')
@@ -465,7 +449,9 @@ def run_backend(args):
         env["BL_IOS_ARMV6"] = str(payloads)
         print("Connect exactly one phone. Follow the backend's DFU and dependency prompts.", flush=True)
         print("Recovery results may appear in session output and in files you explicitly export.", flush=True)
-        result = subprocess.run(["bash", str(script)], cwd=folder, env=env, check=False)
+        from .macos_agents import recovery_agents
+        with recovery_agents():
+            result = subprocess.run(["bash", str(script)], cwd=folder, env=env, check=False)
         if result.returncode:
             raise ResetError(f"Upstream backend stopped with status {result.returncode}.")
     return 0

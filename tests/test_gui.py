@@ -222,8 +222,10 @@ class GuiTests(unittest.TestCase):
         with self.fake_worker():
             self.window.start_operation("prepare")
             worker = self.window.process
+            self.window.session_hint.setText("Response sent. Waiting for the next step…")
             self.window.handle_session_event({"type": "progress", "title": "Hold Home", "message": "Release Power.", "remaining": 7})
             self.assertIn("7 seconds", self.window.guidance_text.text())
+            self.assertNotIn("Waiting", self.window.session_hint.text())
             self.window.handle_session_event({"type": "prompt", "kind": "choice", "id": "menu1", "title": "Recovery menu", "message": "Choose an action.",
                                               "options": [{"label": "Show passcode", "value": "1"}, {"label": "Finish session", "value": "2"}]})
             self.assertEqual([b.text() for b in self.window.prompt_buttons], ["Show passcode", "Finish session"])
