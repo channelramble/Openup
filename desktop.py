@@ -12,6 +12,9 @@ def main():
     # Do not inherit user-installed Python packages or source-updater dispatch.
     os.environ["BL_IOS_DESKTOP"] = "1"
     os.environ["PYTHONNOUSERSITE"] = "1"
+    # Backend helper interpreters inherit this even when they are started with
+    # -m instead of this entry point. Signed app bundles must stay read-only.
+    os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
     sys.dont_write_bytecode = True
     root = Path(__file__).resolve().parent
     sys.path.insert(0, str(root))

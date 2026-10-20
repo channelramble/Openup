@@ -29,6 +29,8 @@ Corrections:
   output chunks. Backend-reported results can still appear in exported logs.
   Prompt IDs reject stale/duplicate replies in the worker and GUI callbacks.
   The protocol flag is forwarded to WSL. Existing CLI interaction is retained.
+  Desktop child interpreters inherit bytecode suppression so recovery helpers
+  do not add cache files inside the signed app bundle.
 
 Validation and limits:
   Tests include pinned backend shell execution with simulated USB modes,

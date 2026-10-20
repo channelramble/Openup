@@ -2,6 +2,8 @@ import io
 import json
 import os
 import stat
+import subprocess
+import sys
 import tempfile
 import unittest
 import urllib.request
@@ -41,6 +43,44 @@ def desktop_zip(path, version="2.1.0", target="linux-x86_64", extra=None):
 
 
 class DesktopPlanningTests(unittest.TestCase):
+    def test_desktop_entry_point_prevents_bytecode_in_backend_helper_children(self):
+        import desktop
+        from ios_timeout import cli
+
+        with tempfile.TemporaryDirectory(prefix="backend helper with spaces ") as directory:
+            root = Path(directory)
+            (root / "fixture_import.py").write_text("VALUE = 'imported'\n", encoding="utf-8")
+            (root / "fixture_helper.py").write_text(
+                "import json, sys\n"
+                "import fixture_import\n"
+                "print(json.dumps({'no_bytecode': sys.dont_write_bytecode, "
+                "'value': fixture_import.VALUE}))\n", encoding="utf-8",
+            )
+            children = []
+
+            def launch_helper(arguments):
+                self.assertEqual(arguments, ["fixture-operation"])
+                # Match the shell helpers' unisolated `python -m` invocation:
+                # no -B is passed, so only the entry point's inherited setting
+                # can protect imports inside a signed application bundle.
+                child = subprocess.run(
+                    [sys.executable, "-m", "fixture_helper"], cwd=root,
+                    capture_output=True, text=True, timeout=15, check=True,
+                )
+                children.append(json.loads(child.stdout))
+                return 0
+
+            with patch.dict(os.environ), \
+                 patch.object(sys, "argv", ["desktop.py", "--cli", "fixture-operation"]), \
+                 patch.object(sys, "path", list(sys.path)), \
+                 patch.object(sys, "dont_write_bytecode", False), \
+                 patch.object(cli, "main", side_effect=launch_helper):
+                os.environ.pop("PYTHONDONTWRITEBYTECODE", None)
+                self.assertEqual(desktop.main(), 0)
+            self.assertEqual(children, [{"no_bytecode": True, "value": "imported"}])
+            self.assertEqual(list(root.rglob("__pycache__")), [])
+            self.assertEqual(list(root.rglob("*.pyc")), [])
+
     def test_gui_arguments_parse_with_spaces_and_shell_characters(self):
         settings = Settings(udid="abcdef123456", ipsw="/tmp/a ' $(touch bad).ipsw")
         args = operation_arguments("prepare", settings)
