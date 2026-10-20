@@ -218,6 +218,7 @@ def adapt_script(original):
     replace('select_ramdisk_version() {\n', '''select_ramdisk_version() {
     if [[ $device_type == "iPhone1,2" ]]; then
         log "iPhone 3G: using the 4.2.1/8C148 ramdisk and bundled ARMv6 tools."
+        log "Using the 3.1.3/7E18 iBSS for the initial boot handoff."
         log "This does not install or downgrade iOS."
         device_target_build="8C148"
         return
@@ -234,6 +235,30 @@ def adapt_script(original):
             'if [[ $device_type != "iPhone1,2" && $device_proc == 1 && $getcomp == "Kernelcache" ]]; then\n            name=')
     replace('iBSS.$device_model.RELEASE.dfu', 'iBSS.${device_model}ap.RELEASE.dfu')
     replace('iBEC.$device_model.RELEASE.dfu', 'iBEC.${device_model}ap.RELEASE.dfu')
+    # Keep the 3.1.3 first-stage image in its own cache. An existing 4.2.1
+    # iBSS must never satisfy this download, even though its basename matches.
+    replace('''        [[ -s $ramdisk_path/$name ]] && cp $ramdisk_path/$name . || "$dir/pzb" -g "${path}$name" -o "$name" "$ipsw_url"
+        [[ ! -s $name ]] && error "Failed to get $name."
+        [[ ! -s $ramdisk_path/$name ]] && cp $name $ramdisk_path/
+        mv $name $getcomp.orig''', '''        local component_url="$ipsw_url" component_cache="$ramdisk_path"
+        if [[ $device_type == "iPhone1,2" && $getcomp == "iBSS" ]]; then
+            component_url="https://secure-appldnld.apple.com/iPhone/061-7468.20100202.pbnrt/iPhone1,2_3.1.3_7E18_Restore.ipsw"
+            component_cache="$PROJECT_ROOT/saved/$device_type/ramdisk_7E18"
+            # This component is unencrypted; the other components use 8C148 keys.
+            iv=""; key=""
+        fi
+        mkdir -p "$component_cache" || error "Could not create component cache."
+        rm -f "$name" || error "Could not clear the previous component."
+        if [[ -s "$component_cache/$name" ]]; then
+            cp "$component_cache/$name" "$name" || error "Could not read cached $getcomp."
+        else
+            "$dir/pzb" -g "${path}$name" -o "$name" "$component_url" || error "Failed to download $getcomp."
+        fi
+        [[ -s "$name" ]] || error "Failed to get $name."
+        if [[ ! -s "$component_cache/$name" ]]; then
+            cp "$name" "$component_cache/" || error "Could not cache $getcomp."
+        fi
+        mv "$name" "$getcomp.orig" || error "Could not stage $getcomp."''')
     replace('$curl -sL "$url" -o "$file"', '$curl -fsSL "$url" -o "$file"')
     replace('$curl -sLO "$url"', '$curl -fsSLO "$url"')
     replace('        [[ -s tmp.json ]] && break',

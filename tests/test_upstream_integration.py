@@ -603,6 +603,8 @@ enter_pwndfu
         ])
         for args in downloads:
             self.assertTrue(args[-1].startswith("https://secure-appldnld.apple.com/"))
+        self.assertTrue(downloads[0][-1].endswith("iPhone1,2_3.1.3_7E18_Restore.ipsw"))
+        for args in downloads[1:]:
             self.assertTrue(args[-1].endswith("iPhone1,2_4.2.1_8C148_Restore.ipsw"))
         startup_entries = [entry for entry in entries if "startup" in entry]
         self.assertEqual(len(startup_entries), 1)
@@ -630,6 +632,28 @@ enter_pwndfu
                              for entry in entries))
         for name in ("iBSS", "iBEC", "DeviceTree.dec", "Kernelcache.dec", "Ramdisk.dmg"):
             self.assertTrue((self.destination / name).is_file(), name)
+
+    def test_3g_first_stage_does_not_reuse_421_ibss_cache(self):
+        self.destination.mkdir(parents=True)
+        old = self.destination / "iBSS.n82ap.RELEASE.dfu"
+        old.write_text("old 4.2.1 first-stage image")
+        result = self.run_create()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(old.read_text(), "old 4.2.1 first-stage image")
+        first_stage = self.backend / "saved/iPhone1,2/ramdisk_7E18" / old.name
+        self.assertEqual(first_stage.read_text(), "fixture: Firmware/dfu/" + old.name)
+        self.assertEqual((self.destination / "iBSS").read_bytes(), first_stage.read_bytes())
+        self.trace.unlink()
+        result = self.run_create()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(any(entry["tool"] == "pzb" for entry in self.trace_entries()))
+
+    def test_failed_first_stage_download_cannot_use_a_leftover_work_file(self):
+        (self.work / "iBSS.n82ap.RELEASE.dfu").write_text("old work file")
+        result = self.run_create(BL_TEST_PZB_RESULT="failure")
+        self.assert_stopped(result, "Failed to download iBSS")
+        self.assert_no_boot_patching()
+        self.assertFalse((self.backend / "saved/iPhone1,2/ramdisk_7E18/iBSS.n82ap.RELEASE.dfu").exists())
 
 
 if __name__ == "__main__":

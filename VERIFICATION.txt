@@ -1,3 +1,34 @@
+Candidate 3.1.3 first stage — physical stock-image comparison
+Verification date: 2026-10-20
+
+On the SSH-accessible Apple Silicon MacBook, the owner's iPhone1,2 was verified
+in patched DFU (CPID 8900, BDID 04, SRTG iBoot-636.66.3x). The backend's
+irecovery 1.1.0 uploaded Apple's original 3.1.3/7E18 iBSS in 0.259 seconds,
+returned zero, and reported 100%. The first immediate query timed out during
+reenumeration. A subsequent USB inventory and irecovery 1.3.1 query confirmed
+Recovery mode with matching chip/board identity. No ramdisk, device tree, or
+kernel was sent. The application lock and Mac device-agent guardian were used;
+the guardian reported restoration on exit.
+
+This differs from the prior 4.2.1 original/patched iBSS attempts, which remained
+in DFU. It supports testing a 3.1.3 first stage, but does not yet establish that
+the candidate patched image or the complete 4.2.1 ramdisk boot chain works.
+
+The candidate uses the 3.1.3 first-stage image in a separate 7E18 source cache,
+retaining the 8C148 ramdisk, kernel, and ARMv6 tools. Input and patched decoded
+images are checksum-pinned, and restore/reformat boot arguments are replaced.
+The full 316-test suite passes, including cache separation and failed-download
+regressions. Real offline preparation verifies the decoded boot components,
+kernel, device tree, and six ramdisk startup/tool entries. The prepared iBSS
+IMG3 SHA-256 is:
+7966587c18829dc6db77a439b99c5fa684b908ac3d1938aab9936aae8153c8f4
+
+The next physical test requires the owner to re-enter DFU with the buttons.
+The candidate is not a released or verified complete recovery fix.
+
+Historical records follow.
+============================================================
+
 Unreleased investigation — Intel Mac / direct USB reproduction
 Verification date: 2026-10-20
 

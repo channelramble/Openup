@@ -19,6 +19,7 @@ class Armv6BootTests(unittest.TestCase):
         self.source.write_bytes(b"known decoded test boot component")
         self.patched = b"known patched test boot component"
         self.profile = {
+            "version": "test fixture",
             "input": hashlib.sha256(self.source.read_bytes()).hexdigest(),
             "output": hashlib.sha256(self.patched).hexdigest(),
             "flags": ["--rsa", "--debug", "-b", "rd=md0 -v"],
