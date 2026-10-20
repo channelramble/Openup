@@ -1,0 +1,47 @@
+iPhone Timeout Reset 1.0.0
+Verification date: 2026-10-20
+
+Environment:
+  Darwin 27.0.0 / arm64
+  Python 3.9.6
+  Paramiko 5.1.0
+  Full dependency versions: requirements-lock.txt
+
+Completed checks:
+  .venv/bin/python -m unittest discover -s tests -v
+    41 tests passed, 0 failures, 0 errors.
+  .venv/bin/python -m pip check
+    No broken requirements found.
+  bash -n Launch.command
+    Passed.
+  ./Launch.command doctor
+    Executed successfully.
+  ./Launch.command --help
+  ./Launch.command prepare --help
+    Executed successfully.
+  ./Launch.command devices
+    Local usbmuxd query succeeded; returned no USB devices.
+
+Test coverage:
+  Binary and XML plists, boolean/integer type correctness, unrelated settings,
+  pending wipe rejection, unsupported hardware/version gates, corrupt input,
+  missing journal, no-op reset, private backups and checksum validation.
+  Failures at every commit rename, partial staging writes, USB interruption
+  during staging/commit, rollback, byte-identical restoration, repeated recovery,
+  wrong phone/build, changed data, manifest path traversal, transaction locking.
+  USB packet framing and partial reads, invalid packets, connection refusal,
+  network-device exclusion, explicit selection when multiple devices are present.
+  Real Paramiko SSH and SFTP over socketpair against a simulated filesystem:
+  CLI preview -> commit -> restore, host-key changes, symlink rejection,
+  offline/live OS gates, explicit mounting, older-SFTP rename fallback.
+  Mocked backend bootstrap: pinned revision, paths containing spaces,
+  failed-download cleanup, preserving existing checkout, backend failure.
+
+Limits:
+  The SSH/SFTP fixture is not an iPhone emulator.
+  No physical pwnDFU, ramdisk boot, mount, plist reset, or reboot was tested.
+  Legacy iOS Kit source and bundled mount scripts were inspected at the pinned
+  revision; its entire dependency/firmware download workflow was not executed.
+  The MacBook SSH connection timed out during both connection attempts.
+  No phone was modified.
+  On-device protection attributes and on-screen timer behavior remain unverified.
