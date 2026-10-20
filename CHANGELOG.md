@@ -1,5 +1,15 @@
 # Changes
 
+## 2.1.0
+
+- Simplify the desktop around a shared phone selector and two starting choices: reset a lockout timer when the passcode is known, or start passcode recovery.
+- Guide timer reset through Prepare, Review & reset, and Done with one primary next action. Keep explicit confirmation before applying changes and require a fresh review after phone or settings changes.
+- Move optional firmware, custom tools, and connection settings into collapsed Advanced sections. Start recovery directly, downloading its backend when needed.
+- Make Activity expandable and open it for operations and errors. Show specific progress and result messages, and lock phone/settings controls during an operation.
+- Retain the existing recovery backends, bundled ARMv6 tools, backup protections, and update verification.
+
+This release changes the desktop workflow. Final test, platform-package, and updater results are recorded with [v2.1.0](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.1.0). Physical iPhone recovery remains unverified.
+
 ## 2.0.2
 
 - Fix iPhone 3G timer-ramdisk preparation selecting original-iPhone `m68ap` firmware when WTF mode reports a generic identity. Preserve the selected `n82ap` profile, then verify the real chip, board, and patched DFU state before sending iBSS.

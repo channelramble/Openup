@@ -23,51 +23,64 @@ from .core import ResetError, SUPPORTED
 from .desktop_model import Settings, TerminalText, backup_inventory, operation_arguments
 from .host import state_directory
 from .session_log import SessionLog
+from .gui_flow import TimerFlow, action_copy
 from . import desktop_updates
 
 STYLE = """
-QWidget { color: #233c47; font-size: 13px; }
-QMainWindow, #workspace { background: #f4f6f4; }
-#sidebar { background: #132c3a; }
-#sidebar #brand { color: #f5faf9; font-size: 23px; font-weight: 700; }
-#sidebar QLabel { color: #9cb3bd; }
-#sidebar #edition { color: #70d7b9; font-size: 10px; font-weight: 700; letter-spacing: 2px; }
-#sidebar QPushButton { background: transparent; color: #becdd2; border: 0; border-radius: 7px;
-    padding: 13px 14px; text-align: left; font-weight: 500; }
-#sidebar QPushButton:checked { color: #fff; background: #294654; border-left: 3px solid #6bd3b3; }
-#sidebar QPushButton:hover { background: #203d4b; }
-#pageTitle { color: #173340; font-size: 29px; font-weight: 700; }
-#subtitle { color: #697e85; font-size: 13px; }
-#card { background: #fff; border: 1px solid #dce5e1; border-radius: 12px; }
-#cardTitle { font-size: 16px; font-weight: 650; color: #183d47; }
-#eyebrow { color: #51877b; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
-#muted { color: #71838a; }
-#notice { background: #eaf3ee; border: 1px solid #cee4d8; border-radius: 8px; padding: 12px; color: #3c685a; }
-#warning { background: #fcf3e4; border: 1px solid #ecd8b6; border-radius: 8px; padding: 12px; color: #805e25; }
-QPushButton { background: #fff; border: 1px solid #ccd9d4; border-radius: 7px; padding: 10px 16px; font-weight: 600; }
-QPushButton:hover { background: #edf4f0; border-color: #94b8a7; }
-QPushButton:pressed { background: #dfebe4; }
-QPushButton:disabled { background: #edf0ee; color: #9ca9a3; border-color: #e0e7e2; }
-QPushButton#primary { background: #24745f; color: #fff; border: 1px solid #24745f; }
-QPushButton#primary:hover { background: #1b604e; }
-QPushButton#primary:disabled { background: #b2c9bd; border-color: #b2c9bd; color: #f3f6f4; }
-QPushButton#danger { color: #985144; }
-QLineEdit, QComboBox, QSpinBox { background: #fff; border: 1px solid #ccd9d4; border-radius: 6px; padding: 8px; min-height: 20px; }
-QLineEdit:focus, QComboBox:focus { border: 1px solid #3a9179; }
-QComboBox QAbstractItemView { background: #fff; color: #233c47; selection-background-color: #dbece3; }
+QWidget { color: #24334b; font-size: 13px; }
+QMainWindow, #workspace { background: #f5f7fb; }
+#sidebar { background: #fff; border-right: 1px solid #e1e6ef; }
+#sidebar #brand { color: #152947; font-size: 20px; font-weight: 700; }
+#sidebar QLabel { color: #778499; }
+#sidebar #edition { color: #7b889b; font-size: 11px; }
+#sidebar QPushButton { background: transparent; color: #59677d; border: 1px solid transparent;
+    border-radius: 8px; padding: 11px 12px; text-align: left; font-weight: 500; }
+#sidebar QPushButton:checked { color: #234fba; background: #edf2ff; font-weight: 700; }
+#sidebar QPushButton:hover { background: #f0f3f8; }
+#sidebar QPushButton:focus { border-color: #7b9de9; }
+#pageTitle { color: #152947; font-size: 28px; font-weight: 700; }
+#subtitle { color: #6a788d; font-size: 13px; }
+#card, #phoneBar, #activityPanel { background: #fff; border: 1px solid #dfe5ee; border-radius: 12px; }
+#cardTitle { font-size: 19px; font-weight: 650; color: #1a2e4c; }
+#eyebrow { color: #627695; font-size: 11px; font-weight: 600; }
+#muted { color: #6b798e; }
+#notice { background: #eef3ff; border: 0; border-radius: 8px; padding: 12px; color: #405b8c; }
+#warning { background: #fff6e8; border: 1px solid #f1dfbd; border-radius: 8px; padding: 12px; color: #815c24; }
+#connection { color: #586f8b; font-size: 12px; }
+#step { color: #8a96a8; background: #edf0f5; border-radius: 7px; padding: 9px; font-size: 12px; }
+#step[active="true"] { color: #244fbc; background: #e8efff; font-weight: 700; }
+#step[complete="true"] { color: #2e735b; background: #eaf5ef; }
+QPushButton { background: #fff; border: 1px solid #d5ddea; border-radius: 7px; padding: 10px 15px; font-weight: 600; }
+QPushButton:hover { background: #f1f5ff; border-color: #9ab1e6; }
+QPushButton:focus { border: 1px solid #527ed6; }
+QPushButton:pressed { background: #e7edfa; }
+QPushButton:disabled { background: #f1f3f7; color: #9aa6b8; border-color: #e5e9f0; }
+QPushButton#primary { background: #2d60d3; color: #fff; border: 1px solid #2d60d3; }
+QPushButton#primary:hover { background: #244fb4; }
+QPushButton#primary:disabled { background: #c3d0ec; border-color: #c3d0ec; color: #fff; }
+QPushButton#quiet { background: transparent; color: #45648f; border: 1px solid transparent; }
+QPushButton#quiet:hover { background: #edf2fb; }
+QPushButton#danger { color: #a45148; }
+#disclosure { background: transparent; border: 0; }
+QPushButton#disclosureToggle { text-align: left; color: #61718a; background: transparent; border: 0; padding: 9px 0; }
+QLineEdit, QComboBox, QSpinBox { background: #fff; border: 1px solid #d5ddea; border-radius: 6px; padding: 7px; min-height: 20px; }
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus { border: 1px solid #6389db; }
+QLineEdit:disabled, QComboBox:disabled { background: #f5f7fa; color: #8f9aab; }
+QComboBox QAbstractItemView { background: #fff; color: #24334b; selection-background-color: #e8efff; }
 QCheckBox { spacing: 8px; padding: 4px 0; }
-QTableWidget { background: #fff; border: 1px solid #dce5e1; border-radius: 7px; gridline-color: #eef2ef; selection-background-color: #dceee4; selection-color: #173d30; }
-QHeaderView::section { background: #f1f5f2; border: 0; border-bottom: 1px solid #dde6e0; padding: 10px; color: #59746a; font-weight: 600; }
-#console { background: #142c38; color: #d5e3e4; border: 0; border-radius: 9px; padding: 10px; font-family: Menlo, Consolas, monospace; font-size: 11px; }
-#sessionTitle { font-weight: 650; color: #405f64; }
-QProgressBar { background: #dce8e0; border: 0; border-radius: 2px; min-height: 4px; max-height: 4px; }
-QProgressBar::chunk { background: #3b9e7f; }
+QTableWidget { background: #fff; border: 1px solid #e1e6ef; border-radius: 7px; gridline-color: #eef1f6; selection-background-color: #e8efff; selection-color: #244fbc; }
+QHeaderView::section { background: #f4f6fa; border: 0; padding: 10px; color: #65758c; font-weight: 600; }
+#console { background: #172338; color: #d9e2f1; border: 0; border-radius: 8px; padding: 10px; font-family: Menlo, Consolas, monospace; font-size: 11px; }
+#sessionTitle { font-weight: 650; color: #243d61; }
+#sessionHint { color: #718097; font-size: 12px; }
+QProgressBar { background: #e7edf6; border: 0; border-radius: 2px; min-height: 3px; max-height: 3px; }
+QProgressBar::chunk { background: #4879df; }
 QScrollArea { border: 0; background: transparent; }
 QScrollBar:vertical { background: transparent; width: 8px; }
-QScrollBar::handle:vertical { background: #c5d3cb; border-radius: 4px; min-height: 30px; }
+QScrollBar::handle:vertical { background: #cad3e1; border-radius: 4px; min-height: 30px; }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
-QDialog { background: #f4f6f4; }
-QToolTip { color: #233c47; background: #fff; border: 1px solid #bbcfc3; padding: 6px; }
+QDialog { background: #f5f7fb; }
+QToolTip { color: #24334b; background: #fff; border: 1px solid #c6d2e5; padding: 6px; }
 """
 
 
@@ -84,12 +97,40 @@ def card(title, description=""):
     frame = QFrame()
     frame.setObjectName("card")
     layout = QVBoxLayout(frame)
-    layout.setContentsMargins(22, 20, 22, 20)
-    layout.setSpacing(13)
+    layout.setContentsMargins(20, 16, 20, 16)
+    layout.setSpacing(11)
     layout.addWidget(label(title, "cardTitle"))
     if description:
         layout.addWidget(label(description, "muted"))
     return frame, layout
+
+
+class Disclosure(QFrame):
+    """Advanced controls stay available without competing with the next step."""
+
+    def __init__(self, title):
+        super().__init__()
+        self.setObjectName("disclosure")
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(3)
+        self.toggle = QPushButton("›  " + title)
+        self.toggle.setObjectName("disclosureToggle")
+        self.toggle.setCheckable(True)
+        self.content = QWidget()
+        self.body = QVBoxLayout(self.content)
+        self.body.setContentsMargins(0, 4, 0, 8)
+        self.body.setSpacing(10)
+        self.content.hide()
+        def expand(checked):
+            self.content.setVisible(checked)
+            self.toggle.setText(("⌄  " if checked else "›  ") + title)
+        self.toggle.toggled.connect(expand)
+        layout.addWidget(self.toggle)
+        layout.addWidget(self.content)
+
+    def setExpanded(self, expanded):
+        self.toggle.setChecked(expanded)
 
 
 class Task(QThread):
@@ -113,8 +154,8 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle(APP_NAME)
         self.setWindowIcon(QIcon(str(Path(__file__).with_name("app-icon.svg"))))
-        self.resize(1190, 860)
-        self.setMinimumSize(1000, 730)
+        self.resize(1120, 800)
+        self.setMinimumSize(940, 680)
         self.settings = Settings()
         self.preferences = QSettings("channelramble", "Bruteforce Legacy iOS")
         self.busy = False
@@ -129,6 +170,10 @@ class MainWindow(QMainWindow):
         self.backup_rows = []
         self.operation = ""
         self.operation_apply = False
+        self.operation_install_only = False
+        self.timer_flow = TimerFlow()
+        self.interrupted = False
+        self.task_outcome = "Ready"
         self.cancel_task = None
         self.build_ui()
         geometry = self.preferences.value("window/geometry")
@@ -157,85 +202,136 @@ class MainWindow(QMainWindow):
         layout.setSpacing(0)
         sidebar = QFrame()
         sidebar.setObjectName("sidebar")
-        sidebar.setFixedWidth(215)
+        sidebar.setFixedWidth(183)
         nav = QVBoxLayout(sidebar)
-        nav.setContentsMargins(22, 32, 20, 22)
-        nav.setSpacing(8)
+        nav.setContentsMargins(16, 28, 16, 20)
+        nav.setSpacing(7)
         nav.addWidget(label("Bruteforce\nLegacy iOS", "brand"))
-        nav.addSpacing(8)
-        nav.addWidget(label("DESKTOP  /  " + __version__, "edition"))
-        nav.addSpacing(35)
+        nav.addWidget(label("Version " + __version__, "edition"))
+        nav.addSpacing(28)
         self.nav_group = QButtonGroup(self)
-        for index, title in enumerate(("Overview", "Timer reset", "Passcode recovery", "Backups", "Updates", "Diagnostics")):
+        for index, title in enumerate(("Start", "Reset timer", "Recover passcode", "Backups", "Updates", "Help")):
+            if index == 3:
+                nav.addSpacing(20)
             button = QPushButton(title)
             button.setCheckable(True)
             self.nav_group.addButton(button, index)
             nav.addWidget(button)
         self.nav_group.idToggled.connect(lambda index, checked: self.navigate(index) if checked else None)
         nav.addStretch()
-        nav.addWidget(label("LOCAL WORKSPACE", "edition"))
-        nav.addWidget(label("Backups stay on this computer.\nDevice work stays under your control."))
-        nav.addSpacing(12)
-        nav.addWidget(self.button("Documentation", lambda: QDesktopServices.openUrl(
+        nav.addWidget(label("Legacy iPhone recovery", "edition"))
+        nav.addWidget(self.button("User guide ↗", lambda: QDesktopServices.openUrl(
             QUrl("https://github.com/channelramble/Bruteforce-Legacy-iOS#readme")), operation=False))
         layout.addWidget(sidebar)
         workspace = QWidget()
         workspace.setObjectName("workspace")
         work = QVBoxLayout(workspace)
-        work.setContentsMargins(30, 26, 30, 20)
-        work.setSpacing(15)
-        top = QHBoxLayout()
-        self.title = label("Your recovery workspace", "pageTitle")
-        top.addWidget(self.title, 1)
-        self.connection = label("USB not checked", "muted")
-        top.addWidget(self.connection)
-        work.addLayout(top)
+        work.setContentsMargins(26, 24, 26, 20)
+        work.setSpacing(14)
+        self.title = label("What would you like to do?", "pageTitle")
+        work.addWidget(self.title)
         self.subtitle = label("", "subtitle")
         work.addWidget(self.subtitle)
-        split = QSplitter(Qt.Orientation.Vertical)
+
+        phone_bar = QFrame()
+        phone_bar.setObjectName("phoneBar")
+        phone_layout = QVBoxLayout(phone_bar)
+        phone_layout.setContentsMargins(16, 12, 16, 12)
+        phone_layout.setSpacing(7)
+        row = QHBoxLayout()
+        model_column = QVBoxLayout()
+        model_column.setSpacing(5)
+        model_column.addWidget(label("Your iPhone", "eyebrow"))
+        self.phone_model = self.model_combo()
+        self.phone_model.setAccessibleName("iPhone model")
+        self.phone_model.currentIndexChanged.connect(self.model_changed)
+        model_column.addWidget(self.phone_model)
+        row.addLayout(model_column, 4)
+        usb_column = QVBoxLayout()
+        usb_column.setSpacing(5)
+        self.connection = label("USB not checked", "connection")
+        usb_column.addWidget(self.connection)
+        usb_row = QHBoxLayout()
+        self.device_combo = QComboBox()
+        self.device_combo.setAccessibleName("USB phone")
+        self.device_combo.addItem("Connect your phone by USB", "")
+        self.device_combo.currentIndexChanged.connect(self.device_changed)
+        usb_row.addWidget(self.device_combo, 1)
+        usb_row.addWidget(self.button("Refresh", self.scan))
+        usb_column.addLayout(usb_row)
+        row.addLayout(usb_column, 5)
+        phone_layout.addLayout(row)
+        self.device_detail = label("DFU phones may be connected without appearing here. Choose the model to continue.", "muted")
+        phone_layout.addWidget(self.device_detail)
+        work.addWidget(phone_bar)
+
+        self.split = QSplitter(Qt.Orientation.Vertical)
+        self.split.setChildrenCollapsible(False)
         self.pages = QStackedWidget()
         for builder in (self.overview_page, self.reset_page, self.recovery_page,
                         self.backups_page, self.updates_page, self.diagnostics_page):
-            page = builder()
             scroll = QScrollArea()
             scroll.setWidgetResizable(True)
-            scroll.setWidget(page)
+            scroll.setWidget(builder())
             self.pages.addWidget(scroll)
-        split.addWidget(self.pages)
-        session = QWidget()
+        self.split.addWidget(self.pages)
+        session = QFrame()
+        session.setObjectName("activityPanel")
         session_layout = QVBoxLayout(session)
-        session_layout.setContentsMargins(0, 10, 0, 0)
+        session_layout.setContentsMargins(16, 12, 16, 12)
         session_layout.setSpacing(8)
-        session_header = QHBoxLayout()
-        self.session_status = label("SESSION  ·  Ready", "sessionTitle")
-        session_header.addWidget(self.session_status, 1)
-        session_header.addWidget(self.button("Save output…", self.save_output, operation=False))
-        session_header.addWidget(self.button("Clear", self.clear_output, operation=False))
-        self.stop_button = self.button("Interrupt", self.interrupt, operation=False)
+        header = QHBoxLayout()
+        status = QVBoxLayout()
+        status.setSpacing(3)
+        self.session_status = label("Ready when you are", "sessionTitle")
+        self.session_hint = label("Choose a task to get started.", "sessionHint")
+        status.addWidget(self.session_status)
+        status.addWidget(self.session_hint)
+        header.addLayout(status, 1)
+        self.details_toggle = self.button("Show activity", lambda: None, operation=False)
+        self.details_toggle.setCheckable(True)
+        self.details_toggle.setObjectName("quiet")
+        self.details_toggle.toggled.connect(self.set_details_visible)
+        header.addWidget(self.details_toggle)
+        self.stop_button = self.button("Stop", self.interrupt, operation=False)
         self.stop_button.setObjectName("danger")
         self.stop_button.setEnabled(False)
-        session_header.addWidget(self.stop_button)
-        session_layout.addLayout(session_header)
+        self.stop_button.hide()
+        header.addWidget(self.stop_button)
+        session_layout.addLayout(header)
         self.progress = QProgressBar()
         self.progress.setTextVisible(False)
         self.progress.setRange(0, 1)
         self.progress.setValue(0)
+        self.progress.hide()
         session_layout.addWidget(self.progress)
+        self.details_panel = QWidget()
+        details = QVBoxLayout(self.details_panel)
+        details.setContentsMargins(0, 0, 0, 0)
+        details.setSpacing(8)
+        toolbar = QHBoxLayout()
+        toolbar.addWidget(label("Activity details", "eyebrow"), 1)
+        toolbar.addWidget(self.button("Save log…", self.save_output, operation=False))
+        toolbar.addWidget(self.button("Clear", self.clear_output, operation=False))
+        details.addLayout(toolbar)
         self.console = QPlainTextEdit()
         self.console.setObjectName("console")
         self.console.setReadOnly(True)
         self.console.setMaximumBlockCount(2500)
-        self.console.setPlaceholderText("Operation output appears here. Nothing is saved unless you choose Save output.")
+        self.console.setPlaceholderText("Details appear here when a task runs. Save log exports this session.")
         self.console.setMinimumHeight(100)
-        session_layout.addWidget(self.console, 1)
-        input_row = QHBoxLayout()
+        details.addWidget(self.console, 1)
+        self.reply_row = QWidget()
+        input_row = QHBoxLayout(self.reply_row)
+        input_row.setContentsMargins(0, 0, 0, 0)
         self.reply = QLineEdit()
-        self.reply.setPlaceholderText("Reply to a backend prompt, then press Enter")
+        self.reply.setPlaceholderText("Type a reply when the tool asks, then press Enter")
+        self.reply.setAccessibleName("Reply to the recovery tool")
         self.reply.setEchoMode(QLineEdit.EchoMode.Password)
         self.reply.returnPressed.connect(self.send_input)
         self.reply.setEnabled(False)
         input_row.addWidget(self.reply, 1)
-        self.hide_reply = QCheckBox("Hide reply")
+        self.hide_reply = QCheckBox("Hide typing")
         self.hide_reply.setChecked(True)
         self.hide_reply.toggled.connect(lambda checked: self.reply.setEchoMode(
             QLineEdit.EchoMode.Password if checked else QLineEdit.EchoMode.Normal))
@@ -243,15 +339,35 @@ class MainWindow(QMainWindow):
         self.send_button = self.button("Send", self.send_input, operation=False)
         self.send_button.setEnabled(False)
         input_row.addWidget(self.send_button)
-        session_layout.addLayout(input_row)
-        split.addWidget(session)
-        split.setStretchFactor(0, 3)
-        split.setStretchFactor(1, 2)
-        split.setSizes([460, 240])
-        work.addWidget(split, 1)
+        self.reply_row.hide()
+        details.addWidget(self.reply_row)
+        session_layout.addWidget(self.details_panel, 1)
+        self.details_panel.hide()
+        self.split.addWidget(session)
+        self.split.setStretchFactor(0, 1)
+        self.split.setStretchFactor(1, 0)
+        self.split.setSizes([500, 82])
+        work.addWidget(self.split, 1)
         layout.addWidget(workspace, 1)
         self.setCentralWidget(outer)
         self.navigate(0)
+        self.sync_timer_flow()
+
+    def set_details_visible(self, visible):
+        self.details_toggle.blockSignals(True)
+        self.details_toggle.setChecked(visible)
+        self.details_toggle.setText("Hide activity" if visible else "Show activity")
+        self.details_toggle.blockSignals(False)
+        self.details_panel.setVisible(visible)
+        height = max(400, self.split.height())
+        activity_height = max(220, min(310, height - 280))
+        self.split.setSizes([height - activity_height, activity_height] if visible else [height - 82, 82])
+        if visible and self.timer_flow.stage == "review" and self.pages.currentIndex() == 1:
+            QTimer.singleShot(0, self.ensure_timer_action_visible)
+
+    def ensure_timer_action_visible(self):
+        if self.pages.currentIndex() == 1 and self.timer_flow.stage == "review":
+            self.pages.widget(1).ensureWidgetVisible(self.timer_primary, 0, 8)
 
     def page(self):
         widget = QWidget()
@@ -262,36 +378,38 @@ class MainWindow(QMainWindow):
 
     def overview_page(self):
         widget, layout = self.page()
-        frame, body = card("Connected iPhone", "Connect by USB. Phones in DFU appear after an SSH ramdisk boots.")
-        body.addWidget(label("USB DEVICE", "eyebrow"))
         row = QHBoxLayout()
-        self.device_combo = QComboBox()
-        self.device_combo.addItem("No phone detected", "")
-        self.device_combo.currentIndexChanged.connect(self.device_changed)
-        row.addWidget(self.device_combo, 1)
-        row.addWidget(self.button("Refresh", self.scan))
-        body.addLayout(row)
-        self.device_detail = label("Choose a workflow below, or check this computer in Diagnostics.", "muted")
-        body.addWidget(self.device_detail)
-        layout.addWidget(frame)
-        row = QHBoxLayout()
-        for title, description, button, page in (
-            ("Timer reset", "Prepare a ramdisk, review timer-state changes, then apply a backed-up reset.", "Open timer reset", 1),
-            ("Passcode recovery", "Run the integrated legacy backend with its interactive prompts in this window.", "Open recovery", 2),
+        row.setSpacing(16)
+        for context, title, description, button, page in (
+            ("I KNOW THE PASSCODE", "Reset a lockout timer",
+             "Prepare the phone, review the proposed changes, then reset the timer. You will still need your passcode.",
+             "Reset timer", 1),
+            ("I FORGOT THE PASSCODE", "Recover a passcode",
+             "Start a guided session with the legacy recovery tool. Follow its instructions in the activity panel.",
+             "Recover passcode", 2),
         ):
-            box, inner = card(title, description)
+            box, inner = card(title)
+            inner.insertWidget(0, label(context, "eyebrow"))
+            inner.addWidget(label(description, "muted"))
             inner.addStretch()
-            inner.addWidget(self.button(button, lambda checked=False, index=page: self.navigate(index), operation=False))
+            inner.addWidget(self.button(button, lambda checked=False, index=page: self.navigate(index),
+                                         primary=True, operation=False))
             row.addWidget(box, 1)
         layout.addLayout(row)
-        layout.addWidget(label("Ready to launch · Python, Qt, and SSH libraries are included in desktop downloads.", "notice"))
+        frame, body = card("Before you start")
+        body.addWidget(label("Connect one phone by USB and choose its model above. If it is in DFU mode, it may not appear in the USB list.", "muted"))
+        help_button = self.button("Need help connecting?", lambda: self.navigate(5), operation=False)
+        help_button.setObjectName("quiet")
+        body.addWidget(help_button, 0, Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(frame)
         layout.addStretch()
         return widget
 
     def model_combo(self):
         combo = QComboBox()
         for model, (name, low, high) in SUPPORTED.items():
-            combo.addItem(f"{name}  ·  {model}", model)
+            combo.addItem(name, model)
+            combo.setItemData(combo.count() - 1, model, Qt.ItemDataRole.ToolTipRole)
         combo.setCurrentIndex(max(0, combo.findData(self.settings.model)))
         return combo
 
@@ -312,53 +430,124 @@ class MainWindow(QMainWindow):
 
     def reset_page(self):
         widget, layout = self.page()
-        frame, body = card("1  /  Prepare the phone", "Start here if the phone has not booted an SSH ramdisk.")
-        self.reset_model = self.model_combo()
-        self.reset_model.currentIndexChanged.connect(self.model_changed)
-        body.addWidget(self.reset_model)
-        row, self.ipsw_edit = self.file_row("Optional local 3G 3.1.3 / 7E18 IPSW")
-        body.addLayout(row)
-        body.addWidget(label("For iPhone 3G on iOS 4, the boot ramdisk uses n82ap / 7E18. Installed iOS stays in place.", "muted"))
+        steps = QHBoxLayout()
+        self.timer_steps = []
+        for text in ("1  Prepare", "2  Review & reset", "3  Done"):
+            item = label(text, "step")
+            steps.addWidget(item, 1)
+            self.timer_steps.append(item)
+        layout.addLayout(steps)
+        frame, body = card("Prepare your phone")
+        self.timer_title = body.itemAt(0).widget()
+        self.timer_description = label("", "muted")
+        body.addWidget(self.timer_description)
+        self.timer_note = label("", "notice")
+        body.addWidget(self.timer_note)
         actions = QHBoxLayout()
-        actions.addWidget(self.button("Prepare and inspect", lambda: self.start_operation("prepare"), primary=True))
-        actions.addWidget(self.button("Connection options…", self.options_dialog))
+        self.timer_primary = self.button("Prepare phone", self.run_timer_step, primary=True)
+        self.timer_secondary = self.button("Already prepared? Inspect phone", self.timer_secondary_action)
+        self.timer_secondary.setObjectName("quiet")
+        actions.addWidget(self.timer_primary)
+        actions.addWidget(self.timer_secondary)
         actions.addStretch()
         body.addLayout(actions)
         layout.addWidget(frame)
-        frame, body = card("2  /  Review and reset", "The phone must be in an SSH ramdisk. Inspect first to see the exact proposed changes.")
-        actions = QHBoxLayout()
-        actions.addWidget(self.button("Inspect timer state", lambda: self.start_operation("inspect")))
-        actions.addWidget(self.button("Apply timer reset…", lambda: self.start_operation("reset", apply=True), primary=True))
-        actions.addStretch()
-        body.addLayout(actions)
-        body.addWidget(label("A verified backup is created before changes. After reboot, use the correct passcode.", "muted"))
-        layout.addWidget(frame)
+        self.reset_advanced = Disclosure("Advanced options")
+        advanced = self.reset_advanced.body
+        advanced.addWidget(label("Use a downloaded firmware file (optional)", "eyebrow"))
+        row, self.ipsw_edit = self.file_row("iPhone 3G 3.1.3 / 7E18 IPSW")
+        self.ipsw_edit.textChanged.connect(self.invalidate_timer_flow)
+        advanced.addLayout(row)
+        advanced.addWidget(label("For iPhone 3G only. Leave this empty to download the boot files automatically. The installed iOS version stays in place.", "muted"))
+        advanced.addWidget(self.button("Connection settings…", self.options_dialog), 0, Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(self.reset_advanced)
         layout.addStretch()
         return widget
 
+    def run_timer_step(self):
+        if self.busy:
+            return
+        if self.timer_flow.stage == "review":
+            self.start_operation("reset", apply=True)
+        elif self.timer_flow.stage == "complete":
+            self.navigate(3)
+        else:
+            self.start_operation("prepare")
+
+    def timer_secondary_action(self):
+        if self.busy:
+            return
+        if self.timer_flow.stage == "complete":
+            self.invalidate_timer_flow()
+        else:
+            self.start_operation("inspect")
+
+    def invalidate_timer_flow(self, *_args):
+        self.timer_flow.invalidate()
+        if hasattr(self, "timer_primary"):
+            self.sync_timer_flow()
+
+    def sync_timer_flow(self):
+        stage = self.timer_flow.stage
+        title, description, note, primary, secondary = {
+            "prepare": ("Prepare your phone",
+                        "Boot a temporary recovery system so the app can inspect the lockout state. Follow the tool's instructions in Activity.",
+                        "This step inspects the phone. It does not apply a timer reset.",
+                        "Prepare phone", "Already prepared? Inspect phone"),
+            "review": ("Review before resetting",
+                       "Inspection finished. Read the proposed changes in Activity below before continuing.",
+                       "The next step backs up the original files and asks for confirmation before applying the reset.",
+                       "Back up and reset timer…", "Inspect again"),
+            "complete": ("Reset operation finished",
+                         "Check the activity result. After rebooting, use the phone's existing passcode.",
+                         "Any backup created by this operation is available from Backups.",
+                         "View backups", "Start again"),
+        }[stage]
+        self.timer_title.setText(title)
+        self.timer_description.setText(description)
+        self.timer_note.setText(note)
+        self.timer_primary.setText(primary)
+        self.timer_secondary.setText(secondary)
+        self.timer_primary.setEnabled(not self.busy)
+        self.timer_secondary.setEnabled(not self.busy)
+        current = ("prepare", "review", "complete").index(stage)
+        for index, step in enumerate(self.timer_steps):
+            step.setProperty("active", index == current)
+            step.setProperty("complete", index < current)
+            step.style().unpolish(step)
+            step.style().polish(step)
+        if stage == "review":
+            QTimer.singleShot(0, self.ensure_timer_action_visible)
+
     def recovery_page(self):
         widget, layout = self.page()
-        frame, body = card("Legacy passcode recovery", "Uses the pinned 32bit-Bruteforce-Passcode backend. Its menus and prompts appear in the session below.")
-        self.recovery_model = self.model_combo()
-        self.recovery_model.currentIndexChanged.connect(self.recovery_model_changed)
-        body.addWidget(self.recovery_model)
-        row, self.armv6_edit = self.file_row("Custom ARMv6 tools folder (optional)", directory=True)
-        body.addLayout(row)
-        self.armv6_notice = label("iPhone 3G ARMv6 tools are included and selected automatically. Recovery boots an iOS 4.2.1 ramdisk without installing or changing the phone's iOS version.", "notice")
+        frame, body = card("Start a recovery session",
+                           "Connect one phone by USB. The recovery tool will guide you through preparing the phone and running recovery.")
+        body.addWidget(label("1  Connect your phone     →     2  Follow the prompts     →     3  Review the result", "muted"))
+        self.armv6_notice = label("iPhone 3G tools are included. No separate tools folder is needed.", "notice")
         body.addWidget(self.armv6_notice)
-        body.addWidget(label("Backend preparation may request system tools or elevated access. Windows uses WSL 2 and USB passthrough.", "muted"))
-        actions = QHBoxLayout()
-        actions.addWidget(self.button("Download backend", lambda: self.start_operation("bruteforce", install_only=True)))
-        actions.addWidget(self.button("Start recovery…", lambda: self.start_operation("bruteforce", apply=True), primary=True))
-        body.addLayout(actions)
+        body.addWidget(self.button("Start recovery…", lambda: self.start_operation("bruteforce", apply=True), primary=True),
+                       0, Qt.AlignmentFlag.AlignLeft)
+        body.addWidget(label("The first run downloads the recovery backend and boot files. Its prompts and results appear in Activity.", "muted"))
         layout.addWidget(frame)
-        layout.addWidget(label("The backend has its own device workflow. Timer-reset transaction backups apply to the separate Timer reset workflow.", "notice"))
+        self.recovery_advanced = Disclosure("Advanced options")
+        advanced = self.recovery_advanced.body
+        advanced.addWidget(label("Custom iPhone 3G tools (optional)", "eyebrow"))
+        row, self.armv6_edit = self.file_row("Custom ARMv6 tools folder", directory=True)
+        advanced.addLayout(row)
+        advanced.addWidget(label("Leave this empty to use the included tools. Windows recovery uses WSL 2 and USB passthrough.", "muted"))
+        actions = QHBoxLayout()
+        actions.addWidget(self.button("Download tools only", lambda: self.start_operation("bruteforce", install_only=True)))
+        actions.addWidget(self.button("Connection settings…", self.options_dialog))
+        actions.addStretch()
+        advanced.addLayout(actions)
+        layout.addWidget(self.recovery_advanced)
         layout.addStretch()
         return widget
 
     def backups_page(self):
         widget, layout = self.page()
-        frame, body = card("Saved transactions", "Review backups from this computer, restore originals, or finish interrupted cleanup.")
+        frame, body = card("Your saved backups", "A timer reset saves the original files here before changing them.")
         self.backup_table = QTableWidget(0, 4)
         self.backup_table.setHorizontalHeaderLabels(["Transaction", "Phone", "iOS", "Status"])
         self.backup_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -368,25 +557,31 @@ class MainWindow(QMainWindow):
         self.backup_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.backup_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         self.backup_table.setMinimumHeight(130)
+        self.backup_table.itemSelectionChanged.connect(self.update_action_states)
         body.addWidget(self.backup_table)
         actions = QHBoxLayout()
         actions.addWidget(self.button("Refresh", self.refresh_backups))
         actions.addWidget(self.button("Choose folder…", self.choose_backup))
-        actions.addWidget(self.button("Restore originals…", lambda: self.recover_backup("restore")))
-        actions.addWidget(self.button("Finish cleanup…", lambda: self.recover_backup("finalize")))
+        self.restore_button = self.button("Restore selected backup…", lambda: self.recover_backup("restore"), primary=True)
+        actions.addWidget(self.restore_button)
         body.addLayout(actions)
         self.backup_note = label("", "muted")
         body.addWidget(self.backup_note)
         layout.addWidget(frame)
-        layout.addWidget(self.button("Open backups folder", self.open_backups, operation=False))
+        more = Disclosure("More backup options")
+        more.body.addWidget(self.button("Open backups folder", self.open_backups, operation=False), 0, Qt.AlignmentFlag.AlignLeft)
+        self.finalize_button = self.button("Finish interrupted cleanup…", lambda: self.recover_backup("finalize"))
+        more.body.addWidget(self.finalize_button, 0, Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(more)
         layout.addStretch()
         return widget
 
     def updates_page(self):
         widget, layout = self.page()
-        frame, body = card("Keep the desktop app current", f"Installed version {__version__}. Updates include the full runtime and libraries.")
+        frame, body = card("App updates", f"You are using version {__version__}. Download and install updates here.")
         self.update_info = label("Check for a new desktop release for this computer.", "notice")
         body.addWidget(self.update_info)
+        body.addWidget(label("GitHub access token", "eyebrow"))
         self.token_edit = QLineEdit()
         self.token_edit.setEchoMode(QLineEdit.EchoMode.Password)
         self.token_edit.setPlaceholderText("GitHub token with read access to the private repository")
@@ -394,17 +589,22 @@ class MainWindow(QMainWindow):
         body.addWidget(label("Your token stays in memory for this session. It is not saved or passed to device operations.", "muted"))
         self.prereleases = QCheckBox("Include prereleases")
         self.prereleases.setChecked(True)
-        body.addWidget(self.prereleases)
+        self.prereleases.toggled.connect(self.reset_update_selection)
+        update_options = Disclosure("Update options")
+        update_options.body.addWidget(self.prereleases)
+        update_options.body.addWidget(self.button("Restore previous app version", self.rollback_update), 0, Qt.AlignmentFlag.AlignLeft)
         actions = QHBoxLayout()
-        actions.addWidget(self.button("Check for updates", self.check_updates))
+        self.update_check_button = self.button("Check for updates", self.check_updates, primary=True)
+        actions.addWidget(self.update_check_button)
         self.install_button = self.button("Install update", self.install_update, primary=True)
         self.install_button.setEnabled(False)
+        self.install_button.hide()
         actions.addWidget(self.install_button)
-        actions.addWidget(self.button("Roll back", self.rollback_update))
         body.addLayout(actions)
-        self.relaunch_button = self.button("Relaunch app", self.relaunch, operation=False)
+        self.relaunch_button = self.button("Restart to finish update", self.relaunch, primary=True, operation=False)
         self.relaunch_button.hide()
         body.addWidget(self.relaunch_button)
+        body.addWidget(update_options)
         layout.addWidget(frame)
         layout.addWidget(label("Downloads are checksum-verified, staged separately, and activated only after verification. Backups remain in your local workspace.", "muted"))
         layout.addStretch()
@@ -412,7 +612,7 @@ class MainWindow(QMainWindow):
 
     def diagnostics_page(self):
         widget, layout = self.page()
-        frame, body = card("Computer and connection", f"{platform.system()} · {platform.machine()}   /   Desktop {__version__}")
+        frame, body = card("Help with your connection", f"{platform.system()} · {platform.machine()}   /   App {__version__}")
         body.addWidget(label("The desktop download contains Python, Qt, and SSH libraries. It does not install packages when you open it.", "notice"))
         requirement = (
             "Windows: device SSH requires Apple Mobile Device Service. Ramdisk tools require WSL 2 and usbipd-win; attach the phone to WSL."
@@ -423,8 +623,8 @@ class MainWindow(QMainWindow):
         )
         body.addWidget(label(requirement, "muted"))
         actions = QHBoxLayout()
-        actions.addWidget(self.button("Run diagnostics", lambda: self.start_operation("doctor"), primary=True))
-        actions.addWidget(self.button("Connection options…", self.options_dialog))
+        actions.addWidget(self.button("Check this computer", lambda: self.start_operation("doctor"), primary=True))
+        actions.addWidget(self.button("Connection settings…", self.options_dialog))
         actions.addStretch()
         body.addLayout(actions)
         layout.addWidget(frame)
@@ -434,40 +634,39 @@ class MainWindow(QMainWindow):
         return widget
 
     def navigate(self, index):
-        names = ["Your recovery workspace", "Reset the lockout timer", "Legacy passcode recovery",
-                 "Backups & recovery", "Desktop updates", "Diagnostics"]
-        descriptions = ["Connect your phone and choose where to start.",
-                        "Prepare, inspect, and apply with a recoverable backup.",
-                        "A guided session with the integrated recovery backend.",
-                        "Keep the original files close at hand.",
-                        "Verified downloads. A previous version to return to.",
-                        "Check the computer, connection, and platform requirements."]
+        names = ["What would you like to do?", "Reset the lockout timer", "Recover a passcode",
+                 "Backups", "Updates", "Help & connection"]
+        descriptions = ["Choose the task that matches your situation.",
+                        "Prepare your phone, review the changes, then reset.",
+                        "Follow the recovery tool's instructions one step at a time.",
+                        "Restore original files or finish an interrupted operation.",
+                        "Keep the app and its included tools up to date.",
+                        "Check this computer and adjust connection settings."]
         self.pages.setCurrentIndex(index)
         self.nav_group.button(index).setChecked(True)
         self.title.setText(names[index])
         self.subtitle.setText(descriptions[index])
 
     def model_changed(self):
-        model = self.reset_model.currentData()
+        model = self.phone_model.currentData()
         self.settings.model = model
-        self.recovery_model.blockSignals(True)
-        self.recovery_model.setCurrentIndex(self.recovery_model.findData(model))
-        self.recovery_model.blockSignals(False)
+        self.invalidate_timer_flow()
         self.armv6_notice.setVisible(model == "iPhone1,2")
-        self.ipsw_edit.setEnabled(model == "iPhone1,2")
+        self.ipsw_edit.setEnabled(not self.busy and model == "iPhone1,2")
         if model != "iPhone1,2":
             self.ipsw_edit.clear()
 
-    def recovery_model_changed(self):
-        self.reset_model.setCurrentIndex(self.reset_model.findData(self.recovery_model.currentData()))
-        self.model_changed()
-
     def device_changed(self):
-        self.settings.udid = self.device_combo.currentData() or ""
+        selected = self.device_combo.currentData() or ""
+        if selected != self.settings.udid:
+            self.settings.udid = selected
+            self.invalidate_timer_flow()
 
     def options_dialog(self):
+        if self.busy:
+            return
         dialog = QDialog(self)
-        dialog.setWindowTitle("Connection options")
+        dialog.setWindowTitle("Connection settings")
         dialog.setMinimumWidth(530)
         layout = QVBoxLayout(dialog)
         form = QFormLayout()
@@ -504,23 +703,43 @@ class MainWindow(QMainWindow):
                 setattr(self.settings, name, item.isChecked())
             self.settings.wsl_distro = distro.text().strip()
             self.settings.kit = kit.text().strip()
+            self.invalidate_timer_flow()
+
+    def update_action_states(self):
+        if not hasattr(self, "install_button"):
+            return
+        available = (self.pending_release is not None and
+                     desktop_updates.version_tuple(self.pending_release["version"]) > desktop_updates.version_tuple(__version__))
+        self.install_button.setEnabled(not self.busy and available)
+        self.install_button.setVisible(available)
+        self.update_check_button.setVisible(not available and self.relaunch_button.isHidden())
+        row = self.backup_table.currentRow()
+        valid_backup = 0 <= row < len(self.backup_rows) and self.backup_rows[row]["valid"]
+        self.restore_button.setEnabled(not self.busy and valid_backup)
+        self.finalize_button.setEnabled(not self.busy and valid_backup)
+        self.sync_timer_flow()
 
     def set_busy(self, busy, message="Ready"):
         self.busy = busy
         for button in self.operation_buttons:
             button.setEnabled(not busy)
-        self.install_button.setEnabled(not busy and self.pending_release is not None
-            and desktop_updates.version_tuple(self.pending_release["version"]) > desktop_updates.version_tuple(__version__))
-        self.session_status.setText("SESSION  ·  " + message)
+        for field in (self.phone_model, self.device_combo, self.armv6_edit,
+                      self.token_edit, self.prereleases, self.backup_table):
+            field.setEnabled(not busy)
+        self.ipsw_edit.setEnabled(not busy and self.settings.model == "iPhone1,2")
+        self.relaunch_button.setEnabled(not busy)
+        self.session_status.setText(message)
         self.progress.setRange(0, 0 if busy else 1)
         self.progress.setValue(0)
-        self.token_edit.setEnabled(not busy)
-        self.prereleases.setEnabled(not busy)
+        self.progress.setVisible(busy)
+        self.stop_button.setVisible(busy)
         if not busy:
             self.stop_button.setEnabled(False)
             self.reply.clear()
             self.reply.setEnabled(False)
             self.send_button.setEnabled(False)
+            self.reply_row.hide()
+        self.update_action_states()
 
     def append_output(self, text):
         self.session_log.append(text)
@@ -535,11 +754,17 @@ class MainWindow(QMainWindow):
         self.session_log.clear()
 
     def scan(self):
+        if self.busy:
+            return
         self.connection.setText("Checking USB…")
         self.start_operation("devices")
 
     def start_operation(self, action, *, apply=False, backup=None, install_only=False):
         if self.busy:
+            return
+        if action == "reset" and apply and not self.timer_flow.can_apply:
+            QMessageBox.information(self, "Inspect the phone first",
+                                    "Prepare or inspect this phone, then review the proposed changes before resetting.")
             return
         self.settings.ipsw = self.ipsw_edit.text().strip()
         self.settings.armv6_tools = self.armv6_edit.text().strip()
@@ -555,7 +780,7 @@ class MainWindow(QMainWindow):
                 "finalize": "Verify this transaction and finish its device-lock cleanup?",
                 "bruteforce": "Start the recovery backend? It will guide you through DFU and its own device workflow.",
             }.get(action, "Start this device operation?")
-            if QMessageBox.question(self, "Start " + action, description,
+            if QMessageBox.question(self, action_copy(action, apply=apply).title, description,
                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
                                     QMessageBox.StandardButton.Cancel) != QMessageBox.StandardButton.Yes:
                 return
@@ -565,6 +790,12 @@ class MainWindow(QMainWindow):
             executable = executable.with_name("python.exe")
         self.operation = action
         self.operation_apply = apply
+        self.operation_install_only = install_only
+        self.interrupted = False
+        if action in {"restore", "finalize"} or (action == "bruteforce" and not install_only):
+            self.timer_flow.invalidate()
+        self.timer_flow.start(action, apply=apply)
+        self.sync_timer_flow()
         self.capture = ""
         self.terminal_text = TerminalText()
         self.output_decoder = codecs.getincrementaldecoder("utf-8")("replace")
@@ -591,10 +822,18 @@ class MainWindow(QMainWindow):
         process.readyReadStandardOutput.connect(self.process_output)
         process.finished.connect(self.process_finished)
         process.errorOccurred.connect(self.process_error)
-        self.set_busy(True, action.capitalize() + " running")
-        self.reply.setEnabled(True)
-        self.send_button.setEnabled(True)
+        copy = action_copy(action, apply=apply, install_only=install_only)
+        self.set_busy(True, copy.running)
+        interactive = action not in {"devices", "doctor"} and not install_only
+        self.session_hint.setText(
+            self.phone_model.currentText() + " · Follow the tool's instructions in Activity."
+            if interactive else "Please wait while the app completes this task.")
+        self.reply_row.setVisible(interactive)
+        self.reply.setEnabled(interactive)
+        self.send_button.setEnabled(interactive)
         self.stop_button.setEnabled(True)
+        if action != "devices":
+            self.set_details_visible(True)
         process.start()
 
     def process_output(self):
@@ -608,8 +847,12 @@ class MainWindow(QMainWindow):
     def process_error(self, error):
         if error == QProcess.ProcessError.FailedToStart:
             self.append_output("Could not start the bundled operation process.\n")
-            self.set_busy(False, "Could not start")
-            self.process.deleteLater()
+            self.timer_flow.finish(self.operation, 1, apply=self.operation_apply)
+            self.set_busy(False, "Could not start the task")
+            self.session_hint.setText("The operation did not start. Review the details below.")
+            self.set_details_visible(True)
+            if self.process:
+                self.process.deleteLater()
             self.process = None
 
     def process_finished(self, code, _status):
@@ -625,28 +868,51 @@ class MainWindow(QMainWindow):
                     self.connection.setText("USB list unavailable")
             else:
                 self.connection.setText("USB service unavailable")
-                self.device_detail.setText("Use Diagnostics to check the USB service and platform requirements.")
+                self.device_detail.setText("Open Help to check the USB service and connection requirements.")
         self.append_output(f"\n{'Completed' if code == 0 else 'Stopped'} · exit status {code}\n")
-        self.set_busy(False, "Completed" if code == 0 else "Needs attention")
+        result = code if not self.interrupted else 130
+        self.timer_flow.finish(self.operation, result, apply=self.operation_apply)
+        copy = action_copy(self.operation, apply=self.operation_apply, install_only=self.operation_install_only)
+        self.set_busy(False, "Task stopped" if self.interrupted else copy.success if code == 0 else copy.failure)
+        if self.interrupted:
+            self.session_hint.setText("The tool has stopped. Check Activity before starting another operation.")
+        elif code != 0:
+            self.session_hint.setText("Review the error below. You can save the log from Activity.")
+            self.set_details_visible(True)
+        elif self.operation in {"prepare", "inspect"}:
+            self.session_hint.setText("Review the proposed changes below, then use Reset timer to continue.")
+        elif self.operation == "bruteforce" and not self.operation_install_only:
+            self.session_hint.setText("Read the tool's result in Activity. Ending a session does not confirm recovery.")
+        elif self.operation == "devices":
+            self.session_hint.setText("Choose a task above. A phone in DFU may not appear in the USB list.")
+        else:
+            self.session_hint.setText("The result is available in Activity.")
         if self.process:
             self.process.deleteLater()
         self.process = None
         self.refresh_backups()
+        if self.operation in {"prepare", "inspect"} and not self.details_panel.isHidden():
+            self.set_details_visible(True)
 
     def populate_devices(self, devices):
         selected = self.settings.udid
+        self.device_combo.blockSignals(True)
         self.device_combo.clear()
         if not devices:
-            self.device_combo.addItem("No USB phone detected", "")
+            self.device_combo.addItem("No USB phone listed", "")
         elif len(devices) > 1:
-            self.device_combo.addItem("Choose a phone", "")
+            self.device_combo.addItem("Choose a connected phone", "")
         for device in devices:
-            self.device_combo.addItem(device["udid"], device["udid"])
+            udid = device["udid"]
+            self.device_combo.addItem("USB phone · …" + udid[-8:], udid)
+            self.device_combo.setItemData(self.device_combo.count() - 1, udid, Qt.ItemDataRole.ToolTipRole)
         if selected and self.device_combo.findData(selected) >= 0:
             self.device_combo.setCurrentIndex(self.device_combo.findData(selected))
-        self.connection.setText(f"{len(devices)} USB phone{'s' if len(devices) != 1 else ''} connected" if devices else "No phone connected")
-        self.device_detail.setText("Inspect the phone in its ramdisk to read its model and installed iOS." if devices else
-                                   "DFU phones are not listed here. Use Timer reset to prepare an SSH ramdisk.")
+        self.device_combo.blockSignals(False)
+        self.device_changed()
+        self.connection.setText(f"{len(devices)} USB phone{'s' if len(devices) != 1 else ''} listed" if devices else "No USB phone listed")
+        self.device_detail.setText("Choose the matching model. Inspecting the phone reads its installed iOS and lockout state." if devices else
+                                   "A phone in DFU may still be connected. Choose its model above and start a task.")
 
     def send_input(self):
         if self.process is not None and self.busy:
@@ -657,23 +923,24 @@ class MainWindow(QMainWindow):
         if self.cancel_task is not None:
             self.cancel_task.set()
             self.stop_button.setEnabled(False)
-            self.session_status.setText("SESSION  ·  Cancelling at the next safe point")
+            self.session_status.setText("Stopping at the next safe point…")
             return
         if self.process is not None and self.stop_button.isEnabled():
             if self.operation_apply or self.operation == "prepare":
                 answer = QMessageBox.question(
-                    self, "Interrupt operation?",
+                    self, "Stop this operation?",
                     "Request a graceful interrupt and wait for cleanup? The phone may remain in its ramdisk.",
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
                     QMessageBox.StandardButton.Cancel)
                 if answer != QMessageBox.StandardButton.Yes:
                     return
+            self.interrupted = True
             self.process.write(b"\x03")
             self.stop_button.setEnabled(False)
-            self.session_status.setText("SESSION  ·  Waiting for the operation to stop")
+            self.session_status.setText("Stopping — waiting for cleanup…")
 
     def save_output(self):
-        path, _ = QFileDialog.getSaveFileName(self, "Save session output", "recovery-session.txt", "Text files (*.txt)")
+        path, _ = QFileDialog.getSaveFileName(self, "Save activity log", "recovery-session.txt", "Text files (*.txt)")
         if path:
             try:
                 from .core import secure_write
@@ -691,10 +958,14 @@ class MainWindow(QMainWindow):
                 if not item["valid"]:
                     cell.setForeground(QColor("#985144"))
                 self.backup_table.setItem(row, column, cell)
-        self.backup_note.setText(f"{len(self.backup_rows)} saved transaction(s)." if self.backup_rows else
-                                 "No backups yet. A timer reset creates one before it changes files.")
+        self.backup_table.setVisible(bool(self.backup_rows))
+        self.backup_note.setText(f"{len(self.backup_rows)} saved backup(s). Select one to restore its original files." if self.backup_rows else
+                                 "No backups yet. Your first timer reset will create one automatically.")
+        self.update_action_states()
 
     def choose_backup(self):
+        if self.busy:
+            return
         path = QFileDialog.getExistingDirectory(self, "Choose transaction folder containing manifest.json")
         if path:
             from .core import load_backup
@@ -709,9 +980,13 @@ class MainWindow(QMainWindow):
             self.backup_table.insertRow(row)
             for column, key in enumerate(("name", "model", "version", "status")):
                 self.backup_table.setItem(row, column, QTableWidgetItem(self.backup_rows[-1][key]))
+            self.backup_table.show()
             self.backup_table.selectRow(row)
+            self.update_action_states()
 
     def recover_backup(self, action):
+        if self.busy:
+            return
         row = self.backup_table.currentRow()
         if row < 0 or row >= len(self.backup_rows) or not self.backup_rows[row]["valid"]:
             QMessageBox.information(self, "Choose a valid backup", "Select a verified transaction or choose its folder.")
@@ -726,7 +1001,10 @@ class MainWindow(QMainWindow):
     def run_task(self, function, finished, message):
         if self.busy:
             return
+        self.task_outcome = "Finished"
+        self.task_hint = "The result is shown on the Updates page."
         self.set_busy(True, message)
+        self.session_hint.setText("You can keep browsing while this completes.")
         self.cancel_task = threading.Event()
         cancellation = self.cancel_task
         def cancellable(progress):
@@ -738,7 +1016,7 @@ class MainWindow(QMainWindow):
             return function(checked_progress)
         task = Task(cancellable, self)
         self.task = task
-        task.progress.connect(lambda text: self.session_status.setText("SESSION  ·  " + text))
+        task.progress.connect(self.session_status.setText)
         task.result.connect(finished)
         task.failed.connect(self.task_failed)
         task.finished.connect(self.task_finished)
@@ -749,11 +1027,17 @@ class MainWindow(QMainWindow):
     def task_finished(self):
         self.cancel_task = None
         self.task = None
-        self.set_busy(False, "Ready")
+        self.set_busy(False, self.task_outcome)
+        self.session_hint.setText(self.task_hint)
 
     def task_failed(self, message):
+        self.task_outcome = "Update needs attention"
+        self.task_hint = "Read the message on Updates or save the activity log."
+        self.session_status.setText(self.task_outcome)
+        self.session_hint.setText(self.task_hint)
         self.append_output(message + "\n")
         self.update_info.setText(message)
+        self.set_details_visible(True)
 
     def check_updates(self):
         token = self.token_edit.text().strip()
@@ -761,12 +1045,19 @@ class MainWindow(QMainWindow):
 
         def checked(release):
             self.pending_release = release
+            self.task_outcome = "Update check finished"
+            self.task_hint = "The result is shown on the Updates page."
             if release and desktop_updates.version_tuple(release["version"]) > desktop_updates.version_tuple(__version__):
                 self.update_info.setText(f"Version {release['version']} is available for this computer.")
             else:
                 self.update_info.setText(f"You're current. Installed desktop version: {__version__}.")
 
         self.run_task(lambda progress: desktop_updates.check(token, prerelease), checked, "Checking GitHub")
+
+    def reset_update_selection(self):
+        self.pending_release = None
+        self.update_info.setText("Update options changed. Check again to find a matching release.")
+        self.update_action_states()
 
     def install_update(self):
         release = self.pending_release
@@ -775,7 +1066,9 @@ class MainWindow(QMainWindow):
         token = self.token_edit.text().strip()
 
         def installed(_folder):
-            self.update_info.setText(f"Version {release['version']} is installed and verified. Relaunch to use it.")
+            self.task_outcome = "Update ready to use"
+            self.task_hint = "Restart the app from Updates to finish."
+            self.update_info.setText(f"Version {release['version']} is installed and verified. Restart to use it.")
             self.relaunch_button.show()
             self.pending_release = None
             self.token_edit.clear()
@@ -784,10 +1077,13 @@ class MainWindow(QMainWindow):
                       installed, "Downloading desktop update")
 
     def rollback_update(self):
+        if self.busy:
+            return
         try:
             changed = desktop_updates.rollback()
             self.update_info.setText("Previous installation selected. Relaunch the app." if changed else "No desktop update is active.")
             self.relaunch_button.setVisible(changed)
+            self.update_action_states()
         except (ResetError, OSError, ValueError) as exc:
             self.task_failed(str(exc))
 
@@ -807,7 +1103,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         if self.busy:
-            QMessageBox.information(self, "Operation in progress", "Wait for this operation to finish, or use Interrupt and wait for cleanup before closing.")
+            QMessageBox.information(self, "Operation in progress", "Wait for this operation to finish, or use Stop and wait for cleanup before closing.")
             event.ignore()
             return
         self.preferences.setValue("window/geometry", self.saveGeometry())
@@ -824,10 +1120,10 @@ def main():
     application.setStyle("Fusion")
     palette = QPalette()
     for role, color in (
-        (QPalette.ColorRole.Window, "#f4f6f4"), (QPalette.ColorRole.WindowText, "#233c47"),
+        (QPalette.ColorRole.Window, "#f5f7fb"), (QPalette.ColorRole.WindowText, "#233c47"),
         (QPalette.ColorRole.Base, "#ffffff"), (QPalette.ColorRole.AlternateBase, "#edf3ef"),
         (QPalette.ColorRole.Text, "#233c47"), (QPalette.ColorRole.Button, "#ffffff"),
-        (QPalette.ColorRole.ButtonText, "#233c47"), (QPalette.ColorRole.Highlight, "#24745f"),
+        (QPalette.ColorRole.ButtonText, "#233c47"), (QPalette.ColorRole.Highlight, "#2d60d3"),
         (QPalette.ColorRole.HighlightedText, "#ffffff"), (QPalette.ColorRole.ToolTipBase, "#ffffff"),
         (QPalette.ColorRole.ToolTipText, "#233c47"),
     ):

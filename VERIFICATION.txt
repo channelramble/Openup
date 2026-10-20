@@ -1,3 +1,38 @@
+Bruteforce Legacy iOS 2.1.0 — guided desktop workflow
+Verification date: 2026-10-20
+
+Interface changes:
+  A shared model and USB selector replaces selection duplicated across tasks.
+  Start offers timer reset for a known passcode and recovery for a forgotten one.
+  Timer reset follows Prepare -> Review & reset -> Done with one primary action
+  per step. Applying changes still requires explicit confirmation. Changing the
+  selected phone or its settings invalidates the prior review.
+  Optional firmware, custom tools, and connection settings are under Advanced.
+  Activity starts collapsed and opens for operations or errors. Progress and
+  completion messages identify the operation; a recovery session ending is not
+  presented as proof that a passcode was recovered.
+  Phone and settings controls are locked while an operation is running.
+
+Scope and verification status:
+  This release changes the desktop interface and workflow. Recovery backend
+  behavior, firmware profiles, ARMv6 payloads, and desktop runtime inputs remain
+  unchanged. Intel Mac, Apple Silicon Mac, Windows x64, and Linux x64 archives
+  are the intended release targets.
+  224 tests passed in the development desktop environment. Python 3.9 ran the
+  same suite with 22 GUI-dependent skips and no failures. The tests exercise
+  guided timer state, stale selection invalidation, busy controls, cancellation,
+  update eligibility and errors, backup gating, and transcript preservation.
+  All six screens were rendered at 940x680 and 1120x800 with no horizontal
+  overflow. The review action stays visible with Activity open at both sizes.
+  Final results, exact test totals, package checks, updater results, and CI status:
+  https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.1.0
+  Physical iPhone boot, timer reset, and passcode recovery remain unverified.
+  Earlier verification records below do not establish current-release UI or
+  package results.
+
+Historical records follow.
+============================================================
+
 Bruteforce Legacy iOS 2.0.2 — reported recovery failures
 Verification date: 2026-10-20
 

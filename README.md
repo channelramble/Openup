@@ -2,15 +2,15 @@
 
 [![Test and package](https://github.com/channelramble/Bruteforce-Legacy-iOS/actions/workflows/ci.yml/badge.svg)](https://github.com/channelramble/Bruteforce-Legacy-iOS/actions/workflows/ci.yml)
 
-A desktop app for legacy iPhone recovery. Version **2.0.2** fixes 3G firmware selection in WTF mode, first-download cache failures, and truncated session exports. It includes ARMv6 recovery tools for the iPhone 3G and Intel Mac builds targeting macOS 12 Monterey. The GUI provides device selection, timer reset, [32bit-Bruteforce-Passcode](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, diagnostics, and updates.
+A desktop app for legacy iPhone recovery. Version **2.1.0** introduces a simpler interface: choose your phone once, select a task, and follow the next step. It includes a guided timer reset, [32bit-Bruteforce-Passcode](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, and updates. iPhone 3G ARMv6 tools and Intel Mac builds targeting macOS 12 Monterey are included.
 
 **Desktop downloads include Python, Qt, SSH libraries, and their Python dependencies. No Python, pip, virtual environment, or package installation is needed to open the app.** The Windows archive also includes the Linux Python/SSH runtime used by its WSL bridge.
 
-![Desktop recovery workspace](docs/desktop-overview.png)
+![Desktop start screen](docs/desktop-overview.png)
 
 ## Download and open
 
-Get the platform archive from [version 2.0.2](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.0.2) and extract it completely.
+Get the platform archive from [version 2.1.0](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases/tag/v2.1.0) and extract it completely.
 
 | Computer | Download suffix | Open |
 |---|---|---|
@@ -21,20 +21,22 @@ Get the platform archive from [version 2.0.2](https://github.com/channelramble/B
 
 Keep the extracted Windows/Linux folder together; it contains the bundled runtime. The Mac `.app` can be moved to Applications. These downloads are not Developer ID notarized or Windows Authenticode signed, so operating-system download protection may require an explicit open action.
 
-Both Mac builds include Python 3.13.16 and Qt/PySide6 6.9.3. The Intel build uses cryptography 48.0.1; the other platforms use 50.0.2. Each Mac build checks every native binary's architecture, minimum macOS version, and library dependencies before signing. The Intel development build opened all six GUI pages under Rosetta on macOS 27; execution on an Intel Mac running Monterey is still untested. [Qt 6.9 platform support](https://doc.qt.io/archives/qt-6.9/supported-platforms.html), [cryptography 48.0.1 distributions](https://pypi.org/project/cryptography/48.0.1/#files).
+Both Mac builds include Python 3.13.16 and Qt/PySide6 6.9.3. The Intel build uses cryptography 48.0.1; the other platforms use 50.0.2. Each Mac build checks every native binary's architecture, minimum macOS version, and library dependencies before signing. Earlier Intel builds were exercised under Rosetta on macOS 27; execution on an Intel Mac running Monterey is still untested. [Qt 6.9 platform support](https://doc.qt.io/archives/qt-6.9/supported-platforms.html), [cryptography 48.0.1 distributions](https://pypi.org/project/cryptography/48.0.1/#files).
 
 USB access still depends on the host: macOS's usbmuxd service, Apple Mobile Device Service on Windows, or usbmuxd/USB permissions on Linux. Windows ramdisk backends use WSL 2 and usbipd-win. The external recovery backends may request their own system tools or elevated access. The iPhone 3G ARMv6 executables are included; drivers, WSL, firmware downloads, and backend host tools remain separate requirements.
 
 ## Use the GUI
 
-1. **Overview:** refresh the USB list and choose a phone. DFU-only devices appear after booting an SSH ramdisk.
-2. **Timer reset:** choose the model, optionally select a local 3G IPSW, then use **Prepare and inspect**. When the backend reaches its SSH Ramdisk Menu, choose Exit while leaving the ramdisk running. Review the session output before **Apply timer reset**.
-3. **Passcode recovery:** download or start the pinned backend. Reply to its prompts in the session input. The input field hides replies by default; backend output and terminal echo can still appear in the session and in an explicit export, including recovery results.
-4. **Backups:** select a saved transaction to restore original files or finish cleanup. Invalid backups cannot be selected for recovery.
-5. **Updates:** check, install, relaunch, or roll back. Because this repository is private, enter a GitHub token with repository read access. It stays in memory and is never saved. GitHub CLI is not required.
-6. **Diagnostics:** inspect platform requirements and connection options.
+1. **Choose your phone:** use the shared model and USB controls at the top. A phone in DFU may still be connected even when the USB list is empty.
+2. **Choose a task on Start:** if you know the passcode but the phone is locked out, choose timer reset. If you forgot the passcode, choose passcode recovery.
+3. **Timer reset:** follow **Prepare → Review & reset → Done**. Preparation boots the temporary ramdisk and inspects the phone. When the backend reaches its SSH Ramdisk Menu, choose Exit while leaving the ramdisk running. Review the proposed changes in Activity, then confirm the reset. If the phone is already prepared, use the inspection shortcut. Changing the selected phone or its settings requires a fresh review. After reboot, use the existing passcode.
+4. **Passcode recovery:** start recovery with one button; the app downloads the backend when needed. Follow its instructions in Activity and reply when prompted. The input field hides replies by default; backend output and terminal echo can still appear in Activity and in an explicit export, including recovery results. A session ending does not by itself mean a passcode was recovered.
+5. **Advanced options:** expand these only when needed, such as for a local 3G IPSW, a custom tools folder, or connection settings. The normal workflow uses the included tools and default settings.
+6. **Backups and updates:** use Backups to restore original files or finish interrupted cleanup. Use Updates to check, install, and relaunch; rollback remains available. This private repository requires a GitHub token with read access for desktop updates. The token stays in memory, and GitHub CLI is not required.
 
-Long operations run outside the GUI process. **Interrupt** sends a graceful terminal interrupt; file-writing workflows ask before interruption and retain the engine's rollback behavior. Output stays in memory unless you choose **Save output**. Exports retain up to 16 MiB independently of the display's 2,500-line scrollback. If that limit is reached, the export preserves initial context and recent output with an explicit omission marker. **Clear** resets both. The window remains open while an operation or cleanup is active.
+**Activity** starts collapsed and opens for operations or errors. It contains progress, interactive prompts, and detailed output; result messages explain what finished and what to do next. Phone and settings controls are locked while an operation runs.
+
+Long operations run outside the GUI process. **Stop** requests a graceful stop; file-writing workflows ask before interruption and retain the engine's rollback behavior. Output stays in memory unless you choose **Save log**. Exports retain up to 16 MiB independently of the display's 2,500-line scrollback. If that limit is reached, the export preserves initial context and recent output with an explicit omission marker. Clearing Activity clears both the display and export transcript. The window remains open while an operation or cleanup is active.
 
 Desktop updates verify the GitHub asset digest, platform, clean source revision, archive paths, and all packaged file checksums. They stage a complete replacement runtime, then switch versions. The original launcher remains your entry point; rollback selects the previous installation. A damaged update falls back to the original app's recovery UI.
 
@@ -44,7 +46,7 @@ The `reset` workflow still requires the correct passcode afterward. The separate
 
 ## Source edition and CLI
 
-The unqualified `Bruteforce-Legacy-iOS-2.0.2.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
+The unqualified `Bruteforce-Legacy-iOS-2.1.0.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
 
 Download the ZIP from [Releases](https://github.com/channelramble/Bruteforce-Legacy-iOS/releases) and extract the whole folder onto the computer connected to the phone. Python 3.9 or newer is required.
 
