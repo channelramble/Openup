@@ -1,3 +1,44 @@
+Openup 2.3.6 — immediate iPhone 3G console output
+Verification date: 2026-10-21
+
+The user reports minutes at OK followed by a burst of recovery output. The
+small-screen result wrapper pipes the native program's stdout; its original
+stdio setup buffers output to a pipe. That explains the reported display pattern,
+but does not establish whether every observed delay has the same cause.
+
+The bundled 3G recovery program now disables stdout buffering at entry, before
+any diagnostics or initialization. The final result wrapper, leading-zero
+handling, recovery algorithm, saved result files, firmware and boot chain are
+unchanged. Custom payloads and other models are not modified by this fix.
+
+All 361 source tests passed with both pinned script fixtures. The new harmless
+host C fixture uses the exact shipped stdio helper and the real display wrapper.
+It prints progress, emits a stderr checkpoint, then waits on a raw stdin read.
+With the helper, progress arrives before the checkpoint while the child is still
+running. Without it, the checkpoint arrives first and progress remains buffered
+until the child is released. Both runs preserve the final short passcode block.
+Only the output fixture executes; no device recovery code runs in these tests.
+
+Two clean ARMv6 builds produced identical binaries. The recovery executable is
+SHA-256 544bcc0435dfff2c6de024d4c570f0e7c5c1dde41b885e5df5788c7a39c363ef.
+Its 129 imports resolve against the actual matching 4.2.1 ramdisk libraries.
+All three payloads retain ARMv6, iOS 4.0 minimum, SDK 4.2, LC_UNIXTHREAD and
+valid SHA-1-primary/SHA-256-alternate signatures, independently page-verified.
+The device-info and RAM-root executables are byte-identical to the previously
+verified bundle. Source archives, originals, exact patches, notices, manifests
+and validation records were refreshed together and checked for consistency.
+
+The reachable MacBook is Apple Silicon, not the reported Intel Mac. Its current
+USB inventory contains no attached phone. No phone operation was performed and
+the new native recovery binary has not been physically validated. The USB BOS
+warning alone does not prove a crash. The separate startup readiness race found
+in a simulated run remains a distinct issue; it is not established as the cause
+of this report, and startup coordination is unchanged in this console fix.
+Package, CI and public-update results are recorded with the 2.3.6 release.
+
+Historical records follow.
+============================================================
+
 Openup 2.3.5 — direct updates and preserved recovery exit status
 Verification date: 2026-10-21
 

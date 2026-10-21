@@ -36,6 +36,11 @@ beside the build recipe. The managed 3G startup uses a separate verified copy fo
 waiting, including when custom recovery tools are selected. It skips the upstream
 read/write mount script; the recovery executable uses its own read-only mount.
 
+The recovery source also disables stdout buffering before initialization, so
+progress remains immediate through the on-phone display wrapper. Its original
+source and exact `payload-console-output.patch` are included in the same package.
+This changes console output only; it does not change the recovery algorithm.
+
 The tools were built using the iPhoneOS 4.2 SDK with an iOS 4.0 minimum deployment
 target. Apple SDKs and firmware are not redistributed. Recovery backend
 repositories and firmware continue to be downloaded separately under their

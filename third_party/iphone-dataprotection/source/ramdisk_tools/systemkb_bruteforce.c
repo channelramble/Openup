@@ -125,8 +125,17 @@ char* bruteforceUserland(KeyBag* kb, uint8_t* key835)
 }
 
 
+static void configure_console_output(void)
+{
+    /* The display wrapper pipes stdout. Keep progress and prompts immediate
+     * instead of letting libc hold them until its pipe buffer fills. */
+    setbuf(stdout, NULL);
+}
+
 int main(int argc, char* argv[])
 {
+    configure_console_output();
+
     u_int8_t passcodeKey[32]={0};
     char* passcode = NULL;
     int bruteforceMethod = 0;

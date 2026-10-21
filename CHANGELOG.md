@@ -1,5 +1,13 @@
 # Changes
 
+## 2.3.6
+
+- Disable stdout buffering in the bundled iPhone 3G recovery program. Piping output through the final-result display wrapper could hold progress for minutes, then print it in a burst, making a working process appear stuck at OK.
+- Preserve the final passcode block at the bottom of the phone screen, including leading zeros. The recovery algorithm, result files, boot sequence and RAM-root helper are unchanged.
+- Rebuild and verify the ARMv6 program, with matching source, patch, checksums, signatures and provenance. Include it in all four desktop downloads and the built-in updater.
+
+A host C regression test reproduces the old buffering and verifies immediate output through the actual display wrapper before process exit. Physical screen validation of this revision remains pending. The native output fix applies to the bundled 3G program; custom payloads and other models are unchanged.
+
 ## 2.3.5
 
 - Make Update now the primary Updates action. It finds the latest compatible release, downloads and verifies the complete desktop package, and stages it in one background operation before offering Restart.

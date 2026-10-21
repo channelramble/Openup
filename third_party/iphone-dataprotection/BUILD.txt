@@ -38,11 +38,15 @@ No SDK, firmware, or proprietary runtime library is redistributed in this bundle
    SOURCE_DATE_EPOCH is fixed to the pinned source commit's timestamp. Two clean
    builds with the recorded compiler/linker on this host produced identical files.
    The payload source changes remove automatic fsck_hfs repair from
-   restored_external add a bounded --sleep SECONDS mode, and update a read-only HFS /dev/md0 root
+   restored_external, add a bounded --sleep SECONDS mode, and update a read-only HFS /dev/md0 root
    directly through mount(2). The modified source is already present in source/. The
    original file is retained in original/ramdisk_tools/, and the exact patch is
-   payload-no-auto-fsck.patch. All other payload sources and Apple open source
-   headers are unchanged. SOURCE-MANIFEST.json covers both original and modified
+   payload-no-auto-fsck.patch. The recovery program also disables stdout buffering
+   before initialization so its progress reaches the display wrapper immediately.
+   Its original systemkb_bruteforce.c is retained under original/ramdisk_tools/;
+   payload-console-output.patch records that separate change. All other payload
+   sources and Apple open source headers are unchanged.
+   SOURCE-MANIFEST.json covers both original and modified
    files. All original notices remain present; the revision suffix
    +no-auto-fsck identifies this application build.
 
@@ -54,7 +58,7 @@ No SDK, firmware, or proprietary runtime library is redistributed in this bundle
 Validation scope
 
 These files are built for an iOS 4 restore environment and are not compatible
-with a 3.1.3 ramdisk. All strong imports (127, 124 and 157 respectively) were
+with a 3.1.3 ramdisk. All strong imports (129, 124 and 157 respectively) were
 checked against the actual ARMv6 libraries from Apple's iPhone1,2 4.2.1 8C148
 restore ramdisk. VALIDATION.json records exact firmware/library hashes and
 signature results. Source/kernel compatibility still requires the matching
@@ -64,6 +68,11 @@ The rebuilt restored_external booted on the owner's iPhone1,2 in a diagnostic
 /dev/md0 root, with only devfs mounted alongside it. Its --sleep 1 and invalid
 --sleep 3601 paths were also exercised. Passcode recovery, device_infos and
 timer clearing were not run. See the host application VERIFICATION.txt for scope.
+The console-output revision has not been run on a phone. A harmless host C
+fixture using its exact stdio helper reproduces buffered output in a control run
+and verifies live progress through the real display wrapper before process exit.
+Both clean builds reproduce the unchanged device_infos and restored_external
+bytes; the earlier RAM-root hardware verification applies to that same binary.
 
 Automatic repair policy
 

@@ -9,10 +9,10 @@ assuming that a historical state still applies.
 
 - Project: **Openup**, a dark-mode desktop application for legacy iPhone recovery.
 - Repository: <https://github.com/channelramble/Openup> (public).
-- Current app version: **2.3.5**, with one-click desktop updates.
+- Current app version: **2.3.6**, with one-click desktop updates.
 - Verified device baseline: **2.3.1**, a prerelease built from
   `d6a5117a25038b850a56cea2c2f89b151930c104`.
-- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.5>.
+- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.6>.
 - Read `README.md`, the newest section of `VERIFICATION.txt`, `CHANGELOG.md`,
   and `THIRD_PARTY.md` before modifying device operations or packaging.
 - `RESEARCH.md` and older verification sections contain historical hypotheses
@@ -178,7 +178,7 @@ one-second execution and invalid-delay rejection checks on the phone.
 
 ## Development and tests
 
-The on-device `ios_timeout/data/recovery-display.sh` wraps the unchanged native
+The on-device `ios_timeout/data/recovery-display.sh` wraps the native
 recovery engine at `/usr/bin/openup-recovery-engine`. It forwards output without
 saving a transcript, then prints the result after all diagnostics. Only an
 explicit reported value with a completed zero exit and no validation failure
@@ -188,8 +188,17 @@ output and no-result endings are distinct. The 3G startup holds quietly after
 the result. The adapter installs the wrapper on every ramdisk preparation,
 including cached firmware; no native payload rebuild is needed for shell-only
 display changes. `tests/test_recovery_display.py` uses fake engine output, not
-real recovery. The new output still needs physical screen validation. Piping
-native stdout may buffer progress; stdin and engine arguments are preserved.
+real recovery. The new output still needs physical screen validation. Version
+2.3.6 rebuilds
+the bundled 3G recovery program with stdout buffering disabled before any
+initialization. The pipe otherwise holds progress and emits it in bursts.
+`tests/test_recovery_streaming.py` compiles only the actual stdio helper in a
+harmless host fixture: a control reproduces buffering and the fixed run delivers
+progress through the real display wrapper before exit. Stdin and engine
+arguments are preserved. Custom payloads and other models are unchanged.
+The RAM-root and device-info executables remain byte-identical to 2.3.1; only
+the recovery executable changes. Its exact console-output patch, original
+source, manifests and validation records are included in the payload source bundle.
 
 Source support starts at Python 3.9. Use Python **3.13** for the complete desktop
 development environment. These are maintainer commands, not end-user setup:
@@ -217,7 +226,8 @@ Choose tests appropriate to the change:
   `test_compatibility`, `test_usbmux`, `test_ssh_integration`.
 - Boot and payloads: `test_backend`, `test_upstream_integration`,
   `test_armv6_boot`, `test_armv6_kernel`, `test_armv6_payloads`,
-  `test_armv6_root`, `test_armv6_wait`, `test_recovery_timing`, `test_recovery_display`,
+  `test_armv6_root`, `test_armv6_wait`, `test_recovery_timing`,
+  `test_recovery_display`, `test_recovery_streaming`,
   `test_macos_agents`.
 - Desktop and updates: `test_gui`, `test_gui_flow`, `test_backend_ui`,
   `test_desktop`, `test_desktop_session`, `test_desktop_results`,
@@ -233,7 +243,9 @@ on the MacBook. Both launchers and strict signatures passed. Hosted CI could
 not start due to the account's billing/spending block; do not claim it passed.
 The CI matrix is macOS/Python 3.9 and 3.13, Linux/Python 3.13, and
 Windows/Python 3.13. Recheck the service state before attributing future failures.
-CI resumed successfully for 2.3.2 and 2.3.3, including all four platform builds.
+CI resumed successfully for 2.3.2 through 2.3.5, including all four platform builds.
+For 2.3.6, all 361 source tests passed; package and CI results are recorded in
+the release notes. The new native console-output behavior needs phone validation.
 For 2.3.3, 344 tests passed in source and the native Apple Silicon package;
 all-platform updater installation/rollback and a public download check passed.
 The MacBook was unreachable, so that release was not run under Rosetta there.

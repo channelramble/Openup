@@ -23,7 +23,8 @@ Per-file licenses:
   from the pinned Apple open source distributions identified in PROVENANCE.json.
   These headers are unmodified. The APSL text is included in licenses/.
 
-The build recipe and linker patch were added for this distribution. One payload source file, restored_external.c, is modified to remove automatic
+The build recipe and linker patch were added for this distribution. The payload
+source file restored_external.c is modified to remove automatic
 filesystem repair while retaining device readiness checks and USB initialization.
 It also provides a bounded --sleep SECONDS mode (0..3600), returning before any
 hardware initialization, for RAM disks lacking an external sleep utility.
@@ -32,6 +33,10 @@ the mount system call only when read-only, checking the resulting writable state
 This avoids mount_hfs reopening the mounted RAM device and printing EBUSY (16).
 The original file is retained in original/ramdisk_tools/restored_external.c; the
 exact change is recorded in payload-no-auto-fsck.patch and PROVENANCE.json.
+The recovery source systemkb_bruteforce.c is modified to disable stdout buffering
+before initialization, keeping progress immediate when output is piped through
+the display wrapper. Its original is retained under original/ramdisk_tools/;
+payload-console-output.patch and PROVENANCE.json record the exact change.
 The original project license mapping is documented in
 licenses/google-code-license-mapping.json. All other payload source files and
 all Apple open source headers are unmodified. A separately obtained iPhone OS 4.2 SDK

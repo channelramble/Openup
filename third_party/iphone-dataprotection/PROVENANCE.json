@@ -1,5 +1,5 @@
 {
-  "payload_release": "iphone3g-armv6-ios4-2026-10-20",
+  "payload_release": "iphone3g-armv6-ios4-2026-10-21",
   "source": {
     "url": "https://github.com/nabla-c0d3/iphone-dataprotection",
     "commit": "572dd5cd8c07f5f14f7ea9488041031dd22a26bb",
@@ -8,7 +8,7 @@
     "original_project_license": "BSD-3-Clause",
     "original_project_metadata": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/iphone-dataprotection/project.json",
     "original_project_metadata_sha256": "da7a37449fb69b584351f4b9aee89b6bbc4e03426d925c33534c46d76578eed8",
-    "modification": "Removed three automatic fsck_hfs commands from restored_external, retaining partition readiness checks, USB initialization, kernel boot arguments and original read-only data mounting. Added a strict decimal --sleep SECONDS mode (0..3600) which returns before hardware initialization and resumes interrupted libc sleep calls. Verify the HFS root's device number against the /dev/md0 block device, accepting XNU's initial root_device label. Skip an already writable root; otherwise use a checked mount(2) update with the pinned XNU HFS arguments to avoid mount_hfs reopening the mounted RAM device.",
+    "modification": "Removed three automatic fsck_hfs commands from restored_external, retaining partition readiness checks, USB initialization, kernel boot arguments and original read-only data mounting. Added a strict decimal --sleep SECONDS mode (0..3600) which returns before hardware initialization and resumes interrupted libc sleep calls. Verify the HFS root's device number against the /dev/md0 block device, accepting XNU's initial root_device label. Skip an already writable root; otherwise use a checked mount(2) update with the pinned XNU HFS arguments to avoid mount_hfs reopening the mounted RAM device. Disable stdout buffering at the start of the recovery program so progress reaches the display wrapper immediately; no recovery algorithm changes.",
     "patch": {
       "file": "payload-no-auto-fsck.patch",
       "sha256": "aa67cfbe9c616cc7117b0f59a44ab9388388daeec74492a561a6fa4be670d9e6",
@@ -17,7 +17,15 @@
       "modified_file": "source/ramdisk_tools/restored_external.c",
       "modified_sha256": "9f587d285f4e12058196e33e93a2041dad3b800498dc25f3c000c32d3fb14e2f"
     },
-    "license_mapping_evidence": "licenses/google-code-license-mapping.json"
+    "license_mapping_evidence": "licenses/google-code-license-mapping.json",
+    "console_output_patch": {
+      "file": "payload-console-output.patch",
+      "sha256": "516392afd3ebe612b2483d648db800022c2cea4fb7abdb06fbd7034870f6e497",
+      "original_file": "original/ramdisk_tools/systemkb_bruteforce.c",
+      "original_sha256": "aa9c5e9d348cc2697aaf8880d94730933094ec3df0b08c3495b4919805a66010",
+      "modified_file": "source/ramdisk_tools/systemkb_bruteforce.c",
+      "modified_sha256": "4b1b293a208946eb7fe64f8bbbed20d8e2cacf4ae730510171e7f6d69526c484"
+    }
   },
   "headers": [
     {
@@ -92,8 +100,8 @@
   },
   "binaries": {
     "bruteforce": {
-      "sha256": "a3819ed32d424d88bcfcaff6e8bfd6ebba4720765e758dd43612d3f499db3823",
-      "size": 116784
+      "sha256": "544bcc0435dfff2c6de024d4c570f0e7c5c1dde41b885e5df5788c7a39c363ef",
+      "size": 116880
     },
     "device_infos": {
       "sha256": "5a4de96ad5ad0bb55607712b35157c540aa76d58ad5ecb107c761e26ac09e6c7",
@@ -114,11 +122,12 @@
     "recovery": false,
     "automatic_filesystem_repair": "All three fsck_hfs invocations removed from restored_external; command absent from final binary; partition wait and USB initialization retained.",
     "bounded_wait_helper": "The exact helper passed native-host argument, bounds, overflow and interrupted-sleep tests. Its ARMv6 --sleep 1 path completed successfully on the phone, and --sleep 3601 returned the expected usage error before hardware initialization.",
-    "hardware_scope": "The rebuilt restored_external ran in a diagnostic 4.2.1 RAM disk on the owner's iPhone1,2 through an Apple Silicon MacBook. Authenticated SSH/SFTP verified its SHA-256 and a writable /dev/md0 root with only devfs alongside it. The passcode-recovery and device_infos executables were not executed."
+    "hardware_scope": "The rebuilt restored_external ran in a diagnostic 4.2.1 RAM disk on the owner's iPhone1,2 through an Apple Silicon MacBook. Authenticated SSH/SFTP verified its SHA-256 and a writable /dev/md0 root with only devfs alongside it. The passcode-recovery and device_infos executables were not executed.",
+    "console_output": "The exact stdio helper passed a harmless native-host C test through the real display wrapper: progress arrived before process exit; a control without the helper reproduced buffering. The rebuilt recovery executable has not been executed on a phone."
   },
   "payload_zip": {
     "name": "iphone3g-armv6-ios4.zip",
-    "sha256": "103edd0188e1080be6742ef2e798b6c12417ec4329defe169eadd41ae9880613",
-    "size": 134312
+    "sha256": "590cbdad7842f09e71b672e22f0040b10f5c78d1d075a30b326b7dcfc89939cc",
+    "size": 134380
   }
 }
