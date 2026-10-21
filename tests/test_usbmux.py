@@ -61,6 +61,32 @@ class USBMuxTests(unittest.TestCase):
         with self.assertRaises(ResetError):
             usbmux.select_device([])
 
+    def test_wait_for_device_retries_until_the_phone_reappears(self):
+        device = {"udid": "a" * 40, "device_id": 7}
+        waits = []
+        with patch.object(usbmux, "list_devices", side_effect=[[], [], [device]]) as listed, \
+             patch.object(usbmux.time, "sleep", lambda _s: None):
+            result = usbmux.wait_for_device("a" * 40, timeout=30, on_wait=waits.append)
+        self.assertEqual(result["device_id"], 7)
+        self.assertEqual(listed.call_count, 3)
+        self.assertEqual(waits, [0, 1])
+
+    def test_wait_for_device_raises_the_clear_error_after_the_deadline(self):
+        times = iter([100.0, 100.0, 101.0, 116.0])  # start, loop checks past the 15s deadline
+        with patch.object(usbmux, "list_devices", return_value=[]), \
+             patch.object(usbmux.time, "sleep", lambda _s: None), \
+             patch.object(usbmux.time, "monotonic", lambda: next(times)), \
+             self.assertRaisesRegex(ResetError, "No matching USB iPhone"):
+            usbmux.wait_for_device("a" * 40, timeout=15)
+
+    def test_wait_for_device_does_not_retry_several_connected_devices(self):
+        devices = [{"udid": "a" * 40, "device_id": 1}, {"udid": "b" * 40, "device_id": 2}]
+        with patch.object(usbmux, "list_devices", return_value=devices) as listed, \
+             patch.object(usbmux.time, "sleep", lambda _s: None), \
+             self.assertRaisesRegex(ResetError, "Select one with --udid"):
+            usbmux.wait_for_device(timeout=30)
+        self.assertEqual(listed.call_count, 1)
+
     def test_connect_uses_network_byte_order_and_selected_device(self):
         sock = Socket(response({"Number": 0}))
         with patch.object(usbmux, "connect_socket", return_value=sock):

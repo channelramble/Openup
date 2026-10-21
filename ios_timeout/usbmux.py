@@ -5,6 +5,7 @@ import re
 import socket
 import struct
 import sys
+import time
 
 from .core import ResetError
 from . import __version__
@@ -105,6 +106,32 @@ def select_device(devices, udid=None):
     if len(matches) != 1:
         raise ResetError("Several USB devices are connected. Select one with --udid.")
     return matches[0]
+
+
+def wait_for_device(udid=None, path=None, timeout=20.0, interval=0.5, on_wait=None):
+    """Poll usbmuxd until the wanted USB phone appears, then select it.
+
+    A freshly booted SSH ramdisk can take a few seconds to re-register with
+    usbmuxd after the backend hands control back (notably on Intel Macs over a
+    direct USB connection, where the kit's own iproxy tunnel has just been torn
+    down). Retry only the empty-list case up to a bounded deadline; a genuinely
+    absent device, several devices, or an unreachable usbmuxd still raise the
+    same clear errors immediately. ``on_wait(attempt)`` is called before each
+    wait so callers can show progress.
+    """
+    deadline = time.monotonic() + max(0.0, timeout)
+    attempt = 0
+    while True:
+        devices = list_devices(path)
+        if any(udid is None or device["udid"] == udid for device in devices):
+            return select_device(devices, udid)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return select_device(devices, udid)  # raises the clear "no matching" error
+        if on_wait is not None:
+            on_wait(attempt)
+        attempt += 1
+        time.sleep(min(interval, remaining))
 
 
 def tunnel(device_id, port=22, path=None, expected_udid=None):

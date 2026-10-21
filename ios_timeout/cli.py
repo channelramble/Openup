@@ -321,10 +321,22 @@ def run(args):
     # the ramdisk boot or the SSH session; on Intel Macs they win that race and
     # the device cannot be claimed. No-op off macOS; restores exactly the agents
     # it paused, including on interruption.
+    def _announce_usb_wait(attempt):
+        # A just-booted ramdisk can take a few seconds to re-register with
+        # usbmuxd, especially on Intel Macs over direct USB. Keep polling with
+        # on-screen progress instead of failing the first empty query.
+        if attempt == 0:
+            print("Waiting for the phone to appear on USB "
+                  "(it can take a few seconds after boot)...", flush=True)
+        if os.environ.get("BL_IOS_UI_PROTOCOL") == "1":
+            from .desktop_protocol import progress
+            progress("Waiting for the phone",
+                     "Waiting for the phone to appear on USB after boot…", None)
+
     with host_lock(state), recovery_agents():
         if args.action == "prepare":
             launch_backend(args)
-        selected = usbmux.select_device(usbmux.list_devices(), args.udid)
+        selected = usbmux.wait_for_device(args.udid, on_wait=_announce_usb_wait)
         if args.ask_password and os.environ.get("BL_IOS_UI_PROTOCOL") == "1":
             from .desktop_protocol import prompt
             prompt("password", "Ramdisk SSH password", "Ramdisk SSH root password: ")
