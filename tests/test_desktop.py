@@ -95,7 +95,8 @@ class DesktopPlanningTests(unittest.TestCase):
         settings = Settings(udid="abcdef123456", ipsw="/tmp/a ' $(touch bad).ipsw")
         args = operation_arguments("prepare", settings)
         parsed = parser().parse_args(args)
-        self.assertEqual(str(parsed.ipsw), settings.ipsw)
+        self.assertEqual(args[args.index("--ipsw") + 1], settings.ipsw)
+        self.assertEqual(parsed.ipsw, Path(settings.ipsw))
         self.assertEqual(parsed.model, "iPhone1,2")
         self.assertFalse(parsed.apply)
 

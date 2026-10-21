@@ -50,7 +50,20 @@ class Armv6WaitHelperTests(unittest.TestCase):
             "}\n"
             "#define sleep mock_sleep\n"
             + helper_source()
-            + "\nint main(int argc, char* argv[]) { return sleep_command(argc, argv); }\n"
+            + r'''
+int main(int argc, char* argv[]) {
+    /* Feed exact UTF-8 bytes without the host CRT's argv conversion. */
+    if (argc == 2 && !strcmp(argv[1], "--test-value-from-stdin")) {
+        char value[4096];
+        size_t size = fread(value, 1, sizeof(value) - 1, stdin);
+        if (ferror(stdin) || size == sizeof(value) - 1) return 99;
+        value[size] = '\0';
+        char *helper_argv[] = {argv[0], "--sleep", value};
+        return sleep_command(3, helper_argv);
+    }
+    return sleep_command(argc, argv);
+}
+'''
         )
         completed = subprocess.run(
             [COMPILER, "-std=c99", "-Wall", "-Wextra", str(harness), "-o", str(cls.program)],
@@ -64,9 +77,13 @@ class Armv6WaitHelperTests(unittest.TestCase):
         environment.pop("BL_WAIT_TEST_INTERRUPT", None)
         if interrupted:
             environment["BL_WAIT_TEST_INTERRUPT"] = "1"
+        value = None
+        if len(arguments) == 2 and arguments[0] == "--sleep":
+            value = arguments[1]
+            arguments = ["--test-value-from-stdin"]
         return subprocess.run(
             [str(self.program), *arguments], env=environment,
-            capture_output=True, text=True, timeout=5,
+            input=value, capture_output=True, text=True, encoding="utf-8", timeout=5,
         )
 
     def test_zero_delay_succeeds_without_calling_sleep(self):
