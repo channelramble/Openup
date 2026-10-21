@@ -1,3 +1,28 @@
+Openup 2.3.5 — direct one-click desktop updates
+Verification date: 2026-10-21
+
+Update now checks the public release feed, selects the latest compatible desktop
+archive, downloads and verifies it, and stages it in one background operation.
+The GUI then offers Restart; no browser, token, file picker or second install
+choice is needed. Prereleases remain included by default. Local installation,
+rollback and optional credentials remain under collapsed Advanced update options.
+Already-current checks leave the active installation alone. Busy/repeat-click
+guards, cancellation checkpoints, full package verification and rollback remain.
+
+All 357 source tests passed with both pinned script fixtures. Updater fixtures
+exercise public tokenless metadata and package requests for all four targets,
+latest-version selection, draft exclusion, prerelease preferences, already-current
+and older releases, cancellation before download, and specific HTTP failures.
+GUI tests exercise the real background thread, repeated clicks, retry guidance,
+restart state, current options, token clearing and no browser/file-picker calls.
+Existing corruption, cancellation-before-activation and rollback checks pass.
+Styled 1000x780 Updates and restart-ready screens were reviewed. Device code,
+firmware, native payloads and dependency versions are unchanged. Package, CI
+and public-download validation is recorded in the 2.3.5 release notes.
+
+Historical records follow.
+============================================================
+
 Openup 2.3.4 — automatic recovery without the repeating host menu
 Verification date: 2026-10-21
 

@@ -9,10 +9,10 @@ assuming that a historical state still applies.
 
 - Project: **Openup**, a dark-mode desktop application for legacy iPhone recovery.
 - Repository: <https://github.com/channelramble/Openup> (public).
-- Current app version: **2.3.4**, with automatic recovery and no post-boot menu.
+- Current app version: **2.3.5**, with one-click desktop updates.
 - Verified device baseline: **2.3.1**, a prerelease built from
   `d6a5117a25038b850a56cea2c2f89b151930c104`.
-- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.4>.
+- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.5>.
 - Read `README.md`, the newest section of `VERIFICATION.txt`, `CHANGELOG.md`,
   and `THIRD_PARTY.md` before modifying device operations or packaging.
 - `RESEARCH.md` and older verification sections contain historical hypotheses
@@ -303,11 +303,18 @@ Release procedure:
 6. Verify published asset digests and perform a published-download/update check.
    Distinguish a staged version from the running GUI; restart activates it.
 
-Browser-download installation accepts a platform ZIP and matching checksum
-file without a token. The repository is public; desktop checks need no token. Optional read tokens
-remain in memory for authenticated requests. Both validate platform, clean revision, paths, size bounds, and
-file inventory before activation. A local checksum proves integrity, not
-publisher identity. Preserve damaged-update fallback and explicit rollback.
+The main Updates action is Update now: `desktop_updates.install_latest` checks
+and installs in one cancellable background task, then the GUI offers Restart.
+No browser, token, file selection or second install choice is needed. Include
+prereleases by default because current releases are prereleases. Do not chain
+another GUI task from a result callback while the first task is still busy.
+Already-current checks do not download or alter the active version. Checks are
+user-initiated; never restart during a device operation. Keep the local ZIP and
+checksum installer, rollback, links and optional token under Advanced options.
+The repository is public; desktop checks need no token. Optional read tokens
+remain in memory. Both installation paths validate platform, clean revision,
+paths, size bounds and file inventory before activation. A local checksum proves
+integrity, not publisher identity. Preserve damaged-update fallback and rollback.
 The pre-2.3 rename requires opening a new Openup download once; do not promise
 that older package-name expectations can install the renamed layout.
 

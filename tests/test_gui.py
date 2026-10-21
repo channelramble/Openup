@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import threading
 import time
 import unittest
 from contextlib import contextmanager
@@ -480,29 +481,70 @@ class GuiTests(unittest.TestCase):
             worker.finish()
         self.assertEqual(self.window.timer_flow.stage, "prepare")
 
-    def test_update_install_requires_a_newer_release_and_idle_state(self):
-        from ios_timeout import __version__
-        self.window.pending_release = None
-        self.window.set_busy(False)
-        self.assertFalse(self.window.install_button.isEnabled())
-        self.window.pending_release = {"version": __version__}
-        self.window.set_busy(False)
-        self.assertFalse(self.window.install_button.isEnabled())
-        self.window.pending_release = {"version": "99.0.0"}
-        self.window.set_busy(False)
-        self.assertTrue(self.window.install_button.isEnabled())
+    def test_update_now_requires_idle_state_and_no_pending_restart(self):
+        self.assertTrue(self.window.update_now_button.isEnabled())
         self.window.set_busy(True)
-        self.assertFalse(self.window.install_button.isEnabled())
+        self.assertFalse(self.window.update_now_button.isEnabled())
+        with patch.object(self.window, "run_task") as run:
+            self.window.update_now()
+        run.assert_not_called()
         self.window.set_busy(False)
-        self.assertTrue(self.window.install_button.isEnabled())
+        self.assertTrue(self.window.update_now_button.isEnabled())
+        self.window.update_ready("99.0.0")
+        self.assertTrue(self.window.update_now_button.isHidden())
+        with patch.object(self.window, "run_task") as run:
+            self.window.update_now()
+        run.assert_not_called()
+
+    def test_one_click_update_runs_off_gui_thread_without_browser_or_file_picker(self):
+        gate = threading.Event()
+        worker_threads = []
+        def install(token, prerelease, progress):
+            worker_threads.append(threading.get_ident())
+            progress("Downloading fixture…")
+            if not gate.wait(5):
+                raise RuntimeError("Test did not release updater")
+            return {"version": "99.0.0"}
+        with patch("ios_timeout.gui.desktop_updates.install_latest", side_effect=install) as latest, \
+             patch("ios_timeout.gui.QDesktopServices.openUrl") as browser, \
+             patch("ios_timeout.gui.QFileDialog.getOpenFileName") as picker:
+            self.window.task_failed("Previous update attempt failed")
+            self.window.update_now_button.click()
+            task = self.window.task
+            try:
+                self.assertTrue(self.window.busy)
+                self.assertTrue(self.window.guidance_panel.isHidden())
+                self.assertFalse(self.window.relaunch_button.isEnabled())
+                self.assertFalse(self.window.token_edit.isEnabled())
+                self.window.update_now_button.click()
+                self.window.update_now()
+            finally:
+                gate.set()
+                task.wait(6000)
+                deadline = time.monotonic() + 3
+                while self.window.busy and time.monotonic() < deadline:
+                    self.app.processEvents()
+                    time.sleep(0.01)
+            latest.assert_called_once()
+            self.assertEqual(latest.call_args.args, ("", True))
+            browser.assert_not_called()
+            picker.assert_not_called()
+        self.assertNotEqual(worker_threads, [threading.get_ident()])
+        self.assertFalse(self.window.busy)
+        self.assertIsNone(self.window.task)
+        self.assertFalse(self.window.relaunch_button.isHidden())
+        self.assertTrue(self.window.update_now_button.isHidden())
+        self.assertTrue(self.window.reply_row.isHidden())
+        self.assertIn("99.0.0", self.window.update_info.text())
 
     def test_version_shortcut_opens_updates_and_restart_explains_running_version(self):
         from ios_timeout import __version__
         self.assertIn(__version__, self.window.windowTitle())
         self.window.update_shortcut.click()
         self.assertEqual(self.window.pages.currentIndex(), 4)
-        self.assertTrue(self.window.online_updates.content.isHidden())
-        self.assertFalse(self.window.local_update_button.isHidden())
+        self.assertTrue(self.window.update_options.content.isHidden())
+        self.assertFalse(self.window.update_now_button.isHidden())
+        self.assertFalse(self.window.local_update_button.isVisibleTo(self.window.pages))
         self.window.token_edit.setText("fixture-private-token")
         self.window.update_ready("99.0.0")
         self.assertIn(__version__, self.window.update_info.text())
@@ -538,20 +580,19 @@ class GuiTests(unittest.TestCase):
             self.window.install_downloaded_update()
         choose.assert_not_called()
 
-    def test_excluding_prereleases_discards_the_previous_update_selection(self):
-        self.window.prereleases.setChecked(True)
-        self.window.pending_release = {"version": "99.0.0", "prerelease": True}
-        self.window.update_action_states()
-        self.assertTrue(self.window.install_button.isEnabled())
-        self.assertTrue(self.window.update_check_button.isHidden())
+    def test_update_uses_current_options_and_no_update_does_not_offer_restart(self):
         self.window.prereleases.setChecked(False)
-        self.assertIsNone(self.window.pending_release)
-        self.assertFalse(self.window.install_button.isEnabled())
-        self.assertTrue(self.window.install_button.isHidden())
-        self.assertFalse(self.window.update_check_button.isHidden())
-        with patch.object(self.window, "run_task") as run:
-            self.window.install_update()
-        run.assert_not_called()
+        self.window.token_edit.setText(" optional-fixture-token ")
+        with patch.object(self.window, "run_task") as run, \
+             patch("ios_timeout.gui.desktop_updates.install_latest", return_value=None) as latest:
+            self.window.update_now()
+            function, finished, _ = run.call_args.args
+            finished(function(lambda text: None))
+        self.assertEqual(latest.call_args.args, ("optional-fixture-token", False))
+        self.assertTrue(self.window.relaunch_button.isHidden())
+        self.assertFalse(self.window.update_now_button.isHidden())
+        self.assertIn("No newer release", self.window.update_info.text())
+        self.assertEqual(self.window.token_edit.text(), "")
 
     def test_cancelled_confirmation_never_starts_device_write(self):
         from PySide6.QtWidgets import QMessageBox

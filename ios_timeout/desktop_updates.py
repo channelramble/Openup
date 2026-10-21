@@ -163,8 +163,14 @@ def open_github(path, token="", binary=False):
         return opener.open(urllib.request.Request(f"https://api.github.com/repos/{REPO}/{path}",
                                                  headers=headers), timeout=30)
     except urllib.error.HTTPError as exc:
-        if exc.code in (401, 403, 404):
-            raise ResetError("GitHub access failed. Use a token with read access to this private repository.") from None
+        if exc.code == 401:
+            raise ResetError("The optional GitHub token was rejected. Clear it in Advanced update options and try again.") from None
+        if exc.code == 429 or (exc.code == 403 and exc.headers.get("X-RateLimit-Remaining") == "0"):
+            raise ResetError("The update service's request limit was reached. Wait and try again later.") from None
+        if exc.code == 403:
+            raise ResetError("The update service denied this request. Clear any optional token and try again later.") from None
+        if exc.code == 404:
+            raise ResetError("This release or download is no longer available. Try Update now again to refresh the release.") from None
         raise ResetError(f"GitHub returned HTTP {exc.code}. Try again later.") from None
     except urllib.error.URLError:
         raise ResetError("Could not connect securely to GitHub. Check the network and try again.") from None
@@ -196,6 +202,18 @@ def check(token="", prerelease=True, platform_target=None):
         raise ResetError("The desktop asset has no valid GitHub checksum or bounded size.")
     return {"version": version, "target": platform_target, "asset": asset,
             "url": f"https://github.com/{REPO}/releases/tag/v{version}"}
+
+
+def install_latest(token="", prerelease=True, state=None, progress=lambda text: None):
+    """Find and stage the newest desktop release in one cancellable operation."""
+    progress("Checking for the latest release…")
+    release = check(token, prerelease)
+    if release is None or version_tuple(release["version"]) <= version_tuple(__version__):
+        progress("No newer release is available.")
+        return None
+    progress(f"Downloading version {release['version']}…")
+    destination = install(release, token, state=state, progress=progress)
+    return {"version": release["version"], "path": str(destination)}
 
 
 def read_pointer(state):

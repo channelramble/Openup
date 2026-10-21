@@ -192,7 +192,6 @@ class MainWindow(QMainWindow):
         self.operation_buttons = []
         self.task = None
         self.process = None
-        self.pending_release = None
         self.output_decoder = codecs.getincrementaldecoder("utf-8")("replace")
         self.terminal_text = TerminalText()
         self.capture = ""
@@ -768,44 +767,33 @@ class MainWindow(QMainWindow):
     def updates_page(self):
         widget, layout = self.page()
         frame, body = card("App updates", f"Running version {__version__}. Updates take effect after you restart this app.")
-        self.update_info = label("Get a release in your browser, then install it here. No terminal or dependency installation is needed.", "notice")
+        self.update_info = label("Download and install the latest version for this computer directly in Openup. No browser or sign-in needed.", "notice")
         body.addWidget(self.update_info)
-        body.addWidget(label(f"1. Open release downloads. Download the {desktop_updates.target()} desktop ZIP and its matching .zip.sha256 file.", "muted"))
-        body.addWidget(label("2. Choose Install downloaded update, select those files, then restart when prompted.", "muted"))
-        downloads = QHBoxLayout()
-        downloads.addWidget(self.button("Open release downloads ↗", lambda: QDesktopServices.openUrl(
-            QUrl(f"https://github.com/{desktop_updates.REPO}/releases")), operation=False))
-        self.local_update_button = self.button("Install downloaded update…", self.install_downloaded_update, primary=True)
-        downloads.addWidget(self.local_update_button)
-        body.addLayout(downloads)
+        body.addWidget(label("Choose Update now. Openup checks, downloads, and verifies the update, then offers a restart when it is ready.", "muted"))
+        self.update_now_button = self.button("Update now", self.update_now, primary=True)
+        body.addWidget(self.update_now_button, 0, Qt.AlignmentFlag.AlignLeft)
         self.relaunch_button = self.button("Restart to finish update", self.relaunch, primary=True, operation=False)
         self.relaunch_button.hide()
         body.addWidget(self.relaunch_button)
-        self.online_updates = Disclosure("Check and download directly in the app")
-        online = self.online_updates.body
-        online.addWidget(label("Public releases can be checked and downloaded without signing in. A GitHub token is optional.", "muted"))
-        online.addWidget(label("GitHub access token (optional)", "eyebrow"))
+        self.update_options = Disclosure("Advanced update options")
+        options = self.update_options.body
+        self.prereleases = QCheckBox("Include prereleases")
+        self.prereleases.setChecked(True)
+        options.addWidget(self.prereleases)
+        options.addWidget(label("Openup currently publishes prereleases. Leave this enabled to receive the latest version.", "muted"))
+        options.addWidget(self.button("Restore previous app version", self.rollback_update), 0, Qt.AlignmentFlag.AlignLeft)
+        self.local_update_button = self.button("Install downloaded update…", self.install_downloaded_update)
+        options.addWidget(self.local_update_button, 0, Qt.AlignmentFlag.AlignLeft)
+        options.addWidget(label("For a local installation, select the desktop ZIP and its matching .zip.sha256 file.", "muted"))
+        options.addWidget(self.button("Release notes and downloads ↗", lambda: QDesktopServices.openUrl(
+            QUrl(f"https://github.com/{desktop_updates.REPO}/releases")), operation=False), 0, Qt.AlignmentFlag.AlignLeft)
+        options.addWidget(label("GitHub access token (optional)", "eyebrow"))
         self.token_edit = QLineEdit()
         self.token_edit.setEchoMode(QLineEdit.EchoMode.Password)
         self.token_edit.setPlaceholderText("Leave empty for public downloads")
-        online.addWidget(self.token_edit)
-        online.addWidget(label("Your token stays in memory for this session. It is not saved or passed to device operations.", "muted"))
-        self.prereleases = QCheckBox("Include prereleases")
-        self.prereleases.setChecked(True)
-        self.prereleases.toggled.connect(self.reset_update_selection)
-        update_options = Disclosure("Update options")
-        update_options.body.addWidget(self.prereleases)
-        update_options.body.addWidget(self.button("Restore previous app version", self.rollback_update), 0, Qt.AlignmentFlag.AlignLeft)
-        actions = QHBoxLayout()
-        self.update_check_button = self.button("Check for updates", self.check_updates, primary=True)
-        actions.addWidget(self.update_check_button)
-        self.install_button = self.button("Install update", self.install_update, primary=True)
-        self.install_button.setEnabled(False)
-        self.install_button.hide()
-        actions.addWidget(self.install_button)
-        online.addLayout(actions)
-        body.addWidget(self.online_updates)
-        body.addWidget(update_options)
+        options.addWidget(self.token_edit)
+        options.addWidget(label("Your token stays in memory for this session. It is not saved or passed to device operations.", "muted"))
+        body.addWidget(self.update_options)
         layout.addWidget(frame)
         layout.addWidget(label("Downloads are checksum-verified, staged separately, and activated only after verification. Backups remain in your local workspace.", "muted"))
         layout.addStretch()
@@ -907,13 +895,10 @@ class MainWindow(QMainWindow):
             self.invalidate_timer_flow()
 
     def update_action_states(self):
-        if not hasattr(self, "install_button"):
+        if not hasattr(self, "update_now_button"):
             return
-        available = (self.pending_release is not None and
-                     desktop_updates.version_tuple(self.pending_release["version"]) > desktop_updates.version_tuple(__version__))
-        self.install_button.setEnabled(not self.busy and available)
-        self.install_button.setVisible(available)
-        self.update_check_button.setVisible(not available and self.relaunch_button.isHidden())
+        self.update_now_button.setEnabled(not self.busy)
+        self.update_now_button.setVisible(self.relaunch_button.isHidden())
         row = self.backup_table.currentRow()
         valid_backup = 0 <= row < len(self.backup_rows) and self.backup_rows[row]["valid"]
         self.restore_button.setEnabled(not self.busy and valid_backup)
@@ -1252,7 +1237,9 @@ class MainWindow(QMainWindow):
             return
         self.task_outcome = "Finished"
         self.task_hint = "The result is shown on the Updates page."
+        self.guidance_panel.hide()
         self.set_busy(True, message)
+        self.size_session()
         self.session_hint.setText("You can keep browsing while this completes.")
         self.cancel_task = threading.Event()
         cancellation = self.cancel_task
@@ -1291,37 +1278,24 @@ class MainWindow(QMainWindow):
         self.guidance_text.setText(message)
         self.size_session()
 
-    def check_updates(self):
+    def update_now(self):
+        if self.busy or not self.relaunch_button.isHidden():
+            return
         token = self.token_edit.text().strip()
         prerelease = self.prereleases.isChecked()
 
-        def checked(release):
-            self.pending_release = release
-            self.task_outcome = "Update check finished"
-            self.task_hint = "The result is shown on the Updates page."
-            if release and desktop_updates.version_tuple(release["version"]) > desktop_updates.version_tuple(__version__):
-                self.update_info.setText(f"Version {release['version']} is available for this computer.")
+        def installed(result):
+            if result:
+                self.update_ready(result["version"])
             else:
-                self.update_info.setText(f"You're current. Installed desktop version: {__version__}.")
+                self.task_outcome = "Update check finished"
+                self.task_hint = f"No newer release is available with these update options. Running version {__version__}."
+                self.update_info.setText(self.task_hint)
+                self.token_edit.clear()
 
-        self.run_task(lambda progress: desktop_updates.check(token, prerelease), checked, "Checking GitHub")
-
-    def reset_update_selection(self):
-        self.pending_release = None
-        self.update_info.setText("Update options changed. Check again to find a matching release.")
-        self.update_action_states()
-
-    def install_update(self):
-        release = self.pending_release
-        if release is None:
-            return
-        token = self.token_edit.text().strip()
-
-        def installed(_folder):
-            self.update_ready(release["version"])
-
-        self.run_task(lambda progress: desktop_updates.install(release, token, progress=progress),
-                      installed, "Downloading desktop update")
+        self.update_info.setText("Checking for the latest version. Download and verification progress appears below.")
+        self.run_task(lambda progress: desktop_updates.install_latest(token, prerelease, progress=progress),
+                      installed, "Checking for the latest release")
 
     def install_downloaded_update(self):
         if self.busy:
@@ -1345,8 +1319,8 @@ class MainWindow(QMainWindow):
         self.relaunch_button.setText(f"Restart and use {version}")
         self.relaunch_button.show()
         self.update_shortcut.setText(f"Restart · v{version}")
-        self.pending_release = None
         self.token_edit.clear()
+        self.update_action_states()
 
     def rollback_update(self):
         if self.busy:

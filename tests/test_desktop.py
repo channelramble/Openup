@@ -157,6 +157,76 @@ class DesktopPlanningTests(unittest.TestCase):
 
 
 class DesktopUpdateTests(unittest.TestCase):
+    def test_latest_update_downloads_and_activates_public_release_on_each_target(self):
+        for target in sorted(updates.TARGETS):
+            with self.subTest(target=target), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                archive, _ = self.downloaded_fixture(root, target)
+                releases = [
+                    {"tag_name": "v100.0.0", "draft": True},
+                    {"tag_name": "v98.0.0", "assets": []},
+                    {"tag_name": "v99.0.0", "prerelease": True, "assets": [{
+                        "name": archive.name, "id": 123, "size": archive.stat().st_size,
+                        "digest": "sha256:" + updates.file_hash(archive)}]},
+                ]
+                calls, progress = [], []
+                def network(path, token="", binary=False):
+                    calls.append((path, token, binary))
+                    if path == "releases?per_page=100":
+                        return io.BytesIO(json.dumps(releases).encode())
+                    self.assertEqual(path, "releases/assets/123")
+                    return io.BytesIO(archive.read_bytes())
+                with patch.object(updates, "target", return_value=target), \
+                     patch.object(updates, "open_github", side_effect=network):
+                    result = updates.install_latest(state=root / "state", progress=progress.append)
+                self.assertEqual(calls, [("releases?per_page=100", "", False),
+                                         ("releases/assets/123", "", True)])
+                self.assertEqual(result["version"], "99.0.0")
+                updates.verify_bundle(result["path"], target, "99.0.0")
+                self.assertEqual(updates.read_pointer(root / "state")["current"], "99.0.0")
+                self.assertTrue(any("Downloading" in message for message in progress))
+                self.assertTrue(updates.rollback(root / "state"))
+                self.assertIsNone(updates.read_pointer(root / "state")["current"])
+
+    def test_latest_update_never_downloads_current_older_or_excluded_release(self):
+        for releases, prerelease in (([], True), ([{"tag_name": "v" + updates.__version__}], True),
+                                    ([{"tag_name": "v1.0.0"}], True),
+                                    ([{"tag_name": "v99.0.0", "prerelease": True}], False)):
+            with self.subTest(releases=releases), tempfile.TemporaryDirectory() as directory:
+                with patch.object(updates, "open_github", return_value=io.BytesIO(json.dumps(releases).encode())) as network, \
+                     patch.object(updates, "install") as install:
+                    self.assertIsNone(updates.install_latest(prerelease=prerelease, state=directory))
+                self.assertEqual(network.call_count, 1)
+                install.assert_not_called()
+                self.assertFalse((Path(directory) / "desktop-updates").exists())
+
+    def test_latest_update_can_cancel_after_check_before_download(self):
+        def progress(message):
+            if message.startswith("Downloading"):
+                raise ResetError("cancelled")
+        with patch.object(updates, "check", return_value={"version": "99.0.0"}), \
+             patch.object(updates, "install") as install, self.assertRaisesRegex(ResetError, "cancelled"):
+            updates.install_latest(progress=progress)
+        install.assert_not_called()
+
+    def test_public_request_needs_no_authorization_and_errors_do_not_require_token(self):
+        with patch.object(updates.urllib.request, "build_opener") as opener:
+            updates.open_github("releases?per_page=100")
+            request = opener.return_value.open.call_args.args[0]
+            self.assertIsNone(request.get_header("Authorization"))
+            self.assertTrue(request.full_url.startswith("https://api.github.com/"))
+            for status, headers, message in ((401, {}, "optional GitHub token"),
+                                             (403, {"X-RateLimit-Remaining": "0"}, "request limit"),
+                                             (429, {}, "request limit"),
+                                             (403, {}, "denied"), (404, {}, "no longer available")):
+                with self.subTest(status=status, headers=headers):
+                    opener.return_value.open.side_effect = updates.urllib.error.HTTPError(
+                        request.full_url, status, "fixture", headers, None)
+                    with self.assertRaisesRegex(ResetError, message) as failure:
+                        updates.open_github("releases?per_page=100", "fixture-secret")
+                    self.assertNotIn("fixture-secret", str(failure.exception))
+                    self.assertNotIn("private repository", str(failure.exception))
+
     def test_existing_installation_remains_available_for_explicit_rollback(self):
         for target in sorted(updates.TARGETS):
             with self.subTest(target=target), tempfile.TemporaryDirectory() as directory:

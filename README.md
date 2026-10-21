@@ -2,7 +2,7 @@
 
 [![Test and package](https://github.com/channelramble/Openup/actions/workflows/ci.yml/badge.svg)](https://github.com/channelramble/Openup/actions/workflows/ci.yml)
 
-A desktop app for legacy iPhone recovery. Version **2.3.4** removes the repeating Show Passcode menu: start recovery once, follow the GUI's DFU steps, then read the final passcode on the iPhone. It retains the OLED-black theme, small-screen result display and tested iPhone 3G boot and RAM-disk fixes. Its interface provides on-screen instructions, menu buttons, countdowns, and result cards. The terminal and manual input are optional Advanced controls, both off by default. It includes guided timer reset, a pinned [recovery backend](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, and a built-in updater. iPhone 3G ARMv6 tools and Intel Mac builds targeting macOS 12 Monterey are included.
+A desktop app for legacy iPhone recovery. Version **2.3.5** adds one-click updates: **Updates → Update now** fetches and installs the latest compatible release without a browser or sign-in, then offers a restart. It retains the OLED-black theme, automatic recovery without a repeating menu, small-screen result display and tested iPhone 3G boot and RAM-disk fixes. Its interface provides on-screen instructions, menu buttons, countdowns, and result cards. The terminal and manual input are optional Advanced controls, both off by default. It includes guided timer reset, a pinned [recovery backend](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, and a built-in updater. iPhone 3G ARMv6 tools and Intel Mac builds targeting macOS 12 Monterey are included.
 
 **Desktop downloads include Python, Qt, SSH libraries, and their Python dependencies. No Python, pip, virtual environment, or package installation is needed to open the app.** The Windows archive also includes the Linux Python/SSH runtime used by its WSL bridge.
 
@@ -10,7 +10,9 @@ A desktop app for legacy iPhone recovery. Version **2.3.4** removes the repeatin
 
 ## Download and open
 
-Get the platform archive from [version 2.3.4](https://github.com/channelramble/Openup/releases/tag/v2.3.4) and extract it completely.
+Get the platform archive from [version 2.3.5](https://github.com/channelramble/Openup/releases/tag/v2.3.5) and extract it completely.
+
+**Already using Openup 2.3.0–2.3.4?** Open **Updates → Check and download directly in the app → Check for updates → Install update**, then restart. Leave the token empty and Include prereleases enabled. This installs the new one-click updater without visiting GitHub.
 
 **Upgrading from 2.2.x:** extract and open the new `Openup` app once. The older updater expects the previous package name and cannot install this renamed layout. Openup preserves the existing backup/cache directory and recognizes older installed versions for rollback. Later Openup releases use the built-in updater normally. An older update selection cannot silently replace a freshly opened, newer app.
 
@@ -34,7 +36,7 @@ USB access still depends on the host: macOS's usbmuxd service, Apple Mobile Devi
 3. **Timer reset:** follow **Prepare → Review & reset → Done**. Preparation boots the temporary ramdisk and inspects the phone. When the on-screen SSH Ramdisk Menu appears, choose Exit while leaving the ramdisk running. Review the proposed changes in the result card, then confirm the reset. If the phone is already prepared, use the inspection shortcut. Changing the selected phone or its settings requires a fresh review. After reboot, use the existing passcode.
 4. **Passcode recovery:** click **Start recovery** once; the app downloads the backend when needed. Follow the GUI's DFU steps and countdown. Recovery runs automatically on the iPhone, with the full passcode shown at the end of its output. There is no Show Passcode menu or terminal choice. The app finishes with **Check your iPhone**; sending the recovery system does not confirm a recovered passcode. A temporary masked GUI field still handles any required host password.
 5. **Advanced options:** expand these only when needed, such as for a local 3G IPSW, a custom tools folder, or connection settings. The normal workflow uses the included tools and default settings.
-6. **Backups and updates:** use Backups to restore original files or finish interrupted cleanup. Use the version/Updates button to open the public release downloads in your browser. Download your platform desktop ZIP and its matching `.zip.sha256`, then choose **Install downloaded update** and **Restart**. No token is needed for this route. Direct checks and downloads are also available in the expandable section without signing in; an optional GitHub read token is kept only in memory. Rollback remains available; GitHub CLI is not required.
+6. **Backups and updates:** use Backups to restore original files or finish interrupted cleanup. Choose **Updates → Update now** to check, download, verify and install the latest release for your computer. Choose **Restart** when ready to use it. No browser, token, file selection or GitHub CLI is required. Prereleases are included by default because Openup currently publishes prereleases. **Advanced update options** contains rollback, a local ZIP/checksum installer, release notes and an optional token kept only in memory. Updates run when requested; the app never restarts during an operation.
 
 The **session card** displays the current step, requests a response when needed, and shows the result. The terminal stays closed even on failure. Open **Advanced · terminal** to inspect raw output; **Enable manual input** is a separate opt-in. Closing the terminal disables manual input again. Phone and settings controls are locked while an operation runs.
 
@@ -42,7 +44,7 @@ The 3G button helper uses elapsed-time deadlines, so a slow or missing USB respo
 
 Long operations run outside the GUI process. **Stop** requests a graceful stop; file-writing workflows ask before interruption and retain the engine's rollback behavior. Output stays in memory unless you choose **Save log**. Prompt responses are not added to the transcript by the app; backend-reported passcodes and other backend output can still appear in an export. Exports retain up to 16 MiB independently of the display's 2,500-line scrollback. If that limit is reached, the export preserves initial context and recent output with an explicit omission marker. Clearing the terminal clears both the display and export transcript. The window remains open while an operation or cleanup is active.
 
-Desktop updates verify the GitHub asset digest (direct download) or the matching release SHA-256 file (browser download), platform, clean source revision, archive paths, and all packaged file checksums. Obtain both files from this repository’s release page; a locally supplied checksum checks integrity, not publisher identity. They stage a complete replacement runtime, then switch versions. The original launcher remains your entry point; rollback selects the previous installation. Downloading a newer app does not replace an already-open window: check the running version in the title bar and restart after installing. A damaged update falls back to the original app's recovery UI.
+Desktop updates verify the GitHub asset digest, platform, clean source revision, archive paths, and all packaged file checksums. They stage a complete replacement runtime, then switch versions. The optional local installer requires a desktop ZIP and matching SHA-256 file from this repository’s release page; a locally supplied checksum checks integrity, not publisher identity. The original launcher remains your entry point; rollback selects the previous installation. Downloading a newer app does not replace an already-open window: check the running version in the title bar and restart after installing. A damaged update falls back to the original app's recovery UI.
 
 **Validation scope:** a diagnostic iPhone 3G ramdisk, authenticated SSH and SFTP have been verified on the connected phone through an Apple Silicon MacBook. Passcode recovery and on-screen timer clearance were not run in that test. Intel USB recovery, native Windows execution and Windows USB passthrough remain unverified. The bundled ARMv6 tools also pass architecture, signature, reproducibility and actual ramdisk-library import checks. See `VERIFICATION.txt`.
 
@@ -50,7 +52,7 @@ The `reset` workflow still requires the correct passcode afterward. The separate
 
 ## Source edition and CLI
 
-The unqualified `Openup-2.3.4.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
+The unqualified `Openup-2.3.5.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
 
 Download the ZIP from [Releases](https://github.com/channelramble/Openup/releases) and extract the whole folder onto the computer connected to the phone. Python 3.9 or newer is required.
 

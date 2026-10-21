@@ -1,5 +1,14 @@
 # Changes
 
+## 2.3.5
+
+- Make Update now the primary Updates action. It finds the latest compatible release, downloads and verifies the complete desktop package, and stages it in one background operation before offering Restart.
+- Require no browser, GitHub sign-in, token, file selection or separate install confirmation. Keep prereleases enabled by default so Openup's current releases are included.
+- Move the local installer, rollback, release links and optional token into Advanced update options. Keep cancellation, repeat-click protection, verification and the existing installation intact until activation.
+- Replace obsolete private-repository errors with specific retry guidance for rejected optional tokens, request limits and unavailable downloads.
+
+Device operations, bundled dependencies and platform compatibility are unchanged.
+
 ## 2.3.4
 
 - Remove the host's recursive Show Passcode / Exit menu. Recovery already runs automatically on the iPhone; the host now finishes once after sending the recovery system, without reading result files or writing over the phone console.
