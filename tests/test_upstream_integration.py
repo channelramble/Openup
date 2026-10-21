@@ -217,6 +217,9 @@ class UpstreamShellIntegrationTests(unittest.TestCase):
         source_root = Path(__file__).resolve().parents[1]
         self.startup.write_bytes(
             (source_root / "ios_timeout/data/iphone3g-setup.sh").read_bytes())
+        self.display = self.root / "recovery display.sh"
+        self.display.write_bytes(
+            (source_root / "ios_timeout/data/recovery-display.sh").read_bytes())
         for folder in (self.bin, self.work, self.payloads, self.wait_helper.parent,
                        self.backend / "resources/sshrd",
                        self.backend / "resources/patch",
@@ -262,6 +265,7 @@ class UpstreamShellIntegrationTests(unittest.TestCase):
             "BL_IOS_PYTHON": str(self.bin / "managed-python"),
             "BL_IOS_PAYLOADS": str(self.payloads),
             "BL_IOS_3G_SETUP": str(self.startup),
+            "BL_IOS_RECOVERY_DISPLAY": str(self.display),
             "BL_IOS_3G_WAIT": str(self.wait_helper),
             "BL_TEST_TRACE": str(self.trace),
             "PYTHONPATH": str(Path(__file__).resolve().parents[1]),
@@ -612,8 +616,13 @@ enter_pwndfu
         self.assert_stopped(result, "Required ramdisk update failed")
         hfs = [entry for entry in self.trace_entries() if entry["tool"] == "hfsplus"]
         self.assertEqual(hfs[-1]["args"][1:], [
-            "add", str(self.payloads / "bruteforce"), "usr/bin/bruteforce",
+            "add", str(self.payloads / "bruteforce"), "usr/bin/openup-recovery-engine",
         ])
+        self.assert_no_boot_patching()
+
+    def test_missing_result_display_stops_preparation(self):
+        result = self.run_create(BL_IOS_RECOVERY_DISPLAY=str(self.root / "missing-display"))
+        self.assert_stopped(result, "Required ramdisk update failed")
         self.assert_no_boot_patching()
 
     def test_final_publish_failure_stops_preparation(self):
@@ -655,6 +664,13 @@ enter_pwndfu
         self.assertNotIn("restored_external.sshrd --sleep", startup_entries[0]["startup"])
         added = [entry["args"][2:] for entry in entries
                  if entry["tool"] == "hfsplus" and entry["args"][1] == "add"]
+        self.assertIn([str(self.payloads / "bruteforce"),
+                       "usr/bin/openup-recovery-engine"], added)
+        self.assertIn([str(self.display), "usr/bin/bruteforce"], added)
+        modes = [entry["args"][2:] for entry in entries
+                 if entry["tool"] == "hfsplus" and entry["args"][1] == "chmod"]
+        self.assertIn(["755", "usr/bin/openup-recovery-engine"], modes)
+        self.assertIn(["755", "usr/bin/bruteforce"], modes)
         self.assertIn([str(self.payloads / "restored_external"),
                        "usr/local/bin/restored_external.sshrd"], added)
         self.assertIn([str(self.wait_helper), "usr/local/bin/bl-ios-wait"], added)
@@ -688,6 +704,10 @@ enter_pwndfu
         result = self.run_create()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertFalse(any(entry["tool"] == "pzb" for entry in self.trace_entries()))
+        # Cached firmware still receives the current display/startup scripts.
+        self.assertIn({"tool": "hfsplus", "args": [
+            "Ramdisk.raw", "add", str(self.display), "usr/bin/bruteforce",
+        ]}, self.trace_entries())
 
     def test_failed_first_stage_download_cannot_use_a_leftover_work_file(self):
         (self.work / "iBSS.n82ap.RELEASE.dfu").write_text("old work file")

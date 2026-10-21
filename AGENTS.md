@@ -9,10 +9,10 @@ assuming that a historical state still applies.
 
 - Project: **Openup**, a dark-mode desktop application for legacy iPhone recovery.
 - Repository: <https://github.com/channelramble/Openup> (public).
-- Current app version: **2.3.2**, with an OLED-black theme.
+- Current app version: **2.3.3**, with the phone's passcode result printed last.
 - Verified device baseline: **2.3.1**, a prerelease built from
   `d6a5117a25038b850a56cea2c2f89b151930c104`.
-- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.2>.
+- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.3>.
 - Read `README.md`, the newest section of `VERIFICATION.txt`, `CHANGELOG.md`,
   and `THIRD_PARTY.md` before modifying device operations or packaging.
 - `RESEARCH.md` and older verification sections contain historical hypotheses
@@ -166,6 +166,19 @@ one-second execution and invalid-delay rejection checks on the phone.
 
 ## Development and tests
 
+The on-device `ios_timeout/data/recovery-display.sh` wraps the unchanged native
+recovery engine at `/usr/bin/openup-recovery-engine`. It forwards output without
+saving a transcript, then prints the result after all diagnostics. Only an
+explicit reported value with a completed zero exit and no validation failure
+can become the final recovered-passcode block. Preserve leading zeros; bare
+numeric guesses are not results. Explicit no-passcode, failure, incomplete
+output and no-result endings are distinct. The 3G startup holds quietly after
+the result. The adapter installs the wrapper on every ramdisk preparation,
+including cached firmware; no native payload rebuild is needed for shell-only
+display changes. `tests/test_recovery_display.py` uses fake engine output, not
+real recovery. The new output still needs physical screen validation. Piping
+native stdout may buffer progress; stdin and engine arguments are preserved.
+
 Source support starts at Python 3.9. Use Python **3.13** for the complete desktop
 development environment. These are maintainer commands, not end-user setup:
 
@@ -192,7 +205,8 @@ Choose tests appropriate to the change:
   `test_compatibility`, `test_usbmux`, `test_ssh_integration`.
 - Boot and payloads: `test_backend`, `test_upstream_integration`,
   `test_armv6_boot`, `test_armv6_kernel`, `test_armv6_payloads`,
-  `test_armv6_root`, `test_armv6_wait`, `test_recovery_timing`, `test_macos_agents`.
+  `test_armv6_root`, `test_armv6_wait`, `test_recovery_timing`, `test_recovery_display`,
+  `test_macos_agents`.
 - Desktop and updates: `test_gui`, `test_gui_flow`, `test_backend_ui`,
   `test_desktop`, `test_desktop_session`, `test_desktop_results`,
   `test_session_log`, `test_updates`, `test_brand_migration`,

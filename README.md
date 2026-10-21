@@ -2,7 +2,7 @@
 
 [![Test and package](https://github.com/channelramble/Openup/actions/workflows/ci.yml/badge.svg)](https://github.com/channelramble/Openup/actions/workflows/ci.yml)
 
-A desktop app for legacy iPhone recovery. Version **2.3.2** adds a true OLED-black theme while retaining the tested iPhone 3G boot and RAM-disk fixes. Its interface provides on-screen instructions, menu buttons, countdowns, and result cards. The terminal and manual input are optional Advanced controls, both off by default. It includes guided timer reset, a pinned [recovery backend](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, and a built-in updater. iPhone 3G ARMv6 tools and Intel Mac builds targeting macOS 12 Monterey are included.
+A desktop app for legacy iPhone recovery. Version **2.3.3** puts the recovered passcode at the end of the phone's console output so it stays visible on small screens. It retains the OLED-black theme and tested iPhone 3G boot and RAM-disk fixes. Its interface provides on-screen instructions, menu buttons, countdowns, and result cards. The terminal and manual input are optional Advanced controls, both off by default. It includes guided timer reset, a pinned [recovery backend](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, and a built-in updater. iPhone 3G ARMv6 tools and Intel Mac builds targeting macOS 12 Monterey are included.
 
 **Desktop downloads include Python, Qt, SSH libraries, and their Python dependencies. No Python, pip, virtual environment, or package installation is needed to open the app.** The Windows archive also includes the Linux Python/SSH runtime used by its WSL bridge.
 
@@ -10,7 +10,7 @@ A desktop app for legacy iPhone recovery. Version **2.3.2** adds a true OLED-bla
 
 ## Download and open
 
-Get the platform archive from [version 2.3.2](https://github.com/channelramble/Openup/releases/tag/v2.3.2) and extract it completely.
+Get the platform archive from [version 2.3.3](https://github.com/channelramble/Openup/releases/tag/v2.3.3) and extract it completely.
 
 **Upgrading from 2.2.x:** extract and open the new `Openup` app once. The older updater expects the previous package name and cannot install this renamed layout. Openup preserves the existing backup/cache directory and recognizes older installed versions for rollback. Later Openup releases use the built-in updater normally. An older update selection cannot silently replace a freshly opened, newer app.
 
@@ -50,7 +50,7 @@ The `reset` workflow still requires the correct passcode afterward. The separate
 
 ## Source edition and CLI
 
-The unqualified `Openup-2.3.2.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
+The unqualified `Openup-2.3.3.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
 
 Download the ZIP from [Releases](https://github.com/channelramble/Openup/releases) and extract the whole folder onto the computer connected to the phone. Python 3.9 or newer is required.
 

@@ -1,5 +1,13 @@
 # Changes
 
+## 2.3.3
+
+- Finish on-device recovery output with a short passcode result below the key and file-saving diagnostics, so the value remains visible on small phone screens. Preserve leading zeros and distinguish an unset passcode, an unsuccessful search, and a failed run.
+- Remove the trailing 3G completion-status message and keep its post-recovery hold quiet. The shared display script wraps the existing native executable without changing the recovery algorithm or result files.
+- Install the display script whenever a recovery ramdisk is prepared, including when firmware components are cached. Missing display resources stop preparation.
+
+The display behavior is covered by simulated shell and ramdisk-preparation tests. Physical screen validation remains pending; existing device and platform compatibility limits still apply.
+
 ## 2.3.2
 
 - Use true black backgrounds across the workspace, sidebar, cards, inputs, tables, dialogs, and optional terminal. Keep neutral borders, visible focus states, and readable blue, green, and amber status accents.

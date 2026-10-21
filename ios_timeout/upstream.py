@@ -215,6 +215,13 @@ def adapt_script(original):
     replace('    device_get_info\n', '    device_get_info\n    bl_ios_validate\n')
     replace('# ==================== INIT ====================',
             HOOK + '\n# ==================== INIT ====================')
+    # Keep the native recovery executable unchanged. All startup variants keep
+    # their existing entry point, now backed by the shared result display.
+    replace('''        "$dir/hfsplus" Ramdisk.raw add $PROJECT_ROOT/resources/bruteforce usr/bin/bruteforce
+        "$dir/hfsplus" Ramdisk.raw chmod 755 usr/bin/bruteforce''', '''        "$dir/hfsplus" Ramdisk.raw add $PROJECT_ROOT/resources/bruteforce usr/bin/openup-recovery-engine
+        "$dir/hfsplus" Ramdisk.raw chmod 755 usr/bin/openup-recovery-engine
+        "$dir/hfsplus" Ramdisk.raw add "$BL_IOS_RECOVERY_DISPLAY" usr/bin/bruteforce
+        "$dir/hfsplus" Ramdisk.raw chmod 755 usr/bin/bruteforce''')
     replace('select_ramdisk_version() {\n', '''select_ramdisk_version() {
     if [[ $device_type == "iPhone1,2" ]]; then
         log "iPhone 3G: using the 4.2.1/8C148 ramdisk and bundled ARMv6 tools."
@@ -499,6 +506,9 @@ def run_backend(args):
         startup = folder / "iphone3g-setup.sh"
         startup.write_bytes(resources.files("ios_timeout").joinpath("data/iphone3g-setup.sh").read_bytes())
         env["BL_IOS_3G_SETUP"] = str(startup)
+        display = folder / "recovery-display.sh"
+        display.write_bytes(resources.files("ios_timeout").joinpath("data/recovery-display.sh").read_bytes())
+        env["BL_IOS_RECOVERY_DISPLAY"] = str(display)
         bundled_payloads = extract_bundled_payloads(folder / "bundled-armv6")
         env["BL_IOS_3G_WAIT"] = str(bundled_payloads / "restored_external")
         if args.armv6_tools:

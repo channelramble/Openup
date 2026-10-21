@@ -1,3 +1,28 @@
+Openup 2.3.3 — passcode result at the end of the phone console
+Verification date: 2026-10-20
+
+The shared shell display wrapper forwards native output, then shows a short
+final result below the key and file-saving diagnostics. It preserves leading
+zeros and requires an explicit reported value, completed zero exit and no
+validation failure. Guesses alone cannot become a recovered value. The 3G
+startup no longer prints a completion status and holds quietly afterward.
+The native executable, algorithm, firmware, payloads and result files are
+unchanged. Piped stdout can buffer progress; stdin and arguments are preserved.
+
+All 344 source tests passed, including the pinned backend/kit integrations.
+Thirteen new shell display tests use a fake engine: narrow final viewports,
+leading zeros, stdout/stderr diagnostics, validation failure with zero exit,
+nonzero exits, incomplete streams, missing engine, literal metacharacters,
+argument/stdin forwarding and a quiet post-recovery hold. The wrapper needs no
+additional shell utilities. Ramdisk fixtures check both executable installs,
+permissions, missing-display failure and reinstallation with cached firmware.
+Shell syntax checks passed. No real recovery or phone-screen test was run for
+this change; device compatibility limits are unchanged. Release-specific
+packaged-runtime and updater validation is recorded with version 2.3.3.
+
+Historical records follow.
+============================================================
+
 Openup 2.3.2 — OLED-black desktop theme
 Verification date: 2026-10-20
 

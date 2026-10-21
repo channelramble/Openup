@@ -5,7 +5,9 @@ export PATH=/usr/bin:/bin:/usr/sbin:/sbin
 exec >/dev/console 2>&1
 
 hold_ramdisk() {
-    echo "Recovery stopped. The phone remains in its RAM disk until rebooted."
+    if [ "${1-}" != quiet ]; then
+        echo "Recovery stopped. The phone remains in its RAM disk until rebooted."
+    fi
     while :; do
         if [ -x /usr/local/bin/bl-ios-wait ]; then
             /usr/local/bin/bl-ios-wait --sleep 60 && continue
@@ -46,7 +48,6 @@ cd /var/root || hold_ramdisk
 # The recovery executable itself mounts the data partition read-only.
 # Never run the upstream mount.sh (which repairs and mounts it read/write).
 /usr/bin/bruteforce -u
-recovery_status=$?
-echo "Recovery process finished with status $recovery_status."
+# The display wrapper leaves the confirmed result last on the small screen.
 wait "$daemon_pid"
-hold_ramdisk
+hold_ramdisk quiet
