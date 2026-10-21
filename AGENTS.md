@@ -9,10 +9,10 @@ assuming that a historical state still applies.
 
 - Project: **Openup**, a dark-mode desktop application for legacy iPhone recovery.
 - Repository: <https://github.com/channelramble/Openup> (public).
-- Current app version: **2.3.8**, with one-click desktop updates.
+- Current app version: **2.3.9**, with one-click desktop updates.
 - Verified device baseline: **2.3.1**, a prerelease built from
   `d6a5117a25038b850a56cea2c2f89b151930c104`.
-- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.8>.
+- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.9>.
 - Read `README.md`, the newest section of `VERIFICATION.txt`, `CHANGELOG.md`,
   and `THIRD_PARTY.md` before modifying device operations or packaging.
 - `RESEARCH.md` and older verification sections contain historical hypotheses
@@ -268,7 +268,13 @@ For 2.3.7, all 364 source tests passed (the new tests run with
 `BL_IOS_LEGACY_SCRIPT` set). The SSH-Ramdisk-Menu auto-exit still needs phone
 validation. For 2.3.8, all 365 source tests passed; the new test asserts the
 timer-reset path wraps the backend boot in the device-agent reservation. The
-Intel-Mac device-grab fix still needs on-device confirmation.
+Intel-Mac device-grab fix still needs on-device confirmation. For 2.3.9, all 369
+source tests passed. `usbmux.wait_for_device` adds a bounded post-boot USB
+re-enumeration poll (cli.run) for the post-boot "No device found" cause; the
+GUI reset now requires a typed "Yes" (`require_typed_confirmation`, used from
+`start_operation`), and the overview starts a Step 1/Step 2 cleanup. The
+pre-boot detection cause and the Intel device-grab outcome still need a device
+log; the UI cleanup is an early pass.
 For 2.3.3, 344 tests passed in source and the native Apple Silicon package;
 all-platform updater installation/rollback and a public download check passed.
 The MacBook was unreachable, so that release was not run under Rosetta there.

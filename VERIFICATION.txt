@@ -1,3 +1,42 @@
+Openup 2.3.9 — post-boot USB wait, typed reset confirmation, UI cleanup
+Verification date: 2026-10-21
+
+Three changes, none touching device-operation logic.
+
+1. usbmux.wait_for_device: the timer/inspect/reset path called
+select_device(list_devices()) exactly once with no retry, right after the kit
+handed control back. A just-booted ramdisk can take a second or two to
+re-register with usbmuxd (the kit proves reachability over its own iproxy
+tunnel, which is then torn down as the kit exits); on Intel Macs over direct USB
+that handoff window can briefly empty usbmuxd's device table, so the single
+query reported "No matching USB iPhone". wait_for_device polls for up to 20s,
+retrying only the empty-list case with on-screen progress, and still raises the
+same clear errors immediately for a genuinely absent device, several devices, or
+an unreachable usbmuxd. cli.run uses it for prepare/inspect/reset/restore/
+finalize. This is the post-boot re-enumeration cause only; the separate pre-boot
+cause (the kit's own first-probe "No device found!") is unchanged and still
+needs a device log. Three usbmux unit tests cover retry-until-present,
+raise-after-deadline, and no-retry on several devices.
+
+2. require_typed_confirmation: a timer reset writes to the phone, so its GUI
+confirmation now requires typing "Yes" (the confirm button is disabled until the
+text matches), replacing the plain Yes/Cancel question for that action only;
+restore and finalize keep the simple question. The gate lives in
+start_operation; a declined confirmation never starts a worker. GUI tests that
+drive the reset stub the confirmation, and a new test asserts the decline path.
+
+3. UI cleanup pass 1: the overview is framed as Step 1 (connect your phone) and
+Step 2 (choose what to do), and the dual-dropdown phone selector gets clearer
+labels and status. Every surface stays OLED black. The scan/model widget
+references are unchanged. Verified by desktop.py --self-test and offscreen
+screenshots of the overview and the confirm dialog.
+
+All 369 source tests passed with both pinned script fixtures. No phone operation
+was performed: the Intel device-grab outcome and a full GUI prepare->reset on
+hardware remain unconfirmed.
+
+Historical records follow.
+============================================================
 Openup 2.3.8 — timer reset grabs the device on Intel Macs
 Verification date: 2026-10-21
 

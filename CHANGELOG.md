@@ -1,5 +1,13 @@
 # Changes
 
+## 2.3.9
+
+- Wait for the phone to re-enumerate on USB before the timer-reset device step. The flow queried usbmuxd once with no retry right after the kit handed control back; a just-booted ramdisk can take a second or two to re-register (notably on Intel Macs over direct USB, as the kit's own iproxy tunnel tears down), so the single query could land in that gap and report "No matching USB iPhone". It now polls for up to 20 seconds with on-screen progress, and still reports the same clear error immediately for a genuinely absent device. This addresses the post-boot re-enumeration cause; a separate pre-boot detection cause (the kit's own first probe) is not changed here.
+- Require a typed confirmation before a timer reset. Because the reset writes to the phone, the confirmation now asks you to type "Yes"; its button stays disabled until you do. Restore and finalize keep their simple Yes/Cancel prompt.
+- Begin a UI cleanup: the main screen is framed as Step 1 (connect your phone) and Step 2 (choose what to do), and the confusing dual-dropdown labels are replaced with clearer wording and status. Every surface stays OLED black.
+
+All 369 source tests pass, including a new check that a declined reset confirmation never starts a device write. The device operations, transaction engine, boot sequence and activation handling are unchanged. The Intel device-grab fix still needs on-device confirmation, and the UI cleanup is an early pass.
+
 ## 2.3.8
 
 - Fix the timer reset failing to grab the iPhone on Intel Macs. The reset-timer flow now holds the macOS device-agent reservation — the same guardian the recovery flow already uses — across the whole operation: the Legacy iOS Kit ramdisk boot **and** Openup's own ramdisk SSH session. Apple's AMPDevices agents otherwise race to claim the phone and win on Intel, so the device could not be grabbed. The guardian restores exactly the agents it paused when the operation finishes, including on interruption or parent death.
