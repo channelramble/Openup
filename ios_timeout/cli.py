@@ -193,23 +193,36 @@ def launch_backend(args):
         extra.append("--build-id=7E18")
         print("3G target: iPhone1,2 / n82ap; 3.1.3 boot ramdisk. Installed iOS is unchanged.", flush=True)
     print("\nOpening Legacy iOS Kit's SSH-ramdisk workflow.", flush=True)
-    print("Follow its DFU/ramdisk prompts. At the SSH Ramdisk Menu, choose Exit.", flush=True)
+    print("Follow its on-screen DFU/ramdisk steps. The SSH Ramdisk Menu is left automatically.", flush=True)
     print("Connect only one phone for this backend step; --udid selects the phone after boot.", flush=True)
-    print("Leave the phone in the ramdisk; the reset tool resumes when the backend exits.", flush=True)
+    print("The phone stays in the ramdisk; the reset tool resumes when the backend exits.", flush=True)
     print(f"Backend: {script}\nSHA-256: {digest(script.read_bytes())}", flush=True)
     original = script.read_bytes()
+    from .legacy_kit import prepared_script, prepared_menu_script, script_is_pinned
     if args.model == "iPhone1,2":
-        from .legacy_kit import prepared_script
+        # Full 3G adaptation: identity checks plus shared GUI prompt/menu handling.
         prepared = prepared_script(kit, original)
+    elif script_is_pinned(original):
+        # Other supported models: keep the whole timer workflow in the GUI by
+        # applying the shared prompt hooks and non-interactive ramdisk menu,
+        # without the 3G-specific identity checks.
+        prepared = prepared_menu_script(kit, original)
     else:
+        # A user-supplied, non-pinned checkout is run unchanged.
         prepared = nullcontext(script)
     with prepared as running_script:
         env = {**os.environ, "BL_IOS_PYTHON": sys.executable,
+               # Boot the ramdisk and return without the interactive SSH Ramdisk
+               # Menu; Openup's own reset step resumes once the backend exits.
+               "BL_IOS_SSHRD_AUTOEXIT": "1",
                "PYTHONPATH": str(Path(__file__).resolve().parent.parent) +
                (os.pathsep + os.environ["PYTHONPATH"] if os.environ.get("PYTHONPATH") else "")}
         if running_script != script:
             subprocess.run(["bash", "-n", str(running_script)], check=True, timeout=30)
-            print("Applied reviewed 3G identity checks; original backend files are unchanged.", flush=True)
+            note = ("Applied reviewed 3G identity checks and GUI menu handling"
+                    if args.model == "iPhone1,2"
+                    else "Applied reviewed GUI menu handling")
+            print(note + "; original backend files are unchanged.", flush=True)
         completed = subprocess.run(
             ["bash", str(running_script), "--sshrd", "--no-version-check", "--no-color"] + extra,
             cwd=str(kit), env=env, check=False,

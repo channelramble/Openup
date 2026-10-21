@@ -373,3 +373,79 @@ echo UNEXPECTED_CONTINUATION
         self.assertEqual(result.returncode, 9)
         self.assertIn("Ramdisk USB command failed", result.stderr)
         self.assertNotIn("UNEXPECTED", result.stdout)
+
+    def test_sshrd_menu_auto_exits_for_openup_but_stays_interactive_otherwise(self):
+        start = self.adapted.index("menu_ramdisk() {\n")
+        end = self.adapted.index("\n}\n", start) + 3
+        shell = self.adapted[start:end] + "\n" + r'''
+log()   { printf 'LOG:%s\n' "$*"; }
+print() { printf 'PRINT:%s\n' "$*"; }
+warn()  { printf 'WARN:%s\n' "$*"; }
+input() { printf 'INPUT:%s\n' "$*"; }
+# Return the index of the final "Exit" item so the interactive loop ends.
+select_option() { printf 'SELECT_OPTION_CALLED\n'; return $(($# - 1)); }
+ssh=:
+device_proc=4
+device_ramdisk_ios8=0
+ssh_port=2222
+menu_ramdisk
+printf 'RET:%s\n' "$?"
+'''
+        # Openup drives the backend non-interactively: the ramdisk boots and the
+        # menu returns as if Exit were chosen, with no on-screen option to pick.
+        auto = subprocess.run(["bash", "-c", shell], capture_output=True, text=True, timeout=15,
+                              env={**os.environ, "BL_IOS_SSHRD_AUTOEXIT": "1"})
+        self.assertEqual(auto.returncode, 0, auto.stderr)
+        self.assertIn("RET:0", auto.stdout)
+        self.assertNotIn("SELECT_OPTION_CALLED", auto.stdout)
+        self.assertNotIn("INPUT:Select an option", auto.stdout)
+        # Without the flag, the stock interactive SSH Ramdisk Menu still runs.
+        manual_env = {key: value for key, value in os.environ.items()
+                      if key != "BL_IOS_SSHRD_AUTOEXIT"}
+        manual = subprocess.run(["bash", "-c", shell], capture_output=True, text=True, timeout=15,
+                                env=manual_env)
+        self.assertEqual(manual.returncode, 0, manual.stderr)
+        self.assertIn("SELECT_OPTION_CALLED", manual.stdout)
+        self.assertIn("INPUT:Select an option:", manual.stdout)
+
+    def test_menu_only_adaptation_has_gui_handling_without_3g_identity_hooks(self):
+        menu_only = legacy_kit.adapt_menu_only(self.original).decode()
+        self.assertIn("BL_IOS_SSHRD_AUTOEXIT", menu_only)
+        self.assertIn('bl_ios_ui prompt choice "Choose the next step"', menu_only)
+        # Non-3G models get the shared prompt/menu handling but not the 3G hooks.
+        self.assertNotIn("bl_ios_legacy_identity", menu_only)
+        self.assertIn("bl_ios_legacy_identity", self.adapted)
+        syntax = subprocess.run(["bash", "-n"], input=menu_only, text=True,
+                                capture_output=True, timeout=15)
+        self.assertEqual(syntax.returncode, 0, syntax.stderr)
+        with self.assertRaisesRegex(ResetError, "reviewed version"):
+            legacy_kit.adapt_menu_only(self.original + b"\n")
+
+    def test_prepare_adapts_non_3g_pinned_kit_for_gui_menu_handling(self):
+        with tempfile.TemporaryDirectory(prefix="kit menu only ") as temporary:
+            kit = Path(temporary) / "Legacy-iOS-Kit"
+            (kit / "resources").mkdir(parents=True)
+            (kit / "restore.sh").write_bytes(self.original)
+            args = cli.parser().parse_args(
+                ["prepare", "--kit", str(kit), "--model", "iPhone4,1"])
+            ran = []
+
+            def fake_run(command, **kwargs):
+                if command[:2] == ["bash", "-n"]:
+                    return subprocess.CompletedProcess(command, 0)
+                ran.append((list(command), dict(kwargs.get("env", {}))))
+                return subprocess.CompletedProcess(command, 0)
+
+            with patch("ios_timeout.cli.subprocess.run", side_effect=fake_run), \
+                 patch("ios_timeout.cli.platform.system", return_value="Darwin"), \
+                 redirect_stdout(io.StringIO()):
+                cli.launch_backend(args)
+            command, env = ran[-1]
+            script_arg = Path(command[1])
+            self.assertEqual(script_arg.parent, kit.resolve())
+            self.assertNotEqual(script_arg.name, "restore.sh")
+            self.assertIn("--device=iPhone4,1", command)
+            self.assertEqual(env.get("BL_IOS_SSHRD_AUTOEXIT"), "1")
+            # The user's checkout is never modified, and no temp file lingers.
+            self.assertEqual((kit / "restore.sh").read_bytes(), self.original)
+            self.assertEqual(list(kit.glob(".bl-ios-prepare-*")), [])

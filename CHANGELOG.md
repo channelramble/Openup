@@ -1,5 +1,14 @@
 # Changes
 
+## 2.3.7
+
+- Finish the timer-reset preparation without the interactive SSH Ramdisk Menu. Booting the Legacy iOS Kit ramdisk previously dropped into a "Select an option" / "Choose the next step" menu whose only way forward was choosing Exit, which read like a terminal step. The backend now returns automatically once the ramdisk is ready, and Openup's own reset resumes, so the whole timer workflow is driven by the GUI.
+- Leave the phone in the ramdisk exactly as before (equivalent to choosing Exit); no device operation is auto-answered in a loop. The menu still works normally when the kit is run outside Openup.
+- Apply this to every supported timer-reset model on the pinned kit, not only the iPhone 3G. Non-3G models now receive the same GUI prompt/menu handling (without the 3G-specific identity checks), so the whole workflow stays in the GUI. A user-supplied, non-pinned checkout is still run unchanged.
+- Update the preparation guidance so it no longer tells the user to choose Exit at the SSH Ramdisk Menu.
+
+This mirrors the 2.3.4 removal of the recovery flow's repeating menu, now applied to the timer-reset path. Regression tests exercise the adapted `menu_ramdisk` (it returns without a prompt under Openup automation and still runs the interactive menu when the flag is unset), the non-3G menu-only adaptation, and the model routing in `launch_backend`. The identity checks, boot sequence, plist reset, backups and RAM-root helper are unchanged. Physical timer clearance remains pending validation.
+
 ## 2.3.6
 
 - Disable stdout buffering in the bundled iPhone 3G recovery program. Piping output through the final-result display wrapper could hold progress for minutes, then print it in a burst, making a working process appear stuck at OK.

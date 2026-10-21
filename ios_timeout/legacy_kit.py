@@ -75,12 +75,59 @@ bl_ios_legacy_diagnostics() {
 '''
 
 
-def adapt_script(original):
-    if hashlib.sha256(original).hexdigest() != SCRIPT_SHA256:
+def script_is_pinned(original):
+    """True when these bytes are the reviewed, pinned Legacy iOS Kit restore.sh."""
+    return hashlib.sha256(original).hexdigest() == SCRIPT_SHA256
+
+
+def _require_pinned(original):
+    if not script_is_pinned(original):
         raise ResetError(
             "This Legacy iOS Kit script is not the reviewed version for the 3G identity fix. "
             "Use the app's pinned backend, or supply an unchanged checkout of its pinned revision."
         )
+
+
+def _disable_sshrd_menu(source):
+    """Return from the SSH Ramdisk Menu immediately when Openup drives the kit.
+
+    Openup only needs the ramdisk booted; its own reset resumes once the backend
+    exits. The interactive menu would otherwise force a terminal "Select an
+    option" / "Choose the next step" choice. With ``BL_IOS_SSHRD_AUTOEXIT=1`` the
+    menu returns as if Exit were chosen (leaving the phone in the ramdisk), so it
+    is never entered and no device operation is auto-answered in a loop. The
+    stock interactive menu is unchanged when the flag is unset. This edit is
+    model-independent, so it applies to every supported timer-reset model.
+    """
+    before = ('    menu_items+=("Reboot Device" "Exit")\n\n'
+              '    print "* For accessing data, note the following:"\n')
+    after = ('    menu_items+=("Reboot Device" "Exit")\n\n'
+             '    if [[ ${BL_IOS_SSHRD_AUTOEXIT:-} == 1 ]]; then\n'
+             '        log "SSH ramdisk is ready. Openup finishes the timer reset automatically; '
+             'no menu choice is needed."\n'
+             '        return 0\n'
+             '    fi\n\n'
+             '    print "* For accessing data, note the following:"\n')
+    if source.count(before) != 1:
+        raise ResetError("Legacy iOS Kit SSH ramdisk menu layout changed.")
+    return source.replace(before, after)
+
+
+def adapt_menu_only(original):
+    """GUI prompt hooks and a non-interactive SSH ramdisk menu, with no 3G hooks.
+
+    Used for the non-3G timer-reset models so their whole workflow stays in the
+    GUI. The 3G identity verification in :func:`adapt_script` is intentionally
+    excluded; only the shared prompt/menu handling is applied.
+    """
+    _require_pinned(original)
+    source = _disable_sshrd_menu(original.decode("utf-8"))
+    from .backend_ui import adapt_prompts
+    return adapt_prompts(source, backend="legacy").encode("utf-8")
+
+
+def adapt_script(original):
+    _require_pinned(original)
     source = original.decode("utf-8")
 
     def replace(before, after):
@@ -146,14 +193,14 @@ def adapt_script(original):
         '            * ) bl_ios_legacy_diagnostics\n'
         '                error "Failed to find device in $mode mode (Timed out). No timer reset was attempted.";;\n',
     )
+    source = _disable_sshrd_menu(source)
     from .backend_ui import adapt_prompts
     return adapt_prompts(source, backend="legacy").encode("utf-8")
 
 
 @contextmanager
-def prepared_script(kit, original):
-    """Keep dirname/$0-based upstream resources correct without modifying it."""
-    adapted = adapt_script(original)
+def _prepared(kit, adapted):
+    """Run an adapted copy in place so dirname/$0 resources resolve; never edit."""
     path = None
     try:
         with tempfile.NamedTemporaryFile(prefix=".bl-ios-prepare-", suffix=".sh", dir=kit,
@@ -164,6 +211,20 @@ def prepared_script(kit, original):
     finally:
         if path is not None:
             path.unlink(missing_ok=True)
+
+
+@contextmanager
+def prepared_script(kit, original):
+    """iPhone 3G preparation: 3G identity checks plus shared prompt/menu handling."""
+    with _prepared(kit, adapt_script(original)) as path:
+        yield path
+
+
+@contextmanager
+def prepared_menu_script(kit, original):
+    """Non-3G preparation: shared GUI prompt/menu handling, no 3G identity hooks."""
+    with _prepared(kit, adapt_menu_only(original)) as path:
+        yield path
 
 
 def main():

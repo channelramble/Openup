@@ -1,3 +1,44 @@
+Openup 2.3.7 — timer reset finishes without the SSH Ramdisk Menu
+Verification date: 2026-10-21
+
+The user reports that the timer-reset flow reaches a "Choose the next step /
+Select an option" prompt that is answerable only in a terminal. That prompt is
+Legacy iOS Kit's interactive SSH Ramdisk Menu (menu_ramdisk): the kit boots the
+ramdisk and then loops on that menu, where the user had to choose Exit before
+Openup's own reset resumed. The preparation printout even instructed choosing
+Exit. This mirrors the recovery-flow menu removed in 2.3.4.
+
+cli.launch_backend now exports BL_IOS_SSHRD_AUTOEXIT=1 for the backend, and the
+legacy_kit adapters inject a guarded early return at the top of menu_ramdisk:
+with the flag set, it logs that the ramdisk is ready and returns 0 without
+entering the menu loop, leaving the phone in the ramdisk exactly as a manual
+Exit would. The menu is never entered, so this is not a loop auto-answer. With
+the flag unset, the stock interactive menu is unchanged.
+
+The edit is model-independent and applies to every supported timer-reset model
+on the pinned kit: iPhone1,2 keeps the full 3G adaptation (adapt_script, with
+identity checks), and the other models use the new menu-only adaptation
+(adapt_menu_only / prepared_menu_script) that applies the same shared GUI prompt
+hooks and non-interactive menu but no 3G identity hooks. A user-supplied,
+non-pinned checkout is still run unchanged. The 3G identity checks, boot chain,
+plist reset, backups, RAM-root helper and both adapt_script script-hash gates
+are untouched; only the timer path's trailing menu behavior changes.
+
+All 364 source tests passed with both pinned script fixtures. Three new
+regression tests cover the change: one extracts the adapted menu_ramdisk, runs
+it with fake shell helpers, and checks that BL_IOS_SSHRD_AUTOEXIT=1 returns 0
+with no option prompt while the interactive menu still runs (and exits via a
+stubbed Exit) when the flag is unset; one checks that adapt_menu_only keeps the
+GUI prompt/menu handling without the 3G identity hooks and is hash-gated; and
+one checks that prepare on a non-3G pinned kit runs an adapted temp copy with
+BL_IOS_SSHRD_AUTOEXIT set while leaving the checkout unmodified. The adapted
+script passes bash -n and all existing legacy-kit shell tests. No phone
+operation was performed: on-screen timer clearance and the full GUI
+prepare->reset run against hardware remain unvalidated. Package, CI and release
+builds were not produced as part of this code change.
+
+Historical records follow.
+============================================================
 Openup 2.3.6 — immediate iPhone 3G console output
 Verification date: 2026-10-21
 

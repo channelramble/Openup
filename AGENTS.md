@@ -9,10 +9,11 @@ assuming that a historical state still applies.
 
 - Project: **Openup**, a dark-mode desktop application for legacy iPhone recovery.
 - Repository: <https://github.com/channelramble/Openup> (public).
-- Current app version: **2.3.6**, with one-click desktop updates.
+- Current app version: **2.3.7**, with one-click desktop updates.
 - Verified device baseline: **2.3.1**, a prerelease built from
   `d6a5117a25038b850a56cea2c2f89b151930c104`.
-- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.6>.
+- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.7> (pending
+  build/publish; the code change landed in the working tree first).
 - Read `README.md`, the newest section of `VERIFICATION.txt`, `CHANGELOG.md`,
   and `THIRD_PARTY.md` before modifying device operations or packaging.
 - `RESEARCH.md` and older verification sections contain historical hypotheses
@@ -42,6 +43,17 @@ assuming that a historical state still applies.
   After boot commands finish, the GUI shows Check your iPhone. That handoff
   does not prove ramdisk startup or a recovered value. Required DFU and host
   password prompts still use GUI controls. Timer-reset confirmations are separate.
+- Timer-reset preparation boots the Legacy iOS Kit ramdisk and then returns
+  without its interactive SSH Ramdisk Menu. `cli.launch_backend` sets
+  `BL_IOS_SSHRD_AUTOEXIT=1`; `legacy_kit._disable_sshrd_menu` makes `menu_ramdisk`
+  return immediately (equivalent to choosing Exit, leaving the phone in the
+  ramdisk) when that flag is set. This is not a loop auto-answer: the menu is
+  never entered. The stock interactive menu is preserved when the flag is unset.
+  The edit is model-independent: iPhone1,2 uses `adapt_script` (full 3G hooks),
+  other supported models use `adapt_menu_only`/`prepared_menu_script` (shared GUI
+  prompt/menu handling, no 3G identity hooks), and a non-pinned custom checkout
+  runs unchanged. Keep the whole timer workflow (Prepare, Review & reset, Done)
+  driven by the GUI.
 - The GUI worker uses `TERM=dumb`. Preserve the recovery script's main status
   across its final cosmetic `tput sgr0`; on macOS that reset returns 1 for a
   dumb terminal and previously made completed handoffs look failed. The adapter
@@ -246,6 +258,9 @@ Windows/Python 3.13. Recheck the service state before attributing future failure
 CI resumed successfully for 2.3.2 through 2.3.5, including all four platform builds.
 For 2.3.6, all 361 source tests passed; package and CI results are recorded in
 the release notes. The new native console-output behavior needs phone validation.
+For 2.3.7, all 364 source tests passed (the new tests run with
+`BL_IOS_LEGACY_SCRIPT` set). The SSH-Ramdisk-Menu auto-exit still needs phone
+validation; package and CI/release were not run as part of the code change.
 For 2.3.3, 344 tests passed in source and the native Apple Silicon package;
 all-platform updater installation/rollback and a public download check passed.
 The MacBook was unreachable, so that release was not run under Rosetta there.
