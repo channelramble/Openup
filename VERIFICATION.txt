@@ -1,4 +1,4 @@
-Openup 2.3.5 — direct one-click desktop updates
+Openup 2.3.5 — direct updates and preserved recovery exit status
 Verification date: 2026-10-21
 
 Update now checks the public release feed, selects the latest compatible desktop
@@ -9,16 +9,28 @@ rollback and optional credentials remain under collapsed Advanced update options
 Already-current checks leave the active installation alone. Busy/repeat-click
 guards, cancellation checkpoints, full package verification and rollback remain.
 
-All 357 source tests passed with both pinned script fixtures. Updater fixtures
+All 358 source tests passed with both pinned script fixtures. Updater fixtures
 exercise public tokenless metadata and package requests for all four targets,
 latest-version selection, draft exclusion, prerelease preferences, already-current
 and older releases, cancellation before download, and specific HTTP failures.
 GUI tests exercise the real background thread, repeated clicks, retry guidance,
 restart state, current options, token clearing and no browser/file-picker calls.
 Existing corruption, cancellation-before-activation and rollback checks pass.
-Styled 1000x780 Updates and restart-ready screens were reviewed. Device code,
-firmware, native payloads and dependency versions are unchanged. Package, CI
-and public-download validation is recorded in the 2.3.5 release notes.
+Styled 1000x780 Updates and restart-ready screens were reviewed.
+
+The new Intel macOS 12.7.6 log was from 2.3.4. Two attempts verified iBSS and
+iBEC identities and sent all boot commands, then reported status 1 after the
+handoff. A middle attempt separately failed to detect a device. The script's
+final tput sgr0 was reproduced locally returning 1 under the GUI's TERM=dumb,
+overwriting main status 0 or 73. The adapter now preserves the main status and
+runs the terminal reset as a cosmetic step before an explicit exit. Regression
+tests execute the actual footer with successful, failing and missing terminal
+commands plus a failing EXIT cleanup, and run the real adapted main and footer
+under TERM=dumb. Actual boot errors remain failures. This does not establish
+ramdisk startup or a recovered passcode on the Intel-connected phone.
+
+Firmware, native payloads, boot sequence and dependency versions are unchanged.
+Package, CI and public-download validation is recorded in the 2.3.5 release notes.
 
 Historical records follow.
 ============================================================

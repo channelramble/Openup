@@ -6,8 +6,9 @@
 - Require no browser, GitHub sign-in, token, file selection or separate install confirmation. Keep prereleases enabled by default so Openup's current releases are included.
 - Move the local installer, rollback, release links and optional token into Advanced update options. Keep cancellation, repeat-click protection, verification and the existing installation intact until activation.
 - Replace obsolete private-repository errors with specific retry guidance for rejected optional tokens, request limits and unavailable downloads.
+- Preserve the recovery script's exit status across its final terminal-color reset. With the GUI's `TERM=dumb`, that cosmetic command returned 1 after an otherwise completed handoff, producing a false failure on the reported Intel Mac. Genuine errors and exit cleanup remain intact.
 
-Device operations, bundled dependencies and platform compatibility are unchanged.
+The firmware, boot sequence, native recovery engine, bundled dependencies and platform compatibility are unchanged. Sending boot commands still does not verify ramdisk startup or a recovered value.
 
 ## 2.3.4
 

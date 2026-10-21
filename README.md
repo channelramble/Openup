@@ -14,6 +14,8 @@ Get the platform archive from [version 2.3.5](https://github.com/channelramble/O
 
 **Already using Openup 2.3.0–2.3.4?** Open **Updates → Check and download directly in the app → Check for updates → Install update**, then restart. Leave the token empty and Include prereleases enabled. This installs the new one-click updater without visiting GitHub.
 
+Version 2.3.5 also fixes the false **Upstream backend stopped with status 1** after a completed recovery handoff: a terminal-color reset was replacing the script's result in GUI mode. Actual boot errors still stop the workflow; the final passcode or any on-device error must still be read on the phone.
+
 **Upgrading from 2.2.x:** extract and open the new `Openup` app once. The older updater expects the previous package name and cannot install this renamed layout. Openup preserves the existing backup/cache directory and recognizes older installed versions for rollback. Later Openup releases use the built-in updater normally. An older update selection cannot silently replace a freshly opened, newer app.
 
 | Computer | Download suffix | Open |

@@ -42,6 +42,12 @@ assuming that a historical state still applies.
   After boot commands finish, the GUI shows Check your iPhone. That handoff
   does not prove ramdisk startup or a recovered value. Required DFU and host
   password prompts still use GUI controls. Timer-reset confirmations are separate.
+- The GUI worker uses `TERM=dumb`. Preserve the recovery script's main status
+  across its final cosmetic `tput sgr0`; on macOS that reset returns 1 for a
+  dumb terminal and previously made completed handoffs look failed. The adapter
+  explicitly exits with the saved status and still runs normal EXIT cleanup.
+  Test the actual script footer as well as its main function; never convert a
+  real operation failure into success based only on handoff text.
 - Desktop downloads include their Python, Qt, and SSH dependencies. Opening
   the app must not invoke pip or require a developer environment. USB drivers,
   backend host tools, firmware, WSL, and USB forwarding remain separate needs;

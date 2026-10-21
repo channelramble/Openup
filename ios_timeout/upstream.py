@@ -466,6 +466,15 @@ def adapt_script(original):
     esac''', '    print ' + shlex.quote(RECOVERY_HANDOFF_LINE) + '\n'
             '    bl_ios_ui progress ' + shlex.quote(RECOVERY_HANDOFF_TITLE) + ' '
             + shlex.quote(RECOVERY_HANDOFF_MESSAGE) + '\n    return 0')
+    # The GUI deliberately uses TERM=dumb. Its final cosmetic tput can fail,
+    # overwriting main's status after a successful handoff (or a real failure).
+    # Preserve the operation result while still running the normal EXIT trap.
+    replace('\nmain\ntput sgr0\n', '''
+main
+bl_ios_main_status=$?
+tput sgr0 2>/dev/null || :
+exit "$bl_ios_main_status"
+''')
     # Branding in messages only; preserve third-party URLs, file names and hashes.
     source = source.replace(' BRUTEFORCE 32bit-DEVICE', ' Openup · legacy iPhone recovery')
     source = source.replace('Usage: ./Bruteforce.sh [Options]', 'Usage: Openup recover [Options]')

@@ -360,17 +360,32 @@ read() { error "Unexpected input request"; }
 pause() { error "Unexpected pause"; }
 ssh() { error "Unexpected result read"; }
 iproxy() { error "Unexpected USB proxy"; }
-main
-'''
+''' + self.adapted[self.adapted.rindex("\nmain\n") + 1:]
         return subprocess.run(
             [BASH, "--noprofile", "--norc", "-c", script], input=reply,
-            env={**os.environ, "BL_IOS_UI_PROTOCOL": "1" if enabled else "",
+            env={**os.environ, "TERM": "dumb", "BL_IOS_UI_PROTOCOL": "1" if enabled else "",
                  "BL_IOS_PYTHON": sys.executable, "PYTHONDONTWRITEBYTECODE": "1",
                  "PYTHONPATH": str(Path(__file__).resolve().parents[1]),
                  "device_type": model, "device_target_build": "8C148",
                  "legacy_argmode": "1" if menu else "0", "BL_TEST_FAILURE": failure},
             text=True, capture_output=True, timeout=10,
         )
+
+    def test_script_preserves_main_status_across_terminal_reset_and_exit_cleanup(self):
+        footer = self.adapted[self.adapted.rindex("\nmain\n") + 1:]
+        for main_status in (0, 73):
+            for terminal_status in (0, 1, 127):
+                with self.subTest(main=main_status, terminal=terminal_status):
+                    script = f'''main() {{ return {main_status}; }}
+tput() {{ return {terminal_status}; }}
+clean() {{ printf 'CLEANUP_RAN\\n'; return 19; }}
+trap clean EXIT
+''' + footer
+                    result = subprocess.run(
+                        [BASH, "--noprofile", "--norc", "-c", script],
+                        text=True, capture_output=True, timeout=10)
+                    self.assertEqual(result.returncode, main_status, result.stderr)
+                    self.assertEqual(result.stdout, "CLEANUP_RAN\n")
 
     def test_recovery_finishes_without_a_menu_for_legacy_and_newer_profiles(self):
         self.assertNotIn("legacy_menu", self.adapted)
