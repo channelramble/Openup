@@ -1,3 +1,38 @@
+Openup 2.3.8 — timer reset grabs the device on Intel Macs
+Verification date: 2026-10-21
+
+The user reports that the timer reset fails to grab the iPhone on an Intel Mac.
+The recovery flow already wraps its whole backend run in the macOS device-agent
+reservation (upstream.run_backend -> macos_agents.recovery_agents), which runs a
+detached guardian that suspends Apple's AMPDevicesAgent, AMPDeviceDiscoveryAgent
+and MobileDeviceUpdater and keeps re-pausing them, restoring only the exact PIDs
+it paused. The timer flow (cli.run: prepare/inspect/reset/restore/finalize) had
+no such reservation. On Intel Macs those agents claim the phone during the
+Legacy iOS Kit boot or Openup's own ramdisk SSH session, so the device cannot be
+grabbed. AGENTS.md already required holding this reservation across the boot.
+
+Fix: cli.run now wraps the whole device operation in recovery_agents() (entered
+before launch_backend and held through the USBDevice SSH block), matching the
+recovery flow. It is a no-op off macOS and restores exactly the agents it
+paused, including on interruption or parent death. launch_backend additionally
+passes --no-finder to the kit on macOS: the kit always stops those agents at
+startup, but only resumes them on exit when --no-finder is unset. Suppressing
+that resume removes the sub-second window in which the agents could re-grab the
+phone during the handoff from the kit to Openup's SSH session; Openup's guardian
+owns restoration. The guardian is entered before the kit stops the agents, so it
+claims them while running and restores them afterward.
+
+All 365 source tests passed with both pinned script fixtures. A new regression
+test drives cli.run for prepare with the reservation, launch_backend and usbmux
+mocked, and asserts the order enter -> launch_backend -> exit, i.e. the backend
+boot runs inside the reservation. The existing SSH integration test that drives
+the CLI now patches recovery_agents to a no-op so unit tests never suspend real
+system agents; test_macos_agents continues to exercise the real guardian. No
+phone operation was performed: the Intel-Mac timer reset grabbing the device and
+completing an on-screen clearance remains to be confirmed on hardware.
+
+Historical records follow.
+============================================================
 Openup 2.3.7 — timer reset finishes without the SSH Ramdisk Menu
 Verification date: 2026-10-21
 

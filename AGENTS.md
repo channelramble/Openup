@@ -9,11 +9,10 @@ assuming that a historical state still applies.
 
 - Project: **Openup**, a dark-mode desktop application for legacy iPhone recovery.
 - Repository: <https://github.com/channelramble/Openup> (public).
-- Current app version: **2.3.7**, with one-click desktop updates.
+- Current app version: **2.3.8**, with one-click desktop updates.
 - Verified device baseline: **2.3.1**, a prerelease built from
   `d6a5117a25038b850a56cea2c2f89b151930c104`.
-- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.7> (pending
-  build/publish; the code change landed in the working tree first).
+- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.8>.
 - Read `README.md`, the newest section of `VERIFICATION.txt`, `CHANGELOG.md`,
   and `THIRD_PARTY.md` before modifying device operations or packaging.
 - `RESEARCH.md` and older verification sections contain historical hypotheses
@@ -154,6 +153,13 @@ Other fixes that must remain intact:
 - Hold the host lock and Mac device-agent reservation across the entire boot,
   including re-enumeration and stage identity checks. Restore only the exact
   processes paused by this operation, including on interruption or parent death.
+  Both flows use `macos_agents.recovery_agents`: the recovery flow via
+  `upstream.run_backend`, and the timer flow via `cli.run` (it wraps
+  `prepare`/`inspect`/`reset`/`restore`/`finalize` so Apple's AMPDevices agents
+  cannot grab the phone during the kit boot or the ramdisk SSH session — they
+  win that race on Intel Macs otherwise). On macOS `launch_backend` also passes
+  `--no-finder` so the kit does not resume those agents on exit; the guardian
+  owns restoration. The reservation is a no-op off macOS.
 - Adapt only the reviewed backend revision and exact script hash, with exact
   replacement counts. Leave the original checkout unchanged. Recovery backend
   pin: `4949674b318767de83eb149e57bcc543a6453d6e`; Legacy iOS Kit pin:
@@ -260,7 +266,9 @@ For 2.3.6, all 361 source tests passed; package and CI results are recorded in
 the release notes. The new native console-output behavior needs phone validation.
 For 2.3.7, all 364 source tests passed (the new tests run with
 `BL_IOS_LEGACY_SCRIPT` set). The SSH-Ramdisk-Menu auto-exit still needs phone
-validation; package and CI/release were not run as part of the code change.
+validation. For 2.3.8, all 365 source tests passed; the new test asserts the
+timer-reset path wraps the backend boot in the device-agent reservation. The
+Intel-Mac device-grab fix still needs on-device confirmation.
 For 2.3.3, 344 tests passed in source and the native Apple Silicon package;
 all-platform updater installation/rollback and a public download check passed.
 The MacBook was unreachable, so that release was not run under Rosetta there.

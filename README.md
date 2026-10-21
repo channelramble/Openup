@@ -2,7 +2,7 @@
 
 [![Test and package](https://github.com/channelramble/Openup/actions/workflows/ci.yml/badge.svg)](https://github.com/channelramble/Openup/actions/workflows/ci.yml)
 
-A desktop app for legacy iPhone recovery. Version **2.3.7** finishes the timer-reset preparation entirely in the GUI, with no SSH Ramdisk Menu to exit in a terminal. Its built-in updater works directly: **Updates → Update now** fetches and installs the latest compatible release without a browser or sign-in, then offers a restart. It retains the OLED-black theme, automatic recovery without a repeating menu, immediate 3G progress output, small-screen result display and tested iPhone 3G boot and RAM-disk fixes. Its interface provides on-screen instructions, menu buttons, countdowns, and result cards. The terminal and manual input are optional Advanced controls, both off by default. It includes guided timer reset, a pinned [recovery backend](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, and a built-in updater. iPhone 3G ARMv6 tools and Intel Mac builds targeting macOS 12 Monterey are included.
+A desktop app for legacy iPhone recovery. Version **2.3.8** fixes the timer reset failing to grab the iPhone on Intel Macs by holding the macOS device-agent reservation across the whole operation. Version 2.3.7 finished the timer-reset preparation entirely in the GUI, with no SSH Ramdisk Menu to exit in a terminal. Its built-in updater works directly: **Updates → Update now** fetches and installs the latest compatible release without a browser or sign-in, then offers a restart. It retains the OLED-black theme, automatic recovery without a repeating menu, immediate 3G progress output, small-screen result display and tested iPhone 3G boot and RAM-disk fixes. Its interface provides on-screen instructions, menu buttons, countdowns, and result cards. The terminal and manual input are optional Advanced controls, both off by default. It includes guided timer reset, a pinned [recovery backend](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, and a built-in updater. iPhone 3G ARMv6 tools and Intel Mac builds targeting macOS 12 Monterey are included.
 
 **Desktop downloads include Python, Qt, SSH libraries, and their Python dependencies. No Python, pip, virtual environment, or package installation is needed to open the app.** The Windows archive also includes the Linux Python/SSH runtime used by its WSL bridge.
 
@@ -10,9 +10,11 @@ A desktop app for legacy iPhone recovery. Version **2.3.7** finishes the timer-r
 
 ## Download and open
 
-Get the platform archive from [version 2.3.7](https://github.com/channelramble/Openup/releases/tag/v2.3.7) and extract it completely.
+Get the platform archive from [version 2.3.8](https://github.com/channelramble/Openup/releases/tag/v2.3.8) and extract it completely.
 
 **Already using Openup 2.3.0–2.3.4?** Open **Updates → Check and download directly in the app → Check for updates → Install update**, then restart. Leave the token empty and Include prereleases enabled. This installs the new one-click updater without visiting GitHub.
+
+On Intel Macs the timer reset could fail to grab the iPhone: Apple's device-handling agents claimed it before the tool could. Version 2.3.8 holds Openup's device-agent reservation across the entire timer operation — the ramdisk boot and the ramdisk SSH session — so the phone stays claimed, and restores those agents exactly as they were when it finishes. This matches what the recovery flow already did.
 
 The timer-reset preparation used to drop into Legacy iOS Kit's SSH Ramdisk Menu and ask you to "Select an option" and choose Exit before the reset resumed. Version 2.3.7 boots the ramdisk and returns automatically, so the whole timer workflow — Prepare, Review & reset, Done — is handled by the GUI. The phone is left in the ramdisk exactly as before, and the menu still works when the kit is run outside Openup.
 
@@ -58,7 +60,7 @@ The `reset` workflow still requires the correct passcode afterward. The separate
 
 ## Source edition and CLI
 
-The unqualified `Openup-2.3.7.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
+The unqualified `Openup-2.3.8.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
 
 Download the ZIP from [Releases](https://github.com/channelramble/Openup/releases) and extract the whole folder onto the computer connected to the phone. Python 3.9 or newer is required.
 

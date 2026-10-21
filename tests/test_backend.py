@@ -40,9 +40,11 @@ class BackendTests(unittest.TestCase):
             cli.launch_backend(self.args)
         self.assertTrue((self.kit / "restore.sh").is_file())
         self.assertEqual(self.calls[1][-2:], ["--detach", cli.KIT_COMMIT])
+        # On macOS the kit is told not to resume Apple's device agents on exit;
+        # Openup's guardian owns suspending and restoring them.
         self.assertEqual(self.calls[-1], [
             "bash", str(self.kit.resolve() / "restore.sh"),
-            "--sshrd", "--no-version-check", "--no-color",
+            "--sshrd", "--no-version-check", "--no-color", "--no-finder",
         ])
         self.assertTrue(self.args.mount)
 
@@ -131,6 +133,33 @@ class BackendTests(unittest.TestCase):
         self.assertEqual(script.read_bytes(), original)
         self.assertEqual(len(adapted), 1)
         self.assertFalse(adapted[0].exists())
+
+    def test_prepare_reserves_mac_device_agents_around_the_boot(self):
+        import contextlib
+        events = []
+
+        @contextlib.contextmanager
+        def fake_reserve():
+            events.append("enter")
+            try:
+                yield
+            finally:
+                events.append("exit")
+
+        state = Path(self.temp.name) / "state"
+        args = cli.parser().parse_args(
+            ["prepare", "--kit", str(self.kit), "--state-dir", str(state)])
+        # The device-agent reservation must wrap the backend boot and the
+        # ramdisk SSH session, so Apple's agents cannot grab the phone first.
+        with patch("ios_timeout.macos_agents.recovery_agents", fake_reserve), \
+             patch("ios_timeout.cli.launch_backend",
+                   side_effect=lambda a: events.append("launch_backend")), \
+             patch("ios_timeout.usbmux.list_devices", return_value=[]), \
+             patch("ios_timeout.usbmux.select_device",
+                   side_effect=ResetError("no device")), \
+             redirect_stdout(io.StringIO()), self.assertRaises(ResetError):
+            cli.run(args)
+        self.assertEqual(events, ["enter", "launch_backend", "exit"])
 
 
 class LegacyKitIdentityTests(unittest.TestCase):

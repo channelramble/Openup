@@ -16,7 +16,7 @@ import sys
 import tempfile
 import threading
 import unittest
-from contextlib import redirect_stdout
+from contextlib import nullcontext, redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -247,6 +247,7 @@ class SSHTests(unittest.TestCase):
         output = io.StringIO()
         with patch("ios_timeout.usbmux.tunnel", side_effect=self.connect), \
              patch("ios_timeout.usbmux.list_devices", return_value=[self.selected]), \
+             patch("ios_timeout.macos_agents.recovery_agents", lambda: nullcontext()), \
              redirect_stdout(output):
             self.assertEqual(cli.main(["inspect"] + arguments), 0)
             self.assertEqual((self.root / PREFS.lstrip("/")).read_bytes(), original)

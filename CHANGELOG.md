@@ -1,5 +1,12 @@
 # Changes
 
+## 2.3.8
+
+- Fix the timer reset failing to grab the iPhone on Intel Macs. The reset-timer flow now holds the macOS device-agent reservation — the same guardian the recovery flow already uses — across the whole operation: the Legacy iOS Kit ramdisk boot **and** Openup's own ramdisk SSH session. Apple's AMPDevices agents otherwise race to claim the phone and win on Intel, so the device could not be grabbed. The guardian restores exactly the agents it paused when the operation finishes, including on interruption or parent death.
+- Pass `--no-finder` to Legacy iOS Kit on macOS so it does not resume those agents when it exits, removing the brief window in which they could grab the phone during the handoff from the kit to Openup's SSH session.
+
+The reservation is a no-op off macOS, and it wraps `inspect`/`reset`/`restore`/`finalize` as well as `prepare`. The plist transaction, backups, boot sequence, identity checks and RAM-root helper are unchanged. A regression test asserts the timer-reset path enters the reservation around the backend boot. Physical Intel-Mac timer reset still needs on-device confirmation.
+
 ## 2.3.7
 
 - Finish the timer-reset preparation without the interactive SSH Ramdisk Menu. Booting the Legacy iOS Kit ramdisk previously dropped into a "Select an option" / "Choose the next step" menu whose only way forward was choosing Exit, which read like a terminal step. The backend now returns automatically once the ramdisk is ready, and Openup's own reset resumes, so the whole timer workflow is driven by the GUI.

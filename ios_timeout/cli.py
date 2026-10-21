@@ -181,6 +181,13 @@ def launch_backend(args):
                 validate_ipsw(staged, args.model, "7E18")
                 staged.rename(destination)
     extra = []
+    if platform.system() == "Darwin":
+        # Openup's device-agent guardian owns suspending and restoring Apple's
+        # AMPDevices agents across the whole operation. Tell the kit not to
+        # resume them when it exits, so they cannot grab the phone during the
+        # handoff to the ramdisk SSH session (this reliably fails on Intel Macs
+        # otherwise). The guardian restores exactly the agents it paused.
+        extra.append("--no-finder")
     if os.environ.get("BL_IOS_UI_PROTOCOL") == "1":
         # The GUI renders numbered menus as buttons. The ANSI menu requests
         # terminal cursor coordinates, which a pipe/PTY bridge cannot supply.
@@ -308,7 +315,13 @@ def run(args):
     args.state_dir = state
     if args.action in ("reset", "prepare") and args.backups is None:
         args.backups = state / "backups"
-    with host_lock(state):
+    from .macos_agents import recovery_agents
+    # Hold the Mac device-agent reservation across the whole operation, like the
+    # recovery flow. Apple's AMPDevices agents otherwise grab the phone during
+    # the ramdisk boot or the SSH session; on Intel Macs they win that race and
+    # the device cannot be claimed. No-op off macOS; restores exactly the agents
+    # it paused, including on interruption.
+    with host_lock(state), recovery_agents():
         if args.action == "prepare":
             launch_backend(args)
         selected = usbmux.select_device(usbmux.list_devices(), args.udid)
