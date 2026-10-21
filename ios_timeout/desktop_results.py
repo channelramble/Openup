@@ -8,6 +8,7 @@ from collections import deque
 import re
 
 from .core import JOURNAL, PREFS, SUPPORTED
+from .backend_ui import RECOVERY_HANDOFF_LINE, RECOVERY_HANDOFF_TITLE, RECOVERY_HANDOFF_MESSAGE
 
 
 MAX_CAPTURE_CHARS = 1024 * 1024
@@ -61,6 +62,7 @@ def summarize(action, capture, exit_code, interrupted=False):
     passcodes = deque(maxlen=4)
     no_changes = reset_verified = restore_verified = cleanup_verified = False
     preview = False
+    phone_handoff = False
 
     def add(value):
         value = _bounded(value)
@@ -83,6 +85,8 @@ def summarize(action, capture, exit_code, interrupted=False):
                 errors.append(value)
             continue
         if action == "recover":
+            if line == RECOVERY_HANDOFF_LINE:
+                phone_handoff = True
             found = re.fullmatch(r"found\s*:\s*([0-9]{4}|[0-9]{6})", line)
             if found and found[1] not in passcodes:
                 passcodes.append(found[1])
@@ -187,8 +191,13 @@ def summarize(action, capture, exit_code, interrupted=False):
         message = ("Transaction verified and cleanup completed." if cleanup_verified else
                    "Cleanup operation ended. No verified cleanup was reported.")
     elif action == "recover":
-        message = ("The backend reported a passcode. Verify it on the phone." if passcodes else
-                   "Recovery session ended. No passcode was reported in this session.")
+        if phone_handoff and not errors and not passcodes:
+            title = RECOVERY_HANDOFF_TITLE
+            message = RECOVERY_HANDOFF_MESSAGE
+            add("If the phone stays black or shows an error, recovery is not confirmed. Save the log for troubleshooting.")
+        else:
+            message = ("The backend reported a passcode. Verify it on the phone." if passcodes else
+                       "Recovery session ended. No passcode was reported in this session.")
     elif action == "doctor":
         message = "Computer checks finished. Review the requirements below."
     elif action == "devices":

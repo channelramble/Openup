@@ -1,3 +1,28 @@
+Openup 2.3.4 — automatic recovery without the repeating host menu
+Verification date: 2026-10-21
+
+The pinned host script's optional Show Passcode menu called itself after every
+selection and on EOF. The adapter now removes that menu and its SSH result-read
+path. Its main function finishes once after boot commands, emits a GUI handoff,
+and leaves the phone's automatic recovery and final display alone. An explicit
+legacy --menu invocation only explains the new flow and cannot start a boot.
+The GUI Start recovery button starts directly; DFU and required password prompts
+remain GUI controls. Failed or interrupted operations keep their error result.
+The native engine, display wrapper, firmware and boot sequence are unchanged.
+
+All 352 source tests passed with both pinned script fixtures. New tests execute
+the actual adapted main function with fake device operations for original
+iPhone, 3G, 3GS and a later profile, feeding its split output through the actual
+desktop protocol. No prompt or reply is generated after the fake boot. EOF,
+old menu replies, boot failures and the legacy menu flag are covered. GUI tests
+exercise one-click startup, repeat-click protection, final instructions and
+hidden terminal/input controls. A styled 1000x780 GUI render was reviewed.
+This is control-flow and UI validation, not a physical recovery test. Package,
+CI and updater verification is recorded in the 2.3.4 release notes.
+
+Historical records follow.
+============================================================
+
 Openup 2.3.3 — passcode result at the end of the phone console
 Verification date: 2026-10-20
 

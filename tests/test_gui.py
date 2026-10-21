@@ -261,6 +261,29 @@ class GuiTests(unittest.TestCase):
             self.assertEqual(self.window.reported_passcode.text(), "")
             self.window.process.finish()
 
+    def test_recovery_starts_once_and_hands_off_in_gui_without_a_menu_or_terminal(self):
+        from PySide6.QtWidgets import QMessageBox
+        from ios_timeout.backend_ui import RECOVERY_HANDOFF_LINE, RECOVERY_HANDOFF_TITLE
+        with self.fake_worker(), patch.object(QMessageBox, "question") as question:
+            self.window.recovery_start.click()
+            worker = self.window.process
+            self.assertTrue(worker.started)
+            self.assertIn("recover", worker.arguments)
+            self.assertIn("--apply", worker.arguments)
+            question.assert_not_called()
+            self.window.recovery_start.click()
+            self.assertIs(self.window.process, worker)
+            worker.output = (json.dumps({"type": "output", "text": RECOVERY_HANDOFF_LINE + "\n"}) + "\n").encode()
+            worker.finish()
+            self.assertFalse(self.window.busy)
+            self.assertEqual(self.window.guidance_title.text(), RECOVERY_HANDOFF_TITLE)
+            self.assertIn("no further menu choice", self.window.guidance_text.text())
+            self.assertTrue(self.window.details_panel.isHidden())
+            self.assertTrue(self.window.prompt_controls.isHidden())
+            self.assertTrue(self.window.reply_row.isHidden())
+            self.assertTrue(self.window.reported_passcode.isHidden())
+            self.assertEqual(worker.input, [])
+
     def test_old_choice_cannot_answer_a_replacement_prompt(self):
         with self.fake_worker():
             self.window.start_operation("prepare")

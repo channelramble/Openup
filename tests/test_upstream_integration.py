@@ -20,6 +20,8 @@ import unittest
 
 from ios_timeout.core import ResetError
 from ios_timeout.upstream import adapt_script, early_dfu_state, early_dfu_summary
+from ios_timeout.backend_ui import RECOVERY_HANDOFF_LINE, RECOVERY_HANDOFF_TITLE
+from ios_timeout.desktop_session import SessionProtocol
 
 
 UPSTREAM_SCRIPT = os.environ.get("BL_IOS_UPSTREAM_SCRIPT")
@@ -332,6 +334,87 @@ mv() {
             [BASH, "--noprofile", "--norc", "-n"], input=self.adapted,
             text=True, capture_output=True, timeout=30)
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def run_main(self, model="iPhone1,2", *, enabled=True, reply="", failure="", menu=False):
+        # Exercise the real main control flow with fake device operations.
+        # Remove only its host-UID guard so fixtures also work in root CI jobs.
+        main = self.function("main").replace(
+            '[[ $EUID == 0 ]] && error "Do not run as root."', ':')
+        script = self.function("bl_ios_ui") + "\n" + main + r'''
+clear() { :; }
+python2() { :; }
+log() { printf '%s\n' "$*"; }
+print() { printf '%s\n' "$*"; }
+warn() { printf '%s\n' "$*"; }
+error() { printf 'ERROR: %s\n' "$*" >&2; exit 73; }
+set_tool_paths() { :; }
+device_get_info() { :; }
+bl_ios_validate() { :; }
+create_sshrd() { printf 'FIXTURE_PREPARE\n'; }
+boot_sshrd() {
+    printf 'FIXTURE_BOOT\n'
+    [[ -n $BL_TEST_FAILURE ]] && error "Fixture boot failed."
+    return 0
+}
+read() { error "Unexpected input request"; }
+pause() { error "Unexpected pause"; }
+ssh() { error "Unexpected result read"; }
+iproxy() { error "Unexpected USB proxy"; }
+main
+'''
+        return subprocess.run(
+            [BASH, "--noprofile", "--norc", "-c", script], input=reply,
+            env={**os.environ, "BL_IOS_UI_PROTOCOL": "1" if enabled else "",
+                 "BL_IOS_PYTHON": sys.executable, "PYTHONDONTWRITEBYTECODE": "1",
+                 "PYTHONPATH": str(Path(__file__).resolve().parents[1]),
+                 "device_type": model, "device_target_build": "8C148",
+                 "legacy_argmode": "1" if menu else "0", "BL_TEST_FAILURE": failure},
+            text=True, capture_output=True, timeout=10,
+        )
+
+    def test_recovery_finishes_without_a_menu_for_legacy_and_newer_profiles(self):
+        self.assertNotIn("legacy_menu", self.adapted)
+        self.assertNotIn('echo \\\"Show Passcode\\\" > /dev/console', self.adapted)
+        for model in ("iPhone1,1", "iPhone1,2", "iPhone2,1", "iPhone3,1"):
+            with self.subTest(model=model):
+                result = self.run_main(model)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout.count("FIXTURE_PREPARE"), 1)
+                self.assertEqual(result.stdout.count("FIXTURE_BOOT"), 1)
+                self.assertEqual(result.stdout.count(RECOVERY_HANDOFF_LINE), 1)
+                events, sent = [], []
+                bridge = SessionProtocol(events.append, sent.append)
+                for start in range(0, len(result.stdout), 17):
+                    bridge.output(result.stdout[start:start + 17])
+                bridge.tick(bridge.last_output + 1)
+                bridge.finish(result.returncode)
+                self.assertFalse(any(e["type"] == "prompt" for e in events), events)
+                self.assertTrue(any(e.get("title") == RECOVERY_HANDOFF_TITLE for e in events))
+                self.assertEqual(sent, [])
+
+    def test_cli_completion_does_not_wait_for_input_or_loop_on_old_replies(self):
+        for reply in ("", "1\n", "2\n", "unexpected\n"):
+            with self.subTest(reply=reply):
+                result = self.run_main(enabled=False, reply=reply)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout.count(RECOVERY_HANDOFF_LINE), 1)
+                self.assertNotIn("Select an option", result.stdout)
+                self.assertNotIn("@@BL_IOS_UI:", result.stdout)
+
+    def test_failed_boot_does_not_report_handoff_or_request_a_menu(self):
+        result = self.run_main(failure="1")
+        self.assertEqual(result.returncode, 73)
+        self.assertIn("Fixture boot failed", result.stderr)
+        self.assertNotIn(RECOVERY_HANDOFF_LINE, result.stdout)
+        self.assertNotIn("Select an option", result.stdout)
+
+    def test_old_menu_flag_is_informational_and_cannot_start_a_device_operation(self):
+        result = self.run_main(menu=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("FIXTURE_BOOT", result.stdout)
+        self.assertNotIn("FIXTURE_PREPARE", result.stdout)
+        self.assertNotIn(RECOVERY_HANDOFF_LINE, result.stdout)
+        self.assertIn("Results appear automatically on the iPhone", result.stdout)
 
     def run_boot(self, **overrides):
         return self.run_functions(

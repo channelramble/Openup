@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -325,7 +326,6 @@ def adapt_script(original):
             warn "ssh_old.tar not found! Trying standard ssh.tar (might fail)..."''')
     replace('    mv iBSS iBEC DeviceTree.dec Kernelcache.dec Ramdisk.dmg $ramdisk_path 2>/dev/null',
             '    mv iBSS iBEC DeviceTree.dec Kernelcache.dec Ramdisk.dmg $ramdisk_path || error "Could not publish all ramdisk components; boot cancelled."')
-    replace('for file in /*; do', 'for file in /var/root/*.plist /*; do')
     for name in ("bruteforce", "device_infos", "restored_external"):
         source = source.replace(f"$PROJECT_ROOT/resources/{name}",
                                 f"${{BL_IOS_PAYLOADS:-$PROJECT_ROOT/resources}}/{name}")
@@ -442,6 +442,30 @@ def adapt_script(original):
     source = source[:start] + section + source[end:]
     source = source.replace('log "Ramdisk boot sequence complete."',
                             'log "Boot commands finished. Ramdisk startup still needs verification."')
+    # Recovery already starts on the phone. The host's optional result-reading
+    # menu recursively reopens itself, even on EOF, and writes over its console.
+    # Remove that separate interaction instead of automatically answering it.
+    menus = re.findall(r'^legacy_menu\(\) \{\n.*?^\}', source, re.MULTILINE | re.DOTALL)
+    if len(menus) != 1:
+        raise ResetError("The reviewed recovery menu layout changed.")
+    replace(menus[0], '')
+    replace('''        log "Menu ramdisk."
+
+        set_tool_paths
+        legacy_menu
+        return''', '''        print "Results appear automatically on the iPhone. Start recovery from Openup."
+        return''')
+    from .backend_ui import RECOVERY_HANDOFF_LINE, RECOVERY_HANDOFF_TITLE, RECOVERY_HANDOFF_MESSAGE
+    replace('''    case $device_type in
+        iPhone1,* | iPhone2,1 | iPad1,1 | iPod1,1 | iPod2,1 | iPod3,1 )
+            legacy_menu
+            ;;
+        *)
+            log "Exiting."
+            ;;
+    esac''', '    print ' + shlex.quote(RECOVERY_HANDOFF_LINE) + '\n'
+            '    bl_ios_ui progress ' + shlex.quote(RECOVERY_HANDOFF_TITLE) + ' '
+            + shlex.quote(RECOVERY_HANDOFF_MESSAGE) + '\n    return 0')
     # Branding in messages only; preserve third-party URLs, file names and hashes.
     source = source.replace(' BRUTEFORCE 32bit-DEVICE', ' Openup · legacy iPhone recovery')
     source = source.replace('Usage: ./Bruteforce.sh [Options]', 'Usage: Openup recover [Options]')

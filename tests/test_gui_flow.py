@@ -110,8 +110,8 @@ class ActionCopyTests(unittest.TestCase):
 
     def test_success_does_not_claim_a_recovered_passcode_or_cleared_timer(self):
         recovery = action_copy("recover", apply=True)
-        self.assertIn("session ended", recovery.success)
-        self.assertIn("result", recovery.success)
+        self.assertIn("Computer steps finished", recovery.success)
+        self.assertIn("iPhone screen", recovery.success)
         self.assertNotIn("passcode found", recovery.success.lower())
         reset = action_copy("reset", apply=True)
         self.assertEqual(reset.success, "Reset operation finished")

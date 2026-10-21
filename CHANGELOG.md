@@ -1,5 +1,13 @@
 # Changes
 
+## 2.3.4
+
+- Remove the host's recursive Show Passcode / Exit menu. Recovery already runs automatically on the iPhone; the host now finishes once after sending the recovery system, without reading result files or writing over the phone console.
+- Start recovery directly from its GUI button without a redundant confirmation. DFU guidance and required host-password prompts remain in the GUI; the terminal stays optional and hidden.
+- Finish the GUI with Check your iPhone and clear instructions to wait for its result. Keep failed and interrupted operations distinct from this handoff, without claiming a recovered passcode or verified ramdisk startup.
+
+The native recovery engine, boot chain and final on-phone passcode display are unchanged. Regression tests exercise the actual adapted host main function with fake device operations and no menu input. Physical recovery remains untested for this revision.
+
 ## 2.3.3
 
 - Finish on-device recovery output with a short passcode result below the key and file-saving diagnostics, so the value remains visible on small phone screens. Preserve leading zeros and distinguish an unset passcode, an unsuccessful search, and a failed run.

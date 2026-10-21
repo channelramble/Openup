@@ -2,6 +2,7 @@ import unittest
 
 from ios_timeout.core import JOURNAL, PREFS
 from ios_timeout.desktop_results import MAX_DETAIL_CHARS, MAX_DETAILS, summarize
+from ios_timeout.backend_ui import RECOVERY_HANDOFF_LINE, RECOVERY_HANDOFF_TITLE
 
 
 INSPECTION = f"""
@@ -122,6 +123,31 @@ download succeeded
 """, None)
         self.assertEqual(result["details"], [])
         self.assertEqual(result["message"], "The operation is still running.")
+
+    def test_recovery_handoff_points_to_the_phone_without_claiming_a_passcode(self):
+        result = summarize("recover", RECOVERY_HANDOFF_LINE + "\n", 0)
+        self.assertEqual(result["title"], RECOVERY_HANDOFF_TITLE)
+        self.assertIn("iPhone screen", result["message"])
+        self.assertIn("no further menu choice", result["message"])
+        self.assertNotIn("No passcode was reported", result["message"])
+        self.assertNotIn("passcode", result)
+        self.assertIn("not confirmed", "\n".join(result["details"]))
+
+    def test_failed_or_interrupted_handoff_preserves_the_error_result(self):
+        for code, interrupted in ((1, False), (0, True), (None, False)):
+            with self.subTest(code=code, interrupted=interrupted):
+                result = summarize("recover", RECOVERY_HANDOFF_LINE, code, interrupted=interrupted)
+                self.assertNotEqual(result["title"], RECOVERY_HANDOFF_TITLE)
+                self.assertNotIn("no further menu choice", result["message"])
+        result = summarize("recover", RECOVERY_HANDOFF_LINE + "\n[Error] Fixture error", 0)
+        self.assertNotEqual(result["title"], RECOVERY_HANDOFF_TITLE)
+        self.assertIn("Error: Fixture error", result["details"])
+
+    def test_handoff_is_not_inferred_from_ordinary_boot_output_or_other_actions(self):
+        self.assertNotEqual(summarize("recover", "Boot commands finished.\n", 0)["title"],
+                            RECOVERY_HANDOFF_TITLE)
+        self.assertNotEqual(summarize("prepare", RECOVERY_HANDOFF_LINE, 0)["title"],
+                            RECOVERY_HANDOFF_TITLE)
 
     def test_details_are_bounded_and_unrecognized_output_is_not_copied(self):
         output = "unrecognized progress\n" * 70_000

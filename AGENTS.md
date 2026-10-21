@@ -2,17 +2,17 @@
 
 This file applies to the whole repository. Keep it current when architecture,
 release procedures, or verified hardware behavior changes. The snapshot below
-is dated **2026-10-20**; inspect the checkout and connected devices before
+is dated **2026-10-21**; inspect the checkout and connected devices before
 assuming that a historical state still applies.
 
 ## Start here
 
 - Project: **Openup**, a dark-mode desktop application for legacy iPhone recovery.
 - Repository: <https://github.com/channelramble/Openup> (public).
-- Current app version: **2.3.3**, with the phone's passcode result printed last.
+- Current app version: **2.3.4**, with automatic recovery and no post-boot menu.
 - Verified device baseline: **2.3.1**, a prerelease built from
   `d6a5117a25038b850a56cea2c2f89b151930c104`.
-- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.3>.
+- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.4>.
 - Read `README.md`, the newest section of `VERIFICATION.txt`, `CHANGELOG.md`,
   and `THIRD_PARTY.md` before modifying device operations or packaging.
 - `RESEARCH.md` and older verification sections contain historical hypotheses
@@ -36,6 +36,12 @@ assuming that a historical state still applies.
   or settings invalidates the previous review.
 - Long operations run outside the GUI process. Keep cancellation, cleanup,
   rollback, and close-window behavior intact.
+- The recovery Start button is the user's instruction to proceed. Keep the
+  host's recursive result-reading menu removed; never auto-answer it in a loop.
+  The phone runs recovery automatically and displays the final value itself.
+  After boot commands finish, the GUI shows Check your iPhone. That handoff
+  does not prove ramdisk startup or a recovered value. Required DFU and host
+  password prompts still use GUI controls. Timer-reset confirmations are separate.
 - Desktop downloads include their Python, Qt, and SSH dependencies. Opening
   the app must not invoke pip or require a developer environment. USB drivers,
   backend host tools, firmware, WSL, and USB forwarding remain separate needs;
@@ -221,6 +227,10 @@ on the MacBook. Both launchers and strict signatures passed. Hosted CI could
 not start due to the account's billing/spending block; do not claim it passed.
 The CI matrix is macOS/Python 3.9 and 3.13, Linux/Python 3.13, and
 Windows/Python 3.13. Recheck the service state before attributing future failures.
+CI resumed successfully for 2.3.2 and 2.3.3, including all four platform builds.
+For 2.3.3, 344 tests passed in source and the native Apple Silicon package;
+all-platform updater installation/rollback and a public download check passed.
+The MacBook was unreachable, so that release was not run under Rosetta there.
 
 ## Payload maintenance
 

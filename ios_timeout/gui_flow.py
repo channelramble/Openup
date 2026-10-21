@@ -86,7 +86,7 @@ def action_copy(action, *, apply=False, install_only=False):
         return ActionCopy(
             "Start passcode recovery",
             "Recovery session running — follow the on-screen steps",
-            "Recovery session ended — review the result",
+            "Computer steps finished — check the iPhone screen",
             "Recovery session stopped — review the result",
         )
     raise ValueError("Unknown desktop operation.")

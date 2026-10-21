@@ -1,5 +1,13 @@
 """GUI event hooks for backend source already verified by its owning adapter."""
 
+RECOVERY_HANDOFF_LINE = "Recovery system sent. Watch the iPhone screen for the result."
+RECOVERY_HANDOFF_TITLE = "Check your iPhone"
+RECOVERY_HANDOFF_MESSAGE = (
+    "Wait for recovery progress and the final passcode on the iPhone screen. "
+    "The passcode appears automatically when found; no further menu choice is needed. "
+    "Keep the phone connected until it shows a result."
+)
+
 
 _HELPERS = r'''
 bl_ios_ui() {

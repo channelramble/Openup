@@ -711,13 +711,13 @@ class MainWindow(QMainWindow):
     def recovery_page(self):
         widget, layout = self.page()
         frame, body = card("Start a recovery session",
-                           "Connect one phone by USB. The recovery tool will guide you through preparing the phone and running recovery.")
-        body.addWidget(label("1  Connect your phone     →     2  Follow the prompts     →     3  Review the result", "muted"))
+                           "Connect one phone by USB and start recovery. Follow the DFU instructions here; recovery then runs automatically on the phone.")
+        body.addWidget(label("1  Connect your phone     →     2  Follow the DFU steps     →     3  Read the passcode on your iPhone", "muted"))
         self.armv6_notice = label("iPhone 3G tools are included. No separate tools folder is needed.", "notice")
         body.addWidget(self.armv6_notice)
-        body.addWidget(self.button("Start recovery…", lambda: self.start_operation("recover", apply=True), primary=True),
-                       0, Qt.AlignmentFlag.AlignLeft)
-        body.addWidget(label("The first run downloads the recovery backend and boot files. Instructions, choices, and results appear here as the session progresses.", "muted"))
+        self.recovery_start = self.button("Start recovery", lambda: self.start_operation("recover", apply=True), primary=True)
+        body.addWidget(self.recovery_start, 0, Qt.AlignmentFlag.AlignLeft)
+        body.addWidget(label("The first run downloads the recovery backend and boot files. The final passcode appears on the iPhone automatically. No Show password menu or terminal input is needed.", "muted"))
         layout.addWidget(frame)
         self.recovery_advanced = Disclosure("Advanced options")
         advanced = self.recovery_advanced.body
@@ -976,12 +976,11 @@ class MainWindow(QMainWindow):
         except (ResetError, ValueError) as exc:
             QMessageBox.information(self, "Choose recovery settings", str(exc))
             return
-        if apply:
+        if apply and action != "recover":
             description = {
                 "reset": "Apply the timer-state reset to the selected phone? The app backs up original files before writing.",
                 "restore": "Restore original files from this backup? The connected phone must match the saved identity.",
                 "finalize": "Verify this transaction and finish its device-lock cleanup?",
-                "recover": "Start the recovery backend? It will guide you through DFU and its own device workflow.",
             }.get(action, "Start this device operation?")
             if QMessageBox.question(self, action_copy(action, apply=apply).title, description,
                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
