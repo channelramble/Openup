@@ -2,7 +2,7 @@
 
 [![Test and package](https://github.com/channelramble/Openup/actions/workflows/ci.yml/badge.svg)](https://github.com/channelramble/Openup/actions/workflows/ci.yml)
 
-A desktop app for legacy iPhone recovery. Version **2.3.1** fixes the tested iPhone 3G boot sequence, RAM-disk startup, and compatibility with its legacy SSH server. Its dark interface provides on-screen instructions, menu buttons, countdowns, and result cards. The terminal and manual input are optional Advanced controls, both off by default. It includes guided timer reset, a pinned [recovery backend](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, and a built-in updater. iPhone 3G ARMv6 tools and Intel Mac builds targeting macOS 12 Monterey are included.
+A desktop app for legacy iPhone recovery. Version **2.3.2** adds a true OLED-black theme while retaining the tested iPhone 3G boot and RAM-disk fixes. Its interface provides on-screen instructions, menu buttons, countdowns, and result cards. The terminal and manual input are optional Advanced controls, both off by default. It includes guided timer reset, a pinned [recovery backend](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, and a built-in updater. iPhone 3G ARMv6 tools and Intel Mac builds targeting macOS 12 Monterey are included.
 
 **Desktop downloads include Python, Qt, SSH libraries, and their Python dependencies. No Python, pip, virtual environment, or package installation is needed to open the app.** The Windows archive also includes the Linux Python/SSH runtime used by its WSL bridge.
 
@@ -10,7 +10,7 @@ A desktop app for legacy iPhone recovery. Version **2.3.1** fixes the tested iPh
 
 ## Download and open
 
-Get the platform archive from [version 2.3.1](https://github.com/channelramble/Openup/releases/tag/v2.3.1) and extract it completely.
+Get the platform archive from [version 2.3.2](https://github.com/channelramble/Openup/releases/tag/v2.3.2) and extract it completely.
 
 **Upgrading from 2.2.x:** extract and open the new `Openup` app once. The older updater expects the previous package name and cannot install this renamed layout. Openup preserves the existing backup/cache directory and recognizes older installed versions for rollback. Later Openup releases use the built-in updater normally. An older update selection cannot silently replace a freshly opened, newer app.
 
@@ -34,7 +34,7 @@ USB access still depends on the host: macOS's usbmuxd service, Apple Mobile Devi
 3. **Timer reset:** follow **Prepare → Review & reset → Done**. Preparation boots the temporary ramdisk and inspects the phone. When the on-screen SSH Ramdisk Menu appears, choose Exit while leaving the ramdisk running. Review the proposed changes in the result card, then confirm the reset. If the phone is already prepared, use the inspection shortcut. Changing the selected phone or its settings requires a fresh review. After reboot, use the existing passcode.
 4. **Passcode recovery:** start recovery with one button; the app downloads the backend when needed. Use the on-screen choices and DFU countdown. A temporary masked field appears only if a password is requested. Reported passcodes appear in a result card. A session ending does not by itself mean a passcode was recovered.
 5. **Advanced options:** expand these only when needed, such as for a local 3G IPSW, a custom tools folder, or connection settings. The normal workflow uses the included tools and default settings.
-6. **Backups and updates:** use Backups to restore original files or finish interrupted cleanup. Use the version/Updates button to open release downloads in your signed-in browser. Download your platform desktop ZIP and its matching `.zip.sha256`, then choose **Install downloaded update** and **Restart**. No token is needed for this route. Direct checks and downloads are also available in the expandable section using a GitHub read token, kept only in memory. Rollback remains available; GitHub CLI is not required.
+6. **Backups and updates:** use Backups to restore original files or finish interrupted cleanup. Use the version/Updates button to open the public release downloads in your browser. Download your platform desktop ZIP and its matching `.zip.sha256`, then choose **Install downloaded update** and **Restart**. No token is needed for this route. Direct checks and downloads are also available in the expandable section without signing in; an optional GitHub read token is kept only in memory. Rollback remains available; GitHub CLI is not required.
 
 The **session card** displays the current step, requests a response when needed, and shows the result. The terminal stays closed even on failure. Open **Advanced · terminal** to inspect raw output; **Enable manual input** is a separate opt-in. Closing the terminal disables manual input again. Phone and settings controls are locked while an operation runs.
 
@@ -50,7 +50,7 @@ The `reset` workflow still requires the correct passcode afterward. The separate
 
 ## Source edition and CLI
 
-The unqualified `Openup-2.3.1.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
+The unqualified `Openup-2.3.2.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
 
 Download the ZIP from [Releases](https://github.com/channelramble/Openup/releases) and extract the whole folder onto the computer connected to the phone. Python 3.9 or newer is required.
 
@@ -157,7 +157,7 @@ Use menu option **9**, or:
 
 The first command checks, the second installs, and the third selects the previous installation. Omit `--prerelease` to accept stable releases only. CLI and desktop updates are separate: download a platform desktop archive once to switch to the GUI.
 
-Because this repository is private, install [GitHub CLI](https://cli.github.com/) and run `gh auth login` with an account that can access it. The app uses that sign-in without saving a token.
+The source-edition updater uses [GitHub CLI](https://cli.github.com/). Run `gh auth login` if required by your CLI setup; the app reuses that sign-in without saving a token. Public desktop downloads and the desktop updater do not require a GitHub sign-in.
 
 Updates verify GitHub's archive SHA-256, the complete internal checksum inventory, source version/revision, ZIP paths, and size limits. They stage into a separate version folder and switch the active version only after verification. Relaunch the original launcher to use the update. Previous source and version-specific Python environments remain available for rollback. Backups and backend caches are preserved.
 

@@ -1,3 +1,20 @@
+Openup 2.3.2 — OLED-black desktop theme
+Verification date: 2026-10-20
+
+The stylesheet and native Qt palette now use true black for the workspace,
+sidebar, cards, inputs, tables, dialogs and optional terminal. Neutral borders,
+focus states, readable disabled controls and colored status accents are retained.
+The public repository's download instructions no longer require a desktop token.
+All 67 selected GUI, workflow and desktop tests passed. The bundled-dependency
+self-test initialized all six pages. Screenshots covered the six pages, backup
+table, optional terminal and a native warning dialog; the README preview is updated.
+No device operation was performed for this visual change. The 2.3.1 boot,
+recovery and transaction implementations are unchanged. Release-specific package
+and updater validation is recorded with the 2.3.2 release.
+
+Historical records follow.
+============================================================
+
 Openup 2.3.1 — verified two-stage 3G boot and RAM-root update
 Verification date: 2026-10-20
 

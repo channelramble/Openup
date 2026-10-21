@@ -30,65 +30,66 @@ from .desktop_protocol import EventDecoder, encode_reply, encode_interrupt, enco
 from .desktop_results import summarize
 
 STYLE = """
-QWidget { color: #dce5f4; font-size: 13px; }
-QMainWindow, #workspace { background: #0e1420; }
-#sidebar { background: #172132; border-right: 1px solid #2c3a50; }
-#sidebar #brand { color: #f0f5ff; font-size: 20px; font-weight: 700; }
-#sidebar QLabel { color: #9aaac1; }
-#sidebar #edition { color: #8d9db4; font-size: 11px; }
-#sidebar QPushButton { background: transparent; color: #a9b8cf; border: 1px solid transparent;
+QWidget { color: #e6e6e6; font-size: 13px; }
+QMainWindow, #workspace { background: #000000; }
+#sidebar { background: #000000; border-right: 1px solid #303030; }
+#sidebar #brand { color: #f5f5f5; font-size: 20px; font-weight: 700; }
+#sidebar QLabel { color: #a3a3a3; }
+#sidebar #edition { color: #999999; font-size: 11px; }
+#sidebar QPushButton { background: transparent; color: #b3b3b3; border: 1px solid transparent;
     border-radius: 8px; padding: 11px 12px; text-align: left; font-weight: 500; }
-#sidebar QPushButton:checked { color: #a9c6ff; background: #203459; font-weight: 700; }
-#sidebar QPushButton:hover { background: #202c40; }
+#sidebar QPushButton:checked { color: #a9c6ff; background: #172c4c; font-weight: 700; }
+#sidebar QPushButton:hover { background: #141414; }
 #sidebar QPushButton:focus { border-color: #80aaff; }
-#pageTitle { color: #f0f5ff; font-size: 28px; font-weight: 700; }
-#subtitle { color: #a4b3ca; font-size: 13px; }
-#card, #phoneBar, #activityPanel { background: #172132; border: 1px solid #2b3a51; border-radius: 12px; }
-#cardTitle { font-size: 19px; font-weight: 650; color: #e8effc; }
-#eyebrow { color: #91a9cd; font-size: 11px; font-weight: 600; }
-#muted { color: #a8b8d0; }
-#notice { background: #1b2e4c; border: 0; border-radius: 8px; padding: 12px; color: #b4cef5; }
-#warning { background: #362b1e; border: 1px solid #685138; border-radius: 8px; padding: 12px; color: #f0c78d; }
-#connection { color: #aac1df; font-size: 12px; }
-#step { color: #95a4bc; background: #1a2639; border-radius: 7px; padding: 9px; font-size: 12px; }
-#step[active="true"] { color: #b7d0ff; background: #243a60; font-weight: 700; }
-#step[complete="true"] { color: #9bd9be; background: #18392f; }
-QPushButton { background: #172132; border: 1px solid #3b4d69; border-radius: 7px; padding: 10px 15px; font-weight: 600; }
-QPushButton:hover { background: #253854; border-color: #6d96dd; }
+#pageTitle { color: #f5f5f5; font-size: 28px; font-weight: 700; }
+#subtitle { color: #a3a3a3; font-size: 13px; }
+#card, #phoneBar, #activityPanel { background: #000000; border: 1px solid #303030; border-radius: 12px; }
+#cardTitle { font-size: 19px; font-weight: 650; color: #f5f5f5; }
+#eyebrow { color: #a3a3a3; font-size: 11px; font-weight: 600; }
+#muted { color: #b3b3b3; }
+#notice { background: #000000; border: 1px solid #31496b; border-radius: 8px; padding: 12px; color: #b4cef5; }
+#warning { background: #000000; border: 1px solid #685138; border-radius: 8px; padding: 12px; color: #f0c78d; }
+#connection { color: #b3b3b3; font-size: 12px; }
+#step { color: #a3a3a3; background: #000000; border: 1px solid #303030; border-radius: 7px; padding: 9px; font-size: 12px; }
+#step[active="true"] { color: #b7d0ff; border-color: #79a8ff; font-weight: 700; }
+#step[complete="true"] { color: #9bd9be; border-color: #38634f; }
+QPushButton { background: #000000; border: 1px solid #4a4a4a; border-radius: 7px; padding: 10px 15px; font-weight: 600; }
+QPushButton:hover { background: #141414; border-color: #6d96dd; }
 QPushButton:focus { border: 1px solid #91b6ff; }
-QPushButton:pressed { background: #2c4165; }
-QPushButton:disabled { background: #1a2536; color: #74839b; border-color: #26354a; }
-QPushButton#primary { background: #477fe8; color: #f4f7ff; border: 1px solid #477fe8; }
-QPushButton#primary:hover { background: #5890f6; }
-QPushButton#primary:disabled { background: #263f68; border-color: #263f68; color: #f4f7ff; }
+QPushButton:pressed { background: #242424; }
+QPushButton:disabled { background: #000000; color: #808080; border-color: #262626; }
+QPushButton#primary { background: #285fcf; color: #ffffff; border: 1px solid #285fcf; }
+QPushButton#primary:hover { background: #3471e6; }
+QPushButton#primary:pressed { background: #1e4ca8; }
+QPushButton#primary:disabled { background: #000000; border-color: #303030; color: #808080; }
 QPushButton#quiet { background: transparent; color: #adcbf9; border: 1px solid transparent; }
-QPushButton#quiet:hover { background: #223652; }
+QPushButton#quiet:hover { background: #141414; }
 QPushButton#danger { color: #f4a398; }
 #disclosure { background: transparent; border: 0; }
-QPushButton#disclosureToggle { text-align: left; color: #aabedb; background: transparent; border: 0; padding: 9px 0; }
-QLineEdit, QComboBox, QSpinBox { background: #172132; border: 1px solid #3b4d69; border-radius: 6px; padding: 7px; min-height: 20px; }
+QPushButton#disclosureToggle { text-align: left; color: #b3b3b3; background: transparent; border: 0; padding: 9px 0; }
+QLineEdit, QComboBox, QSpinBox { background: #000000; border: 1px solid #4a4a4a; border-radius: 6px; padding: 7px; min-height: 20px; }
 QLineEdit:focus, QComboBox:focus, QSpinBox:focus { border: 1px solid #8db5ff; }
-QLineEdit:disabled, QComboBox:disabled { background: #162031; color: #7d90ad; }
-QComboBox QAbstractItemView { background: #172132; color: #dce5f4; selection-background-color: #243a60; }
+QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled { background: #000000; color: #808080; }
+QComboBox QAbstractItemView { background: #000000; color: #e6e6e6; selection-background-color: #172c4c; }
 QCheckBox { spacing: 8px; padding: 4px 0; }
-QTableWidget { background: #172132; border: 1px solid #2c3a50; border-radius: 7px; gridline-color: #24344b; selection-background-color: #243a60; selection-color: #b7d0ff; }
-QHeaderView::section { background: #1b283c; border: 0; padding: 10px; color: #a6bbd8; font-weight: 600; }
-#console { background: #0a101b; color: #bdcfe7; border: 0; border-radius: 8px; padding: 10px; font-family: Menlo, Consolas, monospace; font-size: 11px; }
-#sessionTitle { font-weight: 650; color: #e5efff; }
-#sessionHint { color: #acbdd5; font-size: 12px; }
-QProgressBar { background: #26354d; border: 0; border-radius: 2px; min-height: 3px; max-height: 3px; }
+QTableWidget { background: #000000; border: 1px solid #303030; border-radius: 7px; gridline-color: #262626; selection-background-color: #172c4c; selection-color: #b7d0ff; }
+QHeaderView::section { background: #000000; border: 0; border-bottom: 1px solid #303030; padding: 10px; color: #b3b3b3; font-weight: 600; }
+#console { background: #000000; color: #d4d4d4; border: 0; border-radius: 8px; padding: 10px; font-family: Menlo, Consolas, monospace; font-size: 11px; }
+#sessionTitle { font-weight: 650; color: #f5f5f5; }
+#sessionHint { color: #b3b3b3; font-size: 12px; }
+QProgressBar { background: #262626; border: 0; border-radius: 2px; min-height: 3px; max-height: 3px; }
 QProgressBar::chunk { background: #79a8ff; }
 QScrollArea { border: 0; background: transparent; }
 QScrollBar:vertical { background: transparent; width: 8px; }
-QScrollBar::handle:vertical { background: #425773; border-radius: 4px; min-height: 30px; }
+QScrollBar::handle:vertical { background: #595959; border-radius: 4px; min-height: 30px; }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
-QDialog { background: #0e1420; }
-QToolTip { color: #dce5f4; background: #172132; border: 1px solid #506586; padding: 6px; }
-#guidanceTitle { font-size: 20px; font-weight: 650; color: #eaf2ff; }
-#guidanceText { background: #172132; color: #c3d2e8; font-size: 14px; }
+QDialog { background: #000000; }
+QToolTip { color: #e6e6e6; background: #000000; border: 1px solid #666666; padding: 6px; }
+#guidanceTitle { font-size: 20px; font-weight: 650; color: #f5f5f5; }
+#guidanceText { background: #000000; color: #d4d4d4; font-size: 14px; }
 #promptInput { font-size: 15px; padding: 10px; }
-QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid #617692; border-radius: 3px; background: #101a29; }
-QCheckBox::indicator:checked { background: #477fe8; border-color: #a9c6ff; }
+QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid #737373; border-radius: 3px; background: #000000; }
+QCheckBox::indicator:checked { background: #285fcf; border-color: #a9c6ff; }
 """
 
 
@@ -114,19 +115,23 @@ def card(title, description=""):
 
 
 def dark_palette():
+    """Keep native and stylesheet surfaces OLED black on every host theme."""
     palette = QPalette()
     for role, color in (
-        (QPalette.ColorRole.Window, "#0e1420"), (QPalette.ColorRole.WindowText, "#dce5f4"),
-        (QPalette.ColorRole.Base, "#172132"), (QPalette.ColorRole.AlternateBase, "#1b283c"),
-        (QPalette.ColorRole.Text, "#dce5f4"), (QPalette.ColorRole.Button, "#172132"),
-        (QPalette.ColorRole.ButtonText, "#dce5f4"), (QPalette.ColorRole.Highlight, "#477fe8"),
-        (QPalette.ColorRole.HighlightedText, "#ffffff"), (QPalette.ColorRole.ToolTipBase, "#172132"),
-        (QPalette.ColorRole.ToolTipText, "#dce5f4"), (QPalette.ColorRole.PlaceholderText, "#91a3bf"),
-        (QPalette.ColorRole.Light, "#354761"), (QPalette.ColorRole.Dark, "#080d16"),
+        (QPalette.ColorRole.Window, "#000000"), (QPalette.ColorRole.WindowText, "#e6e6e6"),
+        (QPalette.ColorRole.Base, "#000000"), (QPalette.ColorRole.AlternateBase, "#000000"),
+        (QPalette.ColorRole.Text, "#e6e6e6"), (QPalette.ColorRole.Button, "#000000"),
+        (QPalette.ColorRole.ButtonText, "#e6e6e6"), (QPalette.ColorRole.Highlight, "#285fcf"),
+        (QPalette.ColorRole.HighlightedText, "#ffffff"), (QPalette.ColorRole.ToolTipBase, "#000000"),
+        (QPalette.ColorRole.ToolTipText, "#e6e6e6"), (QPalette.ColorRole.PlaceholderText, "#999999"),
+        (QPalette.ColorRole.Light, "#666666"), (QPalette.ColorRole.Dark, "#000000"),
+        (QPalette.ColorRole.Midlight, "#4a4a4a"), (QPalette.ColorRole.Mid, "#303030"),
+        (QPalette.ColorRole.Shadow, "#000000"), (QPalette.ColorRole.Link, "#8db5ff"),
+        (QPalette.ColorRole.LinkVisited, "#c4b5fd"),
     ):
         palette.setColor(role, QColor(color))
     for role in (QPalette.ColorRole.Text, QPalette.ColorRole.ButtonText, QPalette.ColorRole.WindowText):
-        palette.setColor(QPalette.ColorGroup.Disabled, role, QColor("#7688a3"))
+        palette.setColor(QPalette.ColorGroup.Disabled, role, QColor("#808080"))
     return palette
 
 
@@ -765,7 +770,7 @@ class MainWindow(QMainWindow):
         frame, body = card("App updates", f"Running version {__version__}. Updates take effect after you restart this app.")
         self.update_info = label("Get a release in your browser, then install it here. No terminal or dependency installation is needed.", "notice")
         body.addWidget(self.update_info)
-        body.addWidget(label(f"1. Open release downloads and sign in to GitHub. Download the {desktop_updates.target()} desktop ZIP and its matching .zip.sha256 file.", "muted"))
+        body.addWidget(label(f"1. Open release downloads. Download the {desktop_updates.target()} desktop ZIP and its matching .zip.sha256 file.", "muted"))
         body.addWidget(label("2. Choose Install downloaded update, select those files, then restart when prompted.", "muted"))
         downloads = QHBoxLayout()
         downloads.addWidget(self.button("Open release downloads ↗", lambda: QDesktopServices.openUrl(
@@ -778,11 +783,11 @@ class MainWindow(QMainWindow):
         body.addWidget(self.relaunch_button)
         self.online_updates = Disclosure("Check and download directly in the app")
         online = self.online_updates.body
-        online.addWidget(label("This repository is private. Direct downloads need a GitHub token with read access; browser downloads above use your existing GitHub sign-in.", "muted"))
-        online.addWidget(label("GitHub access token", "eyebrow"))
+        online.addWidget(label("Public releases can be checked and downloaded without signing in. A GitHub token is optional.", "muted"))
+        online.addWidget(label("GitHub access token (optional)", "eyebrow"))
         self.token_edit = QLineEdit()
         self.token_edit.setEchoMode(QLineEdit.EchoMode.Password)
-        self.token_edit.setPlaceholderText("GitHub token with read access to the private repository")
+        self.token_edit.setPlaceholderText("Leave empty for public downloads")
         online.addWidget(self.token_edit)
         online.addWidget(label("Your token stays in memory for this session. It is not saved or passed to device operations.", "muted"))
         self.prereleases = QCheckBox("Include prereleases")
@@ -1201,7 +1206,7 @@ class MainWindow(QMainWindow):
                 cell = QTableWidgetItem(item[key])
                 cell.setToolTip(item["path"] if key != "status" else item["status"])
                 if not item["valid"]:
-                    cell.setForeground(QColor("#985144"))
+                    cell.setForeground(QColor("#f4a398"))
                 self.backup_table.setItem(row, column, cell)
         self.backup_table.setVisible(bool(self.backup_rows))
         self.backup_note.setText(f"{len(self.backup_rows)} saved backup(s). Select one to restore its original files." if self.backup_rows else

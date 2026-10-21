@@ -1,5 +1,13 @@
 # Changes
 
+## 2.3.2
+
+- Use true black backgrounds across the workspace, sidebar, cards, inputs, tables, dialogs, and optional terminal. Keep neutral borders, visible focus states, and readable blue, green, and amber status accents.
+- Improve invalid-backup text contrast and keep disabled controls readable on black.
+- Update download instructions for the now-public repository; GitHub credentials are optional in the desktop updater.
+
+The device boot, recovery, and transaction code is unchanged from 2.3.1.
+
 ## 2.3.1
 
 - Use the physically tested iPhone 3G chain: 3.1.3 iBSS, then 4.2.1 iBEC before the 4.2.1 ramdisk and kernel. Keep the first-stage firmware cache separate from 4.2.1 components.

@@ -8,10 +8,11 @@ assuming that a historical state still applies.
 ## Start here
 
 - Project: **Openup**, a dark-mode desktop application for legacy iPhone recovery.
-- Repository: <https://github.com/channelramble/Openup> (private).
-- Published baseline: **2.3.1**, a prerelease built from
+- Repository: <https://github.com/channelramble/Openup> (public).
+- Current app version: **2.3.2**, with an OLED-black theme.
+- Verified device baseline: **2.3.1**, a prerelease built from
   `d6a5117a25038b850a56cea2c2f89b151930c104`.
-- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.1>.
+- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.2>.
 - Read `README.md`, the newest section of `VERIFICATION.txt`, `CHANGELOG.md`,
   and `THIRD_PARTY.md` before modifying device operations or packaging.
 - `RESEARCH.md` and older verification sections contain historical hypotheses
@@ -22,6 +23,8 @@ assuming that a historical state still applies.
 
 ## Product requirements
 
+- Keep default surfaces true OLED black (`#000000`) in both the stylesheet
+  and native Qt palette, with readable borders, text, and focus/status accents.
 - The normal workflow must work entirely through GUI controls. Keep the terminal
   and manual input hidden and disabled by default, including after failures.
   Manual input is a separate Advanced opt-in; closing the terminal disables it.
@@ -277,8 +280,8 @@ Release procedure:
    Distinguish a staged version from the running GUI; restart activates it.
 
 Browser-download installation accepts a platform ZIP and matching checksum
-file without a token. Direct private-repository checks use a read token held
-in memory. Both validate platform, clean revision, paths, size bounds, and
+file without a token. The repository is public; desktop checks need no token. Optional read tokens
+remain in memory for authenticated requests. Both validate platform, clean revision, paths, size bounds, and
 file inventory before activation. A local checksum proves integrity, not
 publisher identity. Preserve damaged-update fallback and explicit rollback.
 The pre-2.3 rename requires opening a new Openup download once; do not promise
