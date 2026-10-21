@@ -353,6 +353,7 @@ class GuiTests(unittest.TestCase):
         self.assertEqual(self.window.timer_flow.stage, "prepare")
         self.assertFalse(self.window.timer_flow.can_apply)
         with self.fake_worker(), \
+             patch.object(self.window, "require_typed_confirmation", return_value=True), \
              patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes):
             self.window.run_timer_step()
             worker = self.window.process
@@ -370,6 +371,17 @@ class GuiTests(unittest.TestCase):
             worker.finish()
         self.assertEqual(self.window.timer_flow.stage, "complete")
         self.assertFalse(self.window.timer_flow.can_apply)
+
+    def test_reset_is_blocked_until_typed_confirmation(self):
+        self.window.timer_flow.finish("inspect", 0)
+        self.window.sync_timer_flow()
+        self.assertEqual(self.window.timer_flow.stage, "review")
+        with self.fake_worker(), \
+             patch.object(self.window, "require_typed_confirmation", return_value=False) as confirm:
+            self.window.run_timer_step()
+        confirm.assert_called_once()
+        self.assertIsNone(self.window.process)
+        self.assertEqual(self.window.timer_flow.stage, "review")
 
     def test_direct_timer_apply_without_review_never_starts_worker(self):
         from PySide6.QtWidgets import QMessageBox
@@ -595,10 +607,10 @@ class GuiTests(unittest.TestCase):
         self.assertEqual(self.window.token_edit.text(), "")
 
     def test_cancelled_confirmation_never_starts_device_write(self):
-        from PySide6.QtWidgets import QMessageBox
         self.window.timer_flow.finish("inspect", 0)
         self.window.sync_timer_flow()
-        with patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Cancel):
+        # Reset now requires a typed confirmation; declining it must not write.
+        with patch.object(self.window, "require_typed_confirmation", return_value=False):
             self.window.start_operation("reset", apply=True)
         self.assertIsNone(self.window.process)
         self.assertFalse(self.window.busy)

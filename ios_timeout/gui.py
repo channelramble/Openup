@@ -50,6 +50,7 @@ QMainWindow, #workspace { background: #000000; }
 #notice { background: #000000; border: 1px solid #31496b; border-radius: 8px; padding: 12px; color: #b4cef5; }
 #warning { background: #000000; border: 1px solid #685138; border-radius: 8px; padding: 12px; color: #f0c78d; }
 #connection { color: #b3b3b3; font-size: 12px; }
+#fieldLabel { color: #c8c8c8; font-size: 12px; font-weight: 600; }
 #step { color: #a3a3a3; background: #000000; border: 1px solid #303030; border-radius: 7px; padding: 9px; font-size: 12px; }
 #step[active="true"] { color: #b7d0ff; border-color: #79a8ff; font-weight: 700; }
 #step[complete="true"] { color: #9bd9be; border-color: #38634f; }
@@ -272,12 +273,14 @@ class MainWindow(QMainWindow):
         phone_bar = QFrame()
         phone_bar.setObjectName("phoneBar")
         phone_layout = QVBoxLayout(phone_bar)
-        phone_layout.setContentsMargins(16, 12, 16, 12)
-        phone_layout.setSpacing(7)
+        phone_layout.setContentsMargins(16, 13, 16, 13)
+        phone_layout.setSpacing(9)
+        phone_layout.addWidget(label("STEP 1 · CONNECT YOUR PHONE BY USB", "eyebrow"))
         row = QHBoxLayout()
+        row.setSpacing(16)
         model_column = QVBoxLayout()
         model_column.setSpacing(5)
-        model_column.addWidget(label("Your iPhone", "eyebrow"))
+        model_column.addWidget(label("Which iPhone is it?", "fieldLabel"))
         self.phone_model = self.model_combo()
         self.phone_model.setAccessibleName("iPhone model")
         self.phone_model.currentIndexChanged.connect(self.model_changed)
@@ -285,19 +288,20 @@ class MainWindow(QMainWindow):
         row.addLayout(model_column, 4)
         usb_column = QVBoxLayout()
         usb_column.setSpacing(5)
-        self.connection = label("USB not checked", "connection")
+        self.connection = label("Not detected yet", "connection")
         usb_column.addWidget(self.connection)
         usb_row = QHBoxLayout()
+        usb_row.setSpacing(8)
         self.device_combo = QComboBox()
         self.device_combo.setAccessibleName("USB phone")
-        self.device_combo.addItem("Connect your phone by USB", "")
+        self.device_combo.addItem("No phone detected on USB", "")
         self.device_combo.currentIndexChanged.connect(self.device_changed)
         usb_row.addWidget(self.device_combo, 1)
         usb_row.addWidget(self.button("Refresh", self.scan))
         usb_column.addLayout(usb_row)
         row.addLayout(usb_column, 5)
         phone_layout.addLayout(row)
-        self.device_detail = label("DFU phones may be connected without appearing here. Choose the model to continue.", "muted")
+        self.device_detail = label("A phone in DFU or recovery mode may not appear in this list — that is normal. Pick the model and continue.", "muted")
         phone_layout.addWidget(self.device_detail)
         work.addWidget(phone_bar)
 
@@ -566,6 +570,7 @@ class MainWindow(QMainWindow):
 
     def overview_page(self):
         widget, layout = self.page()
+        layout.addWidget(label("STEP 2 · CHOOSE WHAT TO DO", "eyebrow"))
         row = QHBoxLayout()
         row.setSpacing(16)
         for context, title, description, button, page in (
@@ -661,6 +666,36 @@ class MainWindow(QMainWindow):
             self.navigate(3)
         else:
             self.start_operation("prepare")
+
+    def require_typed_confirmation(self, title, body, confirm_label, phrase="Yes"):
+        """Gate a destructive action behind typing an exact word, e.g. 'Yes'.
+
+        Returns True only when the user typed the phrase and chose the confirm
+        button. The confirm button stays disabled until the text matches exactly.
+        """
+        dialog = QDialog(self)
+        dialog.setWindowTitle(title)
+        dialog.setMinimumWidth(460)
+        layout = QVBoxLayout(dialog)
+        layout.setSpacing(12)
+        layout.addWidget(label(title, "cardTitle"))
+        message = label(body, "guidanceText")
+        message.setWordWrap(True)
+        layout.addWidget(message)
+        layout.addWidget(label(f"Type “{phrase}” below to confirm.", "muted"))
+        entry = QLineEdit()
+        entry.setPlaceholderText(phrase)
+        layout.addWidget(entry)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
+        confirm = buttons.addButton(confirm_label, QDialogButtonBox.ButtonRole.AcceptRole)
+        confirm.setObjectName("danger")
+        confirm.setEnabled(False)
+        entry.textChanged.connect(lambda text: confirm.setEnabled(text.strip() == phrase))
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        entry.setFocus(Qt.FocusReason.OtherFocusReason)
+        return dialog.exec() == QDialog.DialogCode.Accepted
 
     def timer_secondary_action(self):
         if self.busy:
@@ -961,9 +996,17 @@ class MainWindow(QMainWindow):
         except (ResetError, ValueError) as exc:
             QMessageBox.information(self, "Choose recovery settings", str(exc))
             return
-        if apply and action != "recover":
+        if action == "reset" and apply:
+            # A reset writes to the phone, so require an explicit typed confirmation.
+            if not self.require_typed_confirmation(
+                    "Reset the lockout timer",
+                    "This backs up the current lockout files and then writes the reset to the "
+                    "phone. The installed iOS version is unchanged and your data is kept. You "
+                    "will still need the passcode afterward.",
+                    "Reset timer"):
+                return
+        elif apply and action != "recover":
             description = {
-                "reset": "Apply the timer-state reset to the selected phone? The app backs up original files before writing.",
                 "restore": "Restore original files from this backup? The connected phone must match the saved identity.",
                 "finalize": "Verify this transaction and finish its device-lock cleanup?",
             }.get(action, "Start this device operation?")
