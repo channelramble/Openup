@@ -243,12 +243,15 @@ class MainWindow(QMainWindow):
         nav.addWidget(label("Version " + __version__, "edition"))
         nav.addSpacing(28)
         self.nav_group = QButtonGroup(self)
-        for index, title in enumerate(("Start", "Reset timer", "Recover passcode", "Backups", "Updates", "Help")):
-            if index == 3:
+        # Visual order puts the main task (Recover) first and the lockout-timer
+        # reset below it; the button id stays the page index so navigate() works.
+        for page, title in ((0, "Start"), (2, "Recover passcode"), (1, "Reset timer"),
+                            (3, "Backups"), (4, "Updates"), (5, "Help")):
+            if page == 3:
                 nav.addSpacing(20)
             button = QPushButton(title)
             button.setCheckable(True)
-            self.nav_group.addButton(button, index)
+            self.nav_group.addButton(button, page)
             nav.addWidget(button)
         self.nav_group.idToggled.connect(lambda index, checked: self.navigate(index) if checked else None)
         nav.addStretch()
@@ -568,33 +571,53 @@ class MainWindow(QMainWindow):
         layout.setSpacing(16)
         return widget, layout
 
+    def tool_row(self, title, description, handler, button="Open"):
+        """A compact secondary action: title + description on the left, a button."""
+        row = QHBoxLayout()
+        row.setSpacing(14)
+        text = QVBoxLayout()
+        text.setSpacing(2)
+        text.addWidget(label(title, "fieldLabel"))
+        text.addWidget(label(description, "muted"))
+        row.addLayout(text, 1)
+        action = self.button(button, lambda checked=False, run=handler: run(), operation=False)
+        row.addWidget(action, 0, Qt.AlignmentFlag.AlignVCenter)
+        return row
+
     def overview_page(self):
         widget, layout = self.page()
-        layout.addWidget(label("STEP 2 · CHOOSE WHAT TO DO", "eyebrow"))
-        row = QHBoxLayout()
-        row.setSpacing(16)
-        for context, title, description, button, page in (
-            ("I KNOW THE PASSCODE", "Reset a lockout timer",
-             "Prepare the phone, review the proposed changes, then reset the timer. You will still need your passcode.",
-             "Reset timer", 1),
-            ("I FORGOT THE PASSCODE", "Recover a passcode",
-             "Start a guided session with the legacy recovery tool. The app guides you through each step on screen.",
-             "Recover passcode", 2),
-        ):
-            box, inner = card(title)
-            inner.insertWidget(0, label(context, "eyebrow"))
-            inner.addWidget(label(description, "muted"))
-            inner.addStretch()
-            inner.addWidget(self.button(button, lambda checked=False, index=page: self.navigate(index),
-                                         primary=True, operation=False))
-            row.addWidget(box, 1)
-        layout.addLayout(row)
-        frame, body = card("Before you start")
-        body.addWidget(label("Connect one phone by USB and choose its model above. If it is in DFU mode, it may not appear in the USB list.", "muted"))
+        layout.addWidget(label("STEP 2 · WHAT DO YOU NEED?", "eyebrow"))
+        # Primary task: recovering a forgotten passcode is the headline use case.
+        hero, hero_body = card("Recover a forgotten passcode")
+        hero_body.insertWidget(0, label("MAIN TASK", "eyebrow"))
+        hero_body.addWidget(label(
+            "Start a guided recovery session. Follow the on-screen DFU steps; the passcode then "
+            "appears on the iPhone itself. No terminal, no menus.", "muted"))
+        hero_body.addStretch()
+        hero_body.addWidget(self.button("Recover passcode", lambda: self.navigate(2),
+                                        primary=True, operation=False),
+                            0, Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(hero)
+        # Secondary device tools, grouped under one "More" card. The lockout-timer
+        # reset is a small lock-state plist edit, so it lives here rather than as a
+        # co-equal headline. This area grows as more device tools are added.
+        tools, tools_body = card("More · device tools")
+        tools_body.addLayout(self.tool_row(
+            "Reset a lockout timer",
+            "Clear the “iPhone is disabled” lockout message by editing the lock-state "
+            "files only. Your data and passcode are kept.",
+            lambda: self.navigate(1)))
+        tools_body.addLayout(self.tool_row(
+            "Backups & transactions",
+            "Review a saved reset/recovery transaction, restore originals, or finish cleanup.",
+            lambda: self.navigate(3)))
+        tools_body.addWidget(label(
+            "More device tools — iOS version, exit recovery mode, activation backup — "
+            "are being added to this area.", "muted"))
         help_button = self.button("Need help connecting?", lambda: self.navigate(5), operation=False)
         help_button.setObjectName("quiet")
-        body.addWidget(help_button, 0, Qt.AlignmentFlag.AlignLeft)
-        layout.addWidget(frame)
+        tools_body.addWidget(help_button, 0, Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(tools)
         layout.addStretch()
         return widget
 
