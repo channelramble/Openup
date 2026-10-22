@@ -1,5 +1,13 @@
 # Changes
 
+## 2.3.10
+
+- Fix a 20-second stall introduced in 2.3.9. The post-boot USB wait was applied to every device action, but only "prepare" boots a ramdisk and needs to wait for the phone to re-register with usbmuxd. On inspect/reset/restore/finalize a genuinely absent phone now fails immediately again (as before 2.3.9) instead of polling for the full timeout — and no longer holds Apple's device agents paused during that wait. Only "prepare" still waits (up to 20s) after its boot.
+- Let Openup's device-agent guardian be the sole owner of Apple's AMPDevices agents during a timer reset. The Legacy iOS Kit's own startup `killall -STOP` — combined with the `--no-finder` that suppresses its resume — could, in a narrow startup race, leave an agent the guardian had not yet claimed suspended after the run. The timer adapters now neutralise the kit's STOP/CONT, mirroring the recovery backend, so only the precise guardian suspends and restores those agents.
+- Test and quality: the device-agent reservation test no longer spins for the real timeout, and a new regression test covers a cancelled restore/finalize confirmation.
+
+Found by an adversarial multi-agent review of the 2.3.6→2.3.9 changes (five confirmed findings after independent verification). All 370 source tests pass. No device-operation logic changed.
+
 ## 2.3.9
 
 - Wait for the phone to re-enumerate on USB before the timer-reset device step. The flow queried usbmuxd once with no retry right after the kit handed control back; a just-booted ramdisk can take a second or two to re-register (notably on Intel Macs over direct USB, as the kit's own iproxy tunnel tears down), so the single query could land in that gap and report "No matching USB iPhone". It now polls for up to 20 seconds with on-screen progress, and still reports the same clear error immediately for a genuinely absent device. This addresses the post-boot re-enumeration cause; a separate pre-boot detection cause (the kit's own first probe) is not changed here.

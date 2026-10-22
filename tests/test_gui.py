@@ -482,6 +482,20 @@ class GuiTests(unittest.TestCase):
                     self.assertEqual(self.window.timer_flow.stage, "prepare")
                     self.assertFalse(self.window.timer_flow.can_apply)
 
+    def test_cancelled_restore_or_finalize_never_starts_device_write(self):
+        from PySide6.QtWidgets import QMessageBox
+        with self.fake_worker(), \
+             patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Cancel):
+            for action in ("restore", "finalize"):
+                with self.subTest(action=action):
+                    self.window.timer_flow.finish("inspect", 0)
+                    self.window.sync_timer_flow()
+                    self.window.start_operation(
+                        action, apply=True, backup=Path(tempfile.gettempdir()) / "fixture-backup")
+                    self.assertIsNone(self.window.process)
+                    self.assertFalse(self.window.busy)
+                    self.assertEqual(self.window.timer_flow.stage, "review")
+
     def test_recovery_download_does_not_start_passcode_recovery(self):
         with self.fake_worker():
             self.window.start_operation("recover", install_only=True)

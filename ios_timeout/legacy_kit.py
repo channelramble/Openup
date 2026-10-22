@@ -113,6 +113,24 @@ def _disable_sshrd_menu(source):
     return source.replace(before, after)
 
 
+def _release_kit_agent_control(source):
+    """Make Openup's device-agent guardian the sole owner of Apple's AMP agents.
+
+    The kit STOPs AMPDevicesAgent/AMPDeviceDiscoveryAgent/MobileDeviceUpdater at
+    startup and only resumes them on exit when --no-finder is unset. Openup runs
+    the kit with --no-finder and holds the precise `recovery_agents` guardian
+    across the whole operation, so neutralise the kit's own global STOP/CONT:
+    otherwise an agent the kit stops that the guardian has not claimed (a narrow
+    startup race) is left suspended. Mirrors the recovery backend adapter. The
+    command is replaced with a no-op (not deleted) because the kit's resume sits
+    inside a conditional whose body must stay non-empty for valid bash.
+    """
+    adapted = re.sub(r"killall -(?:STOP|CONT) AMP[^\n]*", ":", source)
+    if adapted.count("killall -STOP AMP") or adapted.count("killall -CONT AMP"):
+        raise ResetError("Legacy iOS Kit agent-control lines changed.")
+    return adapted
+
+
 def adapt_menu_only(original):
     """GUI prompt hooks and a non-interactive SSH ramdisk menu, with no 3G hooks.
 
@@ -122,6 +140,7 @@ def adapt_menu_only(original):
     """
     _require_pinned(original)
     source = _disable_sshrd_menu(original.decode("utf-8"))
+    source = _release_kit_agent_control(source)
     from .backend_ui import adapt_prompts
     return adapt_prompts(source, backend="legacy").encode("utf-8")
 
@@ -194,6 +213,7 @@ def adapt_script(original):
         '                error "Failed to find device in $mode mode (Timed out). No timer reset was attempted.";;\n',
     )
     source = _disable_sshrd_menu(source)
+    source = _release_kit_agent_control(source)
     from .backend_ui import adapt_prompts
     return adapt_prompts(source, backend="legacy").encode("utf-8")
 

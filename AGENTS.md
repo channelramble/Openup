@@ -9,10 +9,10 @@ assuming that a historical state still applies.
 
 - Project: **Openup**, a dark-mode desktop application for legacy iPhone recovery.
 - Repository: <https://github.com/channelramble/Openup> (public).
-- Current app version: **2.3.9**, with one-click desktop updates.
+- Current app version: **2.3.10**, with one-click desktop updates.
 - Verified device baseline: **2.3.1**, a prerelease built from
   `d6a5117a25038b850a56cea2c2f89b151930c104`.
-- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.9>.
+- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.10>.
 - Read `README.md`, the newest section of `VERIFICATION.txt`, `CHANGELOG.md`,
   and `THIRD_PARTY.md` before modifying device operations or packaging.
 - `RESEARCH.md` and older verification sections contain historical hypotheses
@@ -274,7 +274,13 @@ re-enumeration poll (cli.run) for the post-boot "No device found" cause; the
 GUI reset now requires a typed "Yes" (`require_typed_confirmation`, used from
 `start_operation`), and the overview starts a Step 1/Step 2 cleanup. The
 pre-boot detection cause and the Intel device-grab outcome still need a device
-log; the UI cleanup is an early pass.
+log; the UI cleanup is an early pass. For 2.3.10, all 370 source tests passed: a
+multi-agent adversarial review of 2.3.6→2.3.9 confirmed five findings. The
+post-boot USB wait is now gated to `prepare` only (`wait_timeout = 20.0 if
+args.action == "prepare" else 0.0` in cli.run) so other actions fail immediately
+on an absent phone, and `legacy_kit._release_kit_agent_control` neutralises the
+kit's own `killall -STOP/-CONT AMP` so the `recovery_agents` guardian is the sole
+owner of the Mac device agents (mirrors upstream.adapt_script).
 For 2.3.3, 344 tests passed in source and the native Apple Silicon package;
 all-platform updater installation/rollback and a public download check passed.
 The MacBook was unreachable, so that release was not run under Rosetta there.

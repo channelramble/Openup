@@ -154,8 +154,7 @@ class BackendTests(unittest.TestCase):
         with patch("ios_timeout.macos_agents.recovery_agents", fake_reserve), \
              patch("ios_timeout.cli.launch_backend",
                    side_effect=lambda a: events.append("launch_backend")), \
-             patch("ios_timeout.usbmux.list_devices", return_value=[]), \
-             patch("ios_timeout.usbmux.select_device",
+             patch("ios_timeout.usbmux.wait_for_device",
                    side_effect=ResetError("no device")), \
              redirect_stdout(io.StringIO()), self.assertRaises(ResetError):
             cli.run(args)

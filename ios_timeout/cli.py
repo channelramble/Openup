@@ -336,7 +336,12 @@ def run(args):
     with host_lock(state), recovery_agents():
         if args.action == "prepare":
             launch_backend(args)
-        selected = usbmux.wait_for_device(args.udid, on_wait=_announce_usb_wait)
+        # Only "prepare" just booted a ramdisk, so only it needs to wait for the
+        # phone to re-register with usbmuxd. For the other actions the device is
+        # already enumerated, so a missing phone should fail immediately (as it
+        # did before 2.3.9) rather than stalling and holding the Mac agents paused.
+        wait_timeout = 20.0 if args.action == "prepare" else 0.0
+        selected = usbmux.wait_for_device(args.udid, timeout=wait_timeout, on_wait=_announce_usb_wait)
         if args.ask_password and os.environ.get("BL_IOS_UI_PROTOCOL") == "1":
             from .desktop_protocol import prompt
             prompt("password", "Ramdisk SSH password", "Ramdisk SSH root password: ")

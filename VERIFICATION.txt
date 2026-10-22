@@ -1,3 +1,42 @@
+Openup 2.3.10 — bug-hunt fixes for the 2.3.9 changes
+Verification date: 2026-10-21
+
+An adversarial multi-agent review of the 2.3.6->2.3.9 changes (five independent
+review dimensions, each finding refuted by a separate verifier) confirmed five
+findings; two were the same 20s-stall bug found twice. The distinct real issues
+and their fixes, none touching device-operation logic:
+
+1. 20s stall (regression, medium). cli.run applied wait_for_device(timeout=20)
+to every action, but only "prepare" boots a ramdisk and needs the post-boot
+re-enumeration wait. For inspect/reset/restore/finalize a genuinely absent phone
+polled the full 20s (was instant before 2.3.9) and held the Mac device agents
+paused meanwhile. Fix: wait_timeout = 20.0 if args.action == "prepare" else 0.0.
+Verified: wait_for_device(timeout=0.0) on an empty device list raises the same
+clear error in 0.000s; prepare still waits up to 20s.
+
+2. Agent-freeze TOCTOU (low). The kit STOPs Apple's AMP agents at startup and,
+with --no-finder, never resumes them; the guardian restores only PIDs it owns
+and skips already-stopped ("T") agents, so an agent the kit stops in the narrow
+window before the guardian claims it would stay suspended after the run. Fix:
+legacy_kit._release_kit_agent_control replaces the kit's `killall -STOP/-CONT
+AMP...` with a no-op in both timer adapters (replaced, not deleted, because the
+resume sits inside a conditional whose body must stay non-empty), leaving the
+precise guardian the sole owner — mirroring the recovery backend. Verified: both
+adapters emit zero AMP killall lines and pass bash -n; the SSH-ramdisk auto-exit
+is unaffected.
+
+3. Slow test (medium). The reservation test hit the real 20s wait_for_device
+timeout. Fix: it now patches usbmux.wait_for_device directly; it runs instantly.
+
+4. Lost coverage (low). The reset-confirmation refactor left the restore/finalize
+Cancel path untested. Fix: a new GUI test asserts a cancelled restore/finalize
+confirmation starts no device write.
+
+All 370 source tests pass with both pinned fixtures (suite time dropped from ~49s
+to ~29s with the slow test fixed). No phone operation was performed.
+
+Historical records follow.
+============================================================
 Openup 2.3.9 — post-boot USB wait, typed reset confirmation, UI cleanup
 Verification date: 2026-10-21
 
