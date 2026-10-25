@@ -43,8 +43,31 @@ cleanup, GUI variant selection and read-only discovery protocol framing.
 The old isolated 3G identity fixture explicitly stubs the new entry hook so
 it cannot query host USB; the shared entry path has separate pinned-shell tests.
 
-This release source snapshot precedes publication. Package/public-update
-validation will be added after those checks run.
+PUBLISHED PACKAGE VALIDATION, clean revision
+71857b98b9e351e982a7e16f47e1f9d839a62877:
+- 473 tests passed with zero skips in each Mac package: native arm64 (91.805s)
+  and x86_64 under Rosetta on the MacBook (139.968s). Parent and shell-fixture
+  child interpreters were checked to import the packaged modules. The temporary
+  test-source customization did not modify the signed application.
+- Both bundled launchers, strict ad-hoc signatures before/after execution,
+  final exact inventories and architecture/deployment checks passed.
+- All four updater install/rollback/reactivation cycles and all five archive
+  inventory, mode, payload, hash and clean-provenance checks passed. The source
+  ZIP has exactly 181 inventoried files with no duplicate or unlisted entries.
+- All ten GitHub asset sizes and SHA-256 digests matched local builds. Public
+  platform selections matched 2.3.17 on all four targets. An actual public
+  native download passed install, launch/self-test, rollback and reactivation
+  in temporary state; no installed app was replaced.
+- GitHub CI passed all four jobs, including native Windows tests, Python 3.9
+  compatibility and all-platform packaging:
+  https://github.com/channelramble/Openup/actions/runs/40170261473
+- Logs/helpers remain in ignored build/release-qa/ with -2317 suffixes.
+  Build caches, private probe captures, obsolete 2.3.16 archives and temporary
+  MacBook extractions were removed; dist/ retains only this release. The user's
+  supplied log was not copied into the repository or deleted.
+- This is a documentation-only follow-up to the release source commit.
+  Rosetta does not establish native Intel/Monterey USB behavior. Existing
+  physical-device and native Windows/Linux desktop-launch limits remain.
 
 Historical records follow.
 ============================================================

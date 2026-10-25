@@ -25,6 +25,10 @@ assuming that a historical state still applies.
 
 ## Latest continuation (2.3.17)
 
+Version **2.3.17 is published** as a prerelease from clean commit
+`71857b98b9e351e982a7e16f47e1f9d839a62877`; main also includes this later
+verification-only handoff.
+
 The supplied 2.3.16 iPhone 5 log **did detect DFU**. Its exact hardware guard
 rejected connected `iPhone5,1` because the GUI selected `iPhone5,2`; both menu
 entries previously displayed only “iPhone 5”. Preserve that rejection. Do not
@@ -65,8 +69,34 @@ Release/package validation is recorded in the newest `VERIFICATION.txt` section.
 All **473 source tests passed, zero skips**, with both pinned fixtures. Desktop
 self-test and dependency checks passed. New entry tests exercise both actual
 pinned shell flows, including missing USB intervals and a failed recovery kick.
-This source snapshot precedes publication; final package/public-update results
-will be added in a separate documentation commit after release verification.
+
+Final validation:
+
+- **473 tests passed in each Mac package, zero skips**: native Apple Silicon
+  (91.805s) and Intel under Rosetta on the MacBook (139.968s). Both bundled
+  launchers, strict signatures before/after execution and final inventories passed.
+- Packaged QA verifies both parent and child Python imports use packaged modules.
+  The ignored `run_packaged_suite.py` helper creates `sitecustomize.py` only in
+  the temporary extracted test tree, so shell fixtures that set their own
+  PYTHONPATH still use the actual app package. It does not modify the signed app.
+- All four updater install/rollback/reactivation cycles and all five archive
+  inventory/hash/mode/payload/clean-provenance checks passed. All ten uploaded
+  asset sizes and digests matched. Public selections matched 2.3.17 on all four
+  platforms; the native public download passed install, launch, rollback and
+  reactivation in temporary state.
+- GitHub CI passed all four jobs, including native Windows tests, Python 3.9
+  compatibility and all-platform packaging:
+  <https://github.com/channelramble/Openup/actions/runs/40170261473>.
+- Logs/helpers remain in ignored `build/release-qa/` with `-2317` suffixes.
+  Build caches, private probe captures, obsolete 2.3.16 archives and temporary
+  MacBook copies were removed. `dist/` retains only 2.3.17. The supplied user
+  log remains outside the repository; no installed app or real backup was changed.
+
+Use **Updates → Update now**, then restart. The current phone was confirmed in
+DFU after the user's latest message; do not ask them to repeat that step or
+assume the earlier normal-mode test request was completed. The remaining
+physical work is the normal → Recovery → DFU button sequence and a full
+iPhone 5 recovery boot. Discovery and read-only identity checks do not prove it.
 
 ## Previous continuation (2.3.16)
 
