@@ -36,7 +36,38 @@ This release changes host runtime packaging. No phone was booted or otherwise
 operated on, and no new physical recovery success is claimed. The existing
 pinned backend remains in use; the separate unfinished Python 3/native-loader
 experiment was preserved outside this isolated release worktree.
-Final app-package, CI and publication results are recorded after completion.
+PUBLISHED PACKAGE VALIDATION, clean revision
+dc2cde869ae8f6f4750fe5c38d27e411edd9b428:
+- The actual Apple Silicon application passed all 573 tests with zero skips
+  (104.413s), bundled launcher, strict signatures before/after execution and
+  complete inventory checks. Parent and shell children imported packaged code.
+- Both Mac apps passed architecture/deployment/system-dependency checks for all
+  318 Mach-O images and strict signing. The Intel Python 2 runtime was executed
+  on native Intel CI; the complete Intel app was not rerun on the unreachable
+  MacBook during this continuation.
+- All five archive inventory/hash/mode/provenance checks passed, including exact
+  Python 2 inputs and source recipes, all 839 Mac runtime files, all 918 Linux/WSL
+  runtime files and retained 2G helper/source correspondence.
+- All four updater install, rollback and reactivation cycles passed. All ten
+  uploaded asset sizes and SHA-256 digests matched the verified local files.
+- All four public update selections matched 2.3.19. The actual native public
+  download passed app-owned Python 2 startup with a system-only PATH, app launch,
+  strict signatures, rollback and reactivation in temporary state.
+- All four CI jobs and all-platform packaging passed:
+  https://github.com/channelramble/Openup/actions/runs/40220138527
+  macOS/Python 3.13: 573 passed, 0 skipped (50.192s).
+  macOS/Python 3.9: 516 passed, 57 desktop-dependency skips (62.509s).
+  Ubuntu/Python 3.13: 570 passed, 3 Darwin-header skips (55.513s).
+  Windows/Python 3.13: 441 passed, 132 platform-specific skips (27.651s).
+  Real bundled-runtime relocation and ambient-environment isolation passed on
+  macOS and Linux; Linux verified all non-glibc ELF dependencies resolve inside
+  the relocated runtime. Mock backend fixtures isolate preflight, while the
+  dedicated runtime tests retain actual interpreter execution.
+
+The release tag points to the clean source revision above. Temporary compiler
+trees, copied fixtures and obsolete 2.3.18 archives were removed. Only current
+2.3.19 distributions remain in the release worktree; small logs/helpers are in
+build/release-qa/. The unrelated unfinished worktree/cache were preserved.
 
 ----------------------------------------------------------------------
 

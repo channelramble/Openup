@@ -25,6 +25,35 @@ assuming that a historical state still applies.
 
 ## Latest continuation (2.3.19)
 
+Version **2.3.19 is published** from clean commit
+`dc2cde869ae8f6f4750fe5c38d27e411edd9b428`; main includes the later
+verification-only handoff. All **573 source tests passed, zero skips**, and the
+actual Apple Silicon app passed all **573 tests** (104.413s), its launcher,
+strict signatures before/after execution and complete inventory checks.
+The Intel Python 2 runtime passed on a native Intel CI Mac; the complete Intel
+app was statically checked and signed, but was not rerun on the unreachable
+MacBook in this continuation.
+
+All five archive checks, all four updater install/rollback/reactivation cycles
+and all ten uploaded asset size/hash checks passed. All four public update
+selections matched 2.3.19. The native public download passed bundled Python 2
+startup with PATH limited to system tools, app launch, signatures, rollback and
+reactivation in temporary state. No installed app or real backup was modified.
+Use **Updates → Update now**, then restart.
+
+All four CI jobs passed for that exact source commit:
+<https://github.com/channelramble/Openup/actions/runs/40220138527>.
+macOS/Python 3.13 passed 573 with 0 skips; macOS/Python 3.9 passed 516 with 57
+desktop-dependency skips; Linux passed 570 with 3 Darwin-header skips; Windows
+passed 441 with 132 platform-specific skips. Backend subprocess fixtures isolate
+the runtime preflight, and WSL protocol fixtures clear unrelated inherited flags.
+The separate runtime tests execute the actual interpreter and check isolation.
+
+Temporary Python compiler/source trees and obsolete 2.3.18 release archives were
+removed. The release worktree's dist/ retains only 2.3.19; small validation logs
+remain in build/release-qa/. The pre-existing unfinished worktree and its cache
+were preserved. Check local worktree status before continuing that separate work.
+
 The user's explicit request is to include genuine Python 2 in the app, with no
 external interpreter installation. Every desktop package now includes a native
 CPython 2.7.18 local-helper runtime at `python2-runtime`; Windows includes the
@@ -57,7 +86,7 @@ This work was isolated from an unfinished Python 3/native-loader experiment in
 another working tree. That uncommitted work was preserved. This release retains
 the existing pinned recovery behavior and only supplies its host Python 2 runtime;
 no new physical phone recovery success is claimed. Final test/package/publication
-results are recorded in VERIFICATION.txt after completion.
+results are recorded in the newest VERIFICATION.txt section.
 
 ## Previous continuation (2.3.18)
 
