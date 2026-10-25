@@ -202,6 +202,9 @@ class MainWindow(QMainWindow):
         self.prompt_buttons = []
         self.session_log = SessionLog()
         self.backup_rows = []
+        self.discovered_devices = {}
+        self.discovered_device_count = 0
+        self.selected_discovery_key = ""
         self.operation = ""
         self.operation_apply = False
         self.operation_install_only = False
@@ -281,7 +284,7 @@ class MainWindow(QMainWindow):
         row.setSpacing(16)
         model_column = QVBoxLayout()
         model_column.setSpacing(5)
-        model_column.addWidget(label("Which iPhone is it?", "fieldLabel"))
+        model_column.addWidget(label("Phone model", "fieldLabel"))
         self.phone_model = self.model_combo()
         self.phone_model.setAccessibleName("iPhone model")
         self.phone_model.currentIndexChanged.connect(self.model_changed)
@@ -302,7 +305,7 @@ class MainWindow(QMainWindow):
         usb_column.addLayout(usb_row)
         row.addLayout(usb_column, 5)
         phone_layout.addLayout(row)
-        self.device_detail = label("A phone in DFU or recovery mode may not appear in this list — that is normal. Pick the model and continue.", "muted")
+        self.device_detail = label("Connect your phone and choose Refresh. Its detected model and mode will appear here.", "muted")
         phone_layout.addWidget(self.device_detail)
         work.addWidget(phone_bar)
 
@@ -602,7 +605,8 @@ class MainWindow(QMainWindow):
     def model_combo(self):
         combo = QComboBox()
         for model, (name, low, high) in SUPPORTED.items():
-            combo.addItem(name, model)
+            duplicates = sum(details[0] == name for details in SUPPORTED.values())
+            combo.addItem(f"{name} · {model}" if duplicates > 1 else name, model)
             combo.setItemData(combo.count() - 1, model, Qt.ItemDataRole.ToolTipRole)
         combo.setCurrentIndex(max(0, combo.findData(self.settings.model)))
         return combo
@@ -746,7 +750,7 @@ class MainWindow(QMainWindow):
     def recovery_page(self):
         widget, layout = self.page()
         frame, body = card("Start a recovery session",
-                           "Connect one phone by USB and start recovery. Follow the DFU instructions here; recovery then runs automatically on the phone.")
+                           "Connect one phone by USB. From normal mode, Openup enters recovery mode, then guides you through the DFU button steps.")
         body.addWidget(label("1  Connect your phone     →     2  Follow the DFU steps     →     3  Read the passcode on your iPhone", "muted"))
         self.armv6_notice = label("iPhone 3G tools are included. No separate tools folder is needed.", "notice")
         body.addWidget(self.armv6_notice)
@@ -895,10 +899,31 @@ class MainWindow(QMainWindow):
             self.ipsw_edit.clear()
 
     def device_changed(self):
-        selected = self.device_combo.currentData() or ""
-        if selected != self.settings.udid:
+        key = self.device_combo.currentData() or ""
+        device = self.discovered_devices.get(key, {})
+        # Recovery USB identifiers are not usbmux UDIDs and must never reach
+        # the normal-mode kick or the later SSH connection as one.
+        selected = device.get("udid", "")
+        if key != self.selected_discovery_key or selected != self.settings.udid:
+            self.selected_discovery_key = key
             self.settings.udid = selected
             self.invalidate_timer_flow()
+        model = device.get("model")
+        index = self.phone_model.findData(model) if model else -1
+        if index >= 0:
+            self.phone_model.setCurrentIndex(index)
+        if device:
+            mode = str(device.get("mode", "")).lower()
+            name = SUPPORTED.get(model, (model or "USB phone",))[0]
+            shown_mode = {"normal": "Normal mode", "dfu": "DFU mode", "recovery": "Recovery mode"}.get(mode, "USB connected")
+            self.connection.setText(f"{name} · {shown_mode}")
+            if mode == "normal":
+                version = "iOS " + device["version"] + ". " if device.get("version") else ""
+                self.device_detail.setText(version + "Start recovery to enter recovery mode, then follow the DFU button walkthrough.")
+            elif mode in {"dfu", "recovery"}:
+                self.device_detail.setText("The detected hardware variant is selected. Start recovery to continue from this mode.")
+            else:
+                self.device_detail.setText("USB phone detected; its details are unavailable. Choose its model, then start recovery for guided steps.")
 
     def options_dialog(self):
         if self.busy:
@@ -999,6 +1024,10 @@ class MainWindow(QMainWindow):
 
     def start_operation(self, action, *, apply=False, backup=None, install_only=False):
         if self.busy:
+            return
+        if (action == "prepare" or (action == "recover" and apply)) and self.discovered_device_count > 1:
+            QMessageBox.information(self, "Connect one phone",
+                                    "Disconnect the other phones, then choose Refresh before starting recovery or ramdisk preparation.")
             return
         if action == "reset" and apply and not self.timer_flow.can_apply:
             QMessageBox.information(self, "Inspect the phone first",
@@ -1171,7 +1200,7 @@ class MainWindow(QMainWindow):
         copy = action_copy(self.operation, apply=self.operation_apply, install_only=self.operation_install_only)
         self.set_busy(False, "Task stopped" if self.interrupted else copy.success if code == 0 else copy.failure)
         self.session_hint.setText("Read the result below. Save log includes the full diagnostic session." if self.operation != "devices" else
-                                  "Choose a task above. A phone in DFU may not appear in the USB list.")
+                                  "Choose a task above. Refresh after connecting or changing your phone’s mode.")
         if self.operation != "devices" or code != 0:
             self.show_result(code)
         if self.process:
@@ -1180,24 +1209,37 @@ class MainWindow(QMainWindow):
         self.refresh_backups()
 
     def populate_devices(self, devices):
-        selected = self.settings.udid
+        selected = self.device_combo.currentData() or self.settings.udid
         self.device_combo.blockSignals(True)
         self.device_combo.clear()
+        self.discovered_devices = {}
+        self.discovered_device_count = len(devices)
         if not devices:
-            self.device_combo.addItem("No USB phone listed", "")
+            self.device_combo.addItem("No USB phone detected", "")
         elif len(devices) > 1:
             self.device_combo.addItem("Choose a connected phone", "")
         for device in devices:
-            udid = device["udid"]
-            self.device_combo.addItem("USB phone · …" + udid[-8:], udid)
-            self.device_combo.setItemData(self.device_combo.count() - 1, udid, Qt.ItemDataRole.ToolTipRole)
+            udid = device.get("udid", "")
+            key = device.get("selection_id") or udid
+            if not key or key in self.discovered_devices:
+                continue
+            self.discovered_devices[key] = dict(device)
+            model = device.get("model")
+            name = SUPPORTED.get(model, (model or "USB phone",))[0]
+            mode = str(device.get("mode", "")).lower()
+            shown_mode = {"normal": "Normal", "dfu": "DFU", "recovery": "Recovery"}.get(mode, "USB")
+            suffix = " · …" + udid[-8:] if udid else ""
+            self.device_combo.addItem(f"{name} · {shown_mode}{suffix}", key)
+            self.device_combo.setItemData(self.device_combo.count() - 1,
+                                         " · ".join(str(value) for value in (model, device.get("board"), udid) if value),
+                                         Qt.ItemDataRole.ToolTipRole)
         if selected and self.device_combo.findData(selected) >= 0:
             self.device_combo.setCurrentIndex(self.device_combo.findData(selected))
         self.device_combo.blockSignals(False)
+        self.connection.setText(f"{len(devices)} USB phone{'s' if len(devices) != 1 else ''} detected" if devices else "No USB phone detected")
+        self.device_detail.setText("Choose a phone above. Connect only one phone for recovery or ramdisk preparation." if devices else
+                                   "Connect your phone and choose Refresh. You can also start recovery for a guided connection check.")
         self.device_changed()
-        self.connection.setText(f"{len(devices)} USB phone{'s' if len(devices) != 1 else ''} listed" if devices else "No USB phone listed")
-        self.device_detail.setText("Choose the matching model. Inspecting the phone reads its installed iOS and lockout state." if devices else
-                                   "A phone in DFU may still be connected. Choose its model above and start a task.")
 
     def send_input(self):
         if self.process is not None and self.busy and self.manual_input.isChecked():

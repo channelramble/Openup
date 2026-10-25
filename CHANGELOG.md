@@ -1,5 +1,15 @@
 # Changes
 
+## 2.3.17
+
+- Correct the phone-selection gap exposed by a log that detected `iPhone5,1` / `n41ap` in DFU while the selected model was `iPhone5,2`. Refresh now selects an available detected model, same-named variants have distinct picker labels, and mismatch results explain which model to choose. The existing hardware mismatch gate remains in place.
+- Discover normal-mode identity through bounded, read-only USB queries without pairing. Keep the USB row when details are locked, unavailable or inconsistent. On macOS, also list recognized DFU/Recovery phones from the native USB inventory, including when usbmuxd has no normal-mode phone. Exclude network devices and keep recovery selection identifiers separate from normal USB serials.
+- Carry the selected normal-mode serial into both pinned backend entry flows. Try simple and ordinary information queries, check the selected phone again before requesting Recovery, and offer manual Recovery entry when identity or automatic entry is unavailable. Check chip, board, mode and device identity across Recovery/DFU transitions before accepting the next step; a failed or timed-out reboot request cannot authorize an upload.
+- Refuse recovery or ramdisk preparation while multiple phones are discovered. A change in the selected phone invalidates the timer-reset review, including two DFU phones with the same model and no normal-mode USB serial. Preserve the existing iPhone 3G WTF/bootloader checks and on-phone result workflow.
+- Add regression coverage for normal-mode query failures, contradictory model/board information, USB deadlines, native DFU discovery, exact variant and serial propagation, ambiguous phone lists, and checked backend entry with simulated devices.
+
+Read-only discovery was checked against a connected `iPhone5,1` / `n41ap` in DFU. Actual native backend queries accepted that identity and rejected the wrong `iPhone5,2` variant. The new normal-mode → Recovery → DFU sequence and a full iPhone 5 recovery boot have not been physically verified. This release does not claim a recovered passcode or a running ramdisk from discovery or host-side tests.
+
 ## 2.3.16
 
 - Delete a selected backup from the GUI after two separate confirmations. Cancellation at either dialog leaves it untouched. The dialogs identify the local folder and explain that deletion cannot be undone. File checks preserve unrelated contents and prevent deletion during an active operation.

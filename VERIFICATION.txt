@@ -1,3 +1,53 @@
+Openup 2.3.17 — iPhone discovery and checked Recovery/DFU entry
+Verification date: 2026-10-25
+
+The supplied 2.3.16 log detected iPhone5,1 in DFU and stopped because the GUI
+selected iPhone5,2. It did not establish a DFU transport failure. Both variants
+previously shared the same visible name. The GUI now distinguishes variants
+and automatically selects a detected supported model. Exact hardware rejection
+remains enabled; recovery identifiers are never passed as normal-mode UDIDs.
+
+Normal USB rows remain visible when locked-device metadata cannot be read.
+Read-only unpaired lockdownd queries enrich available model/board/iOS details.
+On macOS, a bounded native USB inventory supplements usbmuxd with recognized
+Recovery/DFU phones. Both current and older system_profiler schemas are handled.
+Discovery only supplies UI hints; the recovery backend independently verifies
+identity before a mode transition or firmware upload.
+
+Both pinned backend adapters preserve the selected normal USB serial, try
+simple and paired identity reads, check the single recovery-entry command, and
+verify model/board/ECID continuity while waiting for Recovery and guided DFU.
+Unreadable normal identity offers manual Recovery instructions. A failed or
+timed-out entry request is not repeated or treated as successful entry.
+The separate 3G firmware-stage checks and timer transaction rules remain.
+
+PHYSICAL OBSERVATION:
+- The updated discovery code was run read-only on the MacBook with the user's
+  connected iPhone 5. It returned iPhone5,1 / n41ap / DFU. No private identifier
+  is included in this record. The GUI selected iPhone5,1 from that inventory.
+- After the user confirmed the current DFU connection, discovery passed again.
+  The new backend helper also queried the phone through the cached native
+  irecovery tool: iPhone5,1 / DFU was accepted and iPhone5,2 was rejected on
+  chip/board identity. Both checks were read-only; no firmware was uploaded.
+- No normal-mode reboot, firmware upload, ramdisk startup, passcode recovery
+  or timer reset was performed in this continuation. Normal → Recovery → DFU
+  still needs a physical test with the user available for the button steps.
+- No installed app was replaced and no real user backup was deleted.
+
+All 473 source tests passed with both pinned backend fixtures and zero skips
+under Python 3.13.16 (43.835s). Desktop self-test and dependency checks passed.
+Coverage includes both actual pinned shell entry paths for both iPhone 5
+variants, absent USB gaps, selected serials, failed/timeout entry requests,
+changed device identity, stale/late observations, bounded query output, Stop
+cleanup, GUI variant selection and read-only discovery protocol framing.
+The old isolated 3G identity fixture explicitly stubs the new entry hook so
+it cannot query host USB; the shared entry path has separate pinned-shell tests.
+
+This release source snapshot precedes publication. Package/public-update
+validation will be added after those checks run.
+
+Historical records follow.
+============================================================
 Openup 2.3.16 — confirmed backup deletion and GUI button guidance
 Verification date: 2026-10-25
 

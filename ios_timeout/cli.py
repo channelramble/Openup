@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from contextlib import nullcontext
 from dataclasses import asdict
 from pathlib import Path
@@ -42,7 +43,7 @@ def parser():
     )
     result.add_argument("--version", action="version", version=__version__)
     commands = result.add_subparsers(dest="action", required=True)
-    devices_command = commands.add_parser("devices", help="List USB devices exposed by usbmuxd (read-only).")
+    devices_command = commands.add_parser("devices", help="Discover normal-mode and recovery/DFU phones (read-only).")
     devices_command.add_argument("--wsl", action="store_true", help="Windows: list devices inside WSL.")
     devices_command.add_argument("--wsl-distro")
     commands.add_parser("doctor", help="Check this computer and show platform requirements.")
@@ -58,6 +59,7 @@ def parser():
     recover.add_argument("--install-only", action="store_true", help="Download and check the backend without device access.")
     recover.add_argument("--backend-dir", type=Path)
     recover.add_argument("--state-dir", type=Path, default=DEFAULT_STATE)
+    recover.add_argument("--udid", help="Select the normal-mode USB phone before recovery entry.")
     recover.add_argument("--model", choices=sorted(PHONES))
     recover.add_argument("--armv6-tools", type=Path, help="Optional custom ARMv6 tools folder; bundled iPhone 3G tools are used by default.")
     recover.add_argument("--wsl-distro", help="Windows: select a WSL 2 distribution.")
@@ -206,7 +208,7 @@ def launch_backend(args):
         print("3G target: iPhone1,2 / n82ap; 3.1.3 boot ramdisk. Installed iOS is unchanged.", flush=True)
     print("\nOpening Legacy iOS Kit's SSH-ramdisk workflow.", flush=True)
     print("Follow its on-screen DFU/ramdisk steps. The SSH Ramdisk Menu is left automatically.", flush=True)
-    print("Connect only one phone for this backend step; --udid selects the phone after boot.", flush=True)
+    print("Connect only one phone for ramdisk preparation. Follow the recovery and DFU steps on screen.", flush=True)
     print("The phone stays in the ramdisk; the reset tool resumes when the backend exits.", flush=True)
     print(f"Backend: {script}\nSHA-256: {digest(script.read_bytes())}", flush=True)
     original = script.read_bytes()
@@ -224,6 +226,8 @@ def launch_backend(args):
         prepared = nullcontext(script)
     with prepared as running_script:
         env = {**os.environ, "BL_IOS_PYTHON": sys.executable,
+               "BL_IOS_MODEL": args.model or "",
+               "BL_IOS_UDID": getattr(args, "udid", None) or "",
                # Boot the ramdisk and return without the interactive SSH Ramdisk
                # Menu; Openup's own reset step resumes once the backend exits.
                "BL_IOS_SSHRD_AUTOEXIT": "1",
@@ -289,6 +293,21 @@ def wizard():
     return main(command)
 
 
+def discover_devices():
+    """Keep normal USB rows even when locked, and include native recovery USB."""
+    from .normal_device import enrich_devices
+    from .usb_modes import list_devices as recovery_devices
+    normal_error = None
+    try:
+        normal = enrich_devices(usbmux.list_devices(deadline=time.monotonic() + 3.0))
+    except (ResetError, OSError) as exc:
+        normal, normal_error = [], exc
+    recovery = recovery_devices()
+    if normal_error is not None and not recovery:
+        raise normal_error
+    return normal + recovery
+
+
 def run(args):
     if args.action == "update":
         from .updates import run as update
@@ -297,10 +316,11 @@ def run(args):
         doctor()
         return 0
     if args.action == "devices":
-        devices = usbmux.list_devices()
+        devices = discover_devices()
         print(json.dumps(devices, indent=2))
         if not devices:
-            print("DFU/recovery devices are not listed by usbmuxd; boot the SSH ramdisk first.")
+            print("No USB phone was detected. Check the cable and USB service, then refresh. "
+                  "You can also start recovery for a guided connection check.")
         return 0
     if args.action == "wizard":
         return wizard()

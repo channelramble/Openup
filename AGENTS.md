@@ -9,12 +9,12 @@ assuming that a historical state still applies.
 
 - Project: **Openup**, a dark-mode desktop application for legacy iPhone recovery.
 - Repository: <https://github.com/channelramble/Openup> (public).
-- Current app version: **2.3.16**, with one-click desktop updates.
+- Current app version: **2.3.17**, with one-click desktop updates.
 - Verified device baseline: **2.3.1**, a prerelease built from
   `d6a5117a25038b850a56cea2c2f89b151930c104`. Version **2.3.12** is the first to
   complete a physical iPhone 3G timer reset (SpringBoard lockout plist committed
   and read-back verified live on the device; see VERIFICATION.txt).
-- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.16>.
+- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.17>.
 - Read `README.md`, the newest section of `VERIFICATION.txt`, `CHANGELOG.md`,
   and `THIRD_PARTY.md` before modifying device operations or packaging.
 - `RESEARCH.md` and older verification sections contain historical hypotheses
@@ -23,7 +23,52 @@ assuming that a historical state still applies.
   artifacts from a clean, committed checkout. Keep experiments in ignored
   `build/`, downloads in `.desktop-cache/`, and distributions in `dist/`.
 
-## Latest continuation (2.3.16)
+## Latest continuation (2.3.17)
+
+The supplied 2.3.16 iPhone 5 log **did detect DFU**. Its exact hardware guard
+rejected connected `iPhone5,1` because the GUI selected `iPhone5,2`; both menu
+entries previously displayed only “iPhone 5”. Preserve that rejection. Do not
+describe the report as proof that the DFU transport failed, and do not copy
+private device identifiers from the supplied log into the public repository.
+
+Discovery now combines normal usbmux rows with read-only macOS recovery/DFU
+USB inventory. Normal identity hints use bounded unpaired lockdownd reads;
+locked/unavailable metadata keeps the original USB row visible. The macOS
+probe supports both SPUSBHostDataType and SPUSBDataType, recognizes chip/board
+IDs, and bounds its process/output. Recovery identifiers are selection keys,
+never usbmux UDIDs or authorization to upload firmware. The GUI selects a
+detected supported model, gives duplicate marketing names distinct model codes,
+and invalidates timer review when the selected physical discovery row changes.
+Multiple discovered phones block recovery/preparation until disconnected and
+refreshed. Other platforms retain normal usbmux discovery and backend mode checks.
+
+`backend_entry.py` and `entry_adapter.py` add shared entry checks to both pinned
+backends: preserve the selected normal UDID, retry simple/paired identity queries,
+verify product/board/ECID, send one checked recovery request, then wait for the
+same phone and guide DFU button timing. Unreadable normal identity offers manual
+Recovery entry within the operation; it never authorizes a guessed-device reboot.
+Failed/timeout recovery requests require verified entry and are not repeated.
+Keep bounded waits, Stop cleanup, exact identity checks and the existing separate
+3G bootloader-stage guards. These entry changes do not verify a running ramdisk.
+
+A live read-only probe on the MacBook detected the connected phone as
+`iPhone5,1 / n41ap / DFU`; the GUI selected that same variant from the captured
+inventory. No normal-mode reboot, firmware upload, passcode recovery or timer
+reset was performed in this continuation. The physical normal → Recovery → DFU
+sequence remains to be exercised with the user available for the buttons.
+After the user confirmed the current DFU connection, both discovery and the
+new backend's actual `irecovery` query were checked again on the MacBook. The
+backend accepted `iPhone5,1` in DFU and rejected `iPhone5,2` on chip/board identity.
+Those checks were read-only and did not start a recovery boot.
+
+Release/package validation is recorded in the newest `VERIFICATION.txt` section.
+All **473 source tests passed, zero skips**, with both pinned fixtures. Desktop
+self-test and dependency checks passed. New entry tests exercise both actual
+pinned shell flows, including missing USB intervals and a failed recovery kick.
+This source snapshot precedes publication; final package/public-update results
+will be added in a separate documentation commit after release verification.
+
+## Previous continuation (2.3.16)
 
 Version **2.3.16 is published** as a prerelease from clean commit
 `ff3a64168fd8589937a29031a3011cd59202d086`; main also includes this later
@@ -224,8 +269,8 @@ models still need the device-specific physical checks listed in VERIFICATION.txt
 | Worker communication | `desktop_session.py`: subprocess/terminal lifecycle. `desktop_protocol.py`, `backend_ui.py`: framed events, prompts, replies, and redaction. `desktop_results.py`: bounded result summaries. |
 | Logs | `session_log.py`: in-memory export transcript, independent of terminal scrollback. |
 | Device operations | `cli.py`: orchestration. `core.py`: compatibility, plist plans, backups, transactions, restore, finalize. `device.py`: remote filesystems, locks, SSH, and device identity. |
-| USB and SSH | `usbmux.py`: USB-only transport and framing. `ssh_compat.py`: transport-local legacy RSA host signatures. |
-| Recovery preparation | `upstream.py`: pinned recovery backend and temporary script adaptation. `legacy_kit.py`: separate timer-ramdisk adapter. `backend_support.py`, `firmware.py`: identity, executable, and firmware validation. |
+| USB and SSH | `usbmux.py`: USB-only transport and framing. `normal_device.py`: bounded normal-mode identity hints. `usb_modes.py`: read-only macOS recovery/DFU inventory. `ssh_compat.py`: transport-local legacy RSA host signatures. |
+| Recovery preparation | `upstream.py`: pinned recovery backend and temporary script adaptation. `legacy_kit.py`: separate timer-ramdisk adapter. `backend_entry.py`, `entry_adapter.py`: selected-phone normal/Recovery/DFU entry. `backend_support.py`, `firmware.py`: identity, executable, and firmware validation. |
 | 3G support | `armv6_boot.py`, `armv6_kernel.py`, `armv6_payloads.py`, and `ios_timeout/data/`: checked boot components, kernel patches, payloads, and startup script. |
 | Host integration | `host.py`: state and safe local files/locks. `macos_agents.py`: device-agent reservation and restoration. `recovery_timing.py`: monotonic countdowns and bounded USB observation. `wsl.py`: Windows bridge. |
 | Updates | `desktop_updates.py`: complete desktop packages. `updates.py`: source-edition updates. These are distinct mechanisms. |
@@ -424,12 +469,13 @@ every platform. On Windows use the virtual environment's `Scripts/python.exe`.
 Choose tests appropriate to the change:
 
 - Transactions/transport: `test_core`, `test_recovery`, `test_boundaries`,
-  `test_compatibility`, `test_usbmux`, `test_ssh_integration`.
+  `test_compatibility`, `test_usbmux`, `test_ssh_integration`,
+  `test_normal_device`, `test_usb_modes`, `test_discovery_gui`.
 - Boot and payloads: `test_backend`, `test_upstream_integration`,
   `test_armv6_boot`, `test_armv6_kernel`, `test_armv6_payloads`,
   `test_armv6_root`, `test_armv6_wait`, `test_recovery_timing`,
   `test_recovery_display`, `test_recovery_streaming`,
-  `test_macos_agents`.
+  `test_macos_agents`, `test_backend_entry`.
 - Desktop and updates: `test_gui`, `test_gui_flow`, `test_backend_ui`,
   `test_desktop`, `test_desktop_session`, `test_desktop_results`,
   `test_session_log`, `test_updates`, `test_brand_migration`,

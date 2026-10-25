@@ -504,7 +504,8 @@ exit "$bl_ios_main_status"
             line += ' || error "Could not replace stock restore startup; boot cancelled."'
         lines.append(line)
     from .backend_ui import adapt_prompts
-    return adapt_prompts("\n".join(lines) + "\n", backend="recover").encode()
+    from .entry_adapter import adapt_entry
+    return adapt_prompts(adapt_entry("\n".join(lines) + "\n", "recover"), backend="recover").encode()
 
 
 def run_backend(args):
@@ -533,7 +534,7 @@ def run_backend(args):
             print(f"Pinned backend installed and adapted script syntax verified: {backend}")
             return 0
         env = {**os.environ, "BL_IOS_BACKEND": str(alias), "BL_IOS_PYTHON": sys.executable,
-               "BL_IOS_MODEL": args.model or "",
+               "BL_IOS_MODEL": args.model or "", "BL_IOS_UDID": getattr(args, "udid", None) or "",
                "PYTHONPATH": str(Path(__file__).resolve().parent.parent) +
                (os.pathsep + os.environ["PYTHONPATH"] if os.environ.get("PYTHONPATH") else "")}
         startup = folder / "iphone3g-setup.sh"

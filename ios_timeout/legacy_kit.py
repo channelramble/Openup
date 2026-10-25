@@ -45,8 +45,9 @@ HOOK = r'''
 bl_ios_legacy_identity() {
     local recovery resolved product="$device_type" board="$device_model"
     if [[ $device_mode == "Normal" && $1 == "prepare" ]]; then
-        product="$($ideviceinfo -s -k ProductType)"
-        board="$($ideviceinfo -s -k HardwareModel)"
+        # The shared entry helper already read and verified this selected serial.
+        product="$device_type"
+        board="$device_model"
     else
         recovery="$($irecovery -q 2>/dev/null)" ||
             error "Could not read device identity; no board-specific firmware was uploaded."
@@ -142,7 +143,8 @@ def adapt_menu_only(original):
     source = _disable_sshrd_menu(original.decode("utf-8"))
     source = _release_kit_agent_control(source)
     from .backend_ui import adapt_prompts
-    return adapt_prompts(source, backend="legacy").encode("utf-8")
+    from .entry_adapter import adapt_entry
+    return adapt_prompts(adapt_entry(source, "legacy"), backend="legacy").encode("utf-8")
 
 
 def adapt_script(original):
@@ -215,7 +217,8 @@ def adapt_script(original):
     source = _disable_sshrd_menu(source)
     source = _release_kit_agent_control(source)
     from .backend_ui import adapt_prompts
-    return adapt_prompts(source, backend="legacy").encode("utf-8")
+    from .entry_adapter import adapt_entry
+    return adapt_prompts(adapt_entry(source, "legacy"), backend="legacy").encode("utf-8")
 
 
 @contextmanager

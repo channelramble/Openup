@@ -57,7 +57,7 @@ class RecoveryProbe:
     """At most one query is in flight; a missing phone cannot stop the clock."""
 
     def __init__(self, command, clock=time.monotonic, timeout=2.0):
-        uses_sudo = os.path.basename(command[0]) == "sudo"
+        uses_sudo = os.path.basename(command[0]) in ("sudo", "sudo.ws")
         # Linux's backend authenticates sudo in its PTY before this helper.
         # A new session would discard that tty-scoped ticket. Queries must
         # never request another password through their captured output.

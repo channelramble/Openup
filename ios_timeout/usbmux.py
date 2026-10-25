@@ -15,9 +15,18 @@ HEADER = struct.Struct("<IIII")
 MAX_PACKET = 4 * 1024 * 1024
 
 
-def recv_exact(sock, size):
+def set_deadline(sock, deadline):
+    if deadline is not None:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("USB request timed out.")
+        sock.settimeout(min(15.0, remaining))
+
+
+def recv_exact(sock, size, deadline=None):
     chunks = []
     while size:
+        set_deadline(sock, deadline)
         chunk = sock.recv(size)
         if not chunk:
             raise ResetError("USB connection closed unexpectedly.")
@@ -26,19 +35,20 @@ def recv_exact(sock, size):
     return b"".join(chunks)
 
 
-def request(sock, message, tag=1):
+def request(sock, message, tag=1, deadline=None):
     payload = {
         "ClientVersionString": f"openup/{__version__}",
         "ProgName": "openup", "kLibUSBMuxVersion": 3,
         **message,
     }
     body = plistlib.dumps(payload)
+    set_deadline(sock, deadline)
     sock.sendall(HEADER.pack(HEADER.size + len(body), 1, 8, tag) + body)
-    length, version, kind, response_tag = HEADER.unpack(recv_exact(sock, HEADER.size))
+    length, version, kind, response_tag = HEADER.unpack(recv_exact(sock, HEADER.size, deadline))
     if not HEADER.size <= length <= MAX_PACKET or version != 1 or kind != 8 or response_tag != tag:
         raise ResetError("Invalid usbmuxd response header.")
     try:
-        reply = plistlib.loads(recv_exact(sock, length - HEADER.size))
+        reply = plistlib.loads(recv_exact(sock, length - HEADER.size, deadline))
     except Exception as exc:
         raise ResetError("Invalid usbmuxd plist response.") from exc
     if not isinstance(reply, dict):
@@ -50,11 +60,12 @@ def default_endpoint():
     return ("127.0.0.1", 27015) if sys.platform == "win32" else SOCKET_PATH
 
 
-def connect_socket(path=None):
+def connect_socket(path=None, *, deadline=None):
     path = default_endpoint() if path is None else path
     sock = socket.socket(socket.AF_INET if isinstance(path, tuple) else socket.AF_UNIX, socket.SOCK_STREAM)
     sock.settimeout(15)
     try:
+        set_deadline(sock, deadline)
         sock.connect(path)
     except OSError as exc:
         sock.close()
@@ -66,9 +77,10 @@ def connect_socket(path=None):
     return sock
 
 
-def list_devices(path=None):
-    with connect_socket(path) as sock:
-        reply = request(sock, {"MessageType": "ListDevices"})
+def list_devices(path=None, *, deadline=None):
+    options = {"deadline": deadline} if deadline is not None else {}
+    with connect_socket(path, **options) as sock:
+        reply = request(sock, {"MessageType": "ListDevices"}, **options)
     devices = reply.get("DeviceList")
     if not isinstance(devices, list):
         raise ResetError("usbmuxd did not return a device list.")
@@ -94,6 +106,34 @@ def list_devices(path=None):
             usb.append({"udid": identifier, "device_id": device_id,
                         "product_id": properties.get("ProductID")})
     return usb
+
+
+def connect_port(device, port, path=None, *, deadline=None):
+    """Open a selected USB device service with a bounded discovery deadline."""
+    if type(port) is not int or not 1 <= port <= 65535:
+        raise ResetError("USB device port must be between 1 and 65535.")
+    udid = device.get("udid")
+    if not isinstance(udid, str) or not re.fullmatch(r"[A-Za-z0-9-]{8,128}", udid):
+        raise ResetError("Invalid USB device identity.")
+
+    def current_device():
+        matches = [item for item in list_devices(path, deadline=deadline) if item["udid"] == udid]
+        if len(matches) != 1:
+            raise ResetError("The selected USB device is unavailable or ambiguous.")
+        return matches[0]["device_id"]
+
+    current = current_device()
+    sock = connect_socket(path, deadline=deadline)
+    try:
+        reply = request(sock, {"MessageType": "Connect", "DeviceID": current,
+                               "PortNumber": socket.htons(port)}, deadline=deadline)
+        if type(reply.get("Number")) is not int or reply["Number"] != 0:
+            raise ResetError(f"The USB device service on port {port} is unavailable.")
+        current_device()
+        return sock
+    except BaseException:
+        sock.close()
+        raise
 
 
 def select_device(devices, udid=None):

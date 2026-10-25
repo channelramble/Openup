@@ -20,6 +20,24 @@ Preview only. No lockout files were changed.
 
 
 class DesktopResultTests(unittest.TestCase):
+    def test_detected_variant_mismatch_is_actionable_without_terminal(self):
+        result = summarize("recover", """
+* Device: iPhone 5/5C (iPhone5,1)
+* Mode: DFU
+Connected device is iPhone5,1, but --model selects iPhone5,2.
+[Error] Device identity verification failed.
+Error: Upstream backend stopped with status 1.
+""", 1)
+        self.assertEqual(result["title"], "Phone model does not match")
+        self.assertIn("iPhone5,1", result["message"])
+        self.assertIn("Phone model", result["message"])
+        self.assertIn("iPhone5,2", "\n".join(result["details"]))
+        normal = summarize("recover", "[Error] Connected device is iPhone5,1, but --model selects iPhone5,2.", 2)
+        self.assertEqual(normal["title"], "Phone model does not match")
+        self.assertIn("iPhone5,1", normal["message"])
+        interrupted = summarize("recover", "Connected device is iPhone5,1, but --model selects iPhone5,2.", 1, interrupted=True)
+        self.assertIn("Stopped at your request", interrupted["message"])
+
     def test_inspection_lists_actual_changes_and_preserves_relevant_notice(self):
         result = summarize("inspect", INSPECTION, 0)
         joined = "\n".join(result["details"])

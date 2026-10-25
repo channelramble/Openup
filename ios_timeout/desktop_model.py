@@ -52,6 +52,8 @@ def operation_arguments(action, settings, *, apply=False, backup=None, install_o
             if value:
                 args += [flag, value]
     if action == "recover":
+        if settings.udid:
+            args += ["--udid", settings.udid]
         if install_only and apply:
             raise ResetError("Choose either download or run.")
         if apply and settings.model == "iPhone1,2" and not settings.armv6_tools:

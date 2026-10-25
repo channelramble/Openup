@@ -395,24 +395,25 @@ class RecoveryTimingTests(unittest.TestCase):
 
     @unittest.skipIf(os.name == "nt", "POSIX terminal session")
     def test_sudo_query_keeps_backend_session_and_cannot_prompt_for_password(self):
-        with tempfile.TemporaryDirectory(prefix="query with spaces ") as folder:
-            sudo = Path(folder) / "sudo"
-            code = "import os,sys,json;print(json.dumps([os.getsid(0),sys.argv[1:]]))"
-            sudo.write_text("#!/bin/sh\nexec " + shlex.quote(sys.executable) +
-                            " -B -c " + shlex.quote(code) + ' "$@"\n')
-            sudo.chmod(0o700)
-            probe = RecoveryProbe([str(sudo), "/tool with spaces/irecovery"])
-            try:
-                result = None
-                deadline = time.monotonic() + 3
-                while result is None and time.monotonic() < deadline:
-                    result = probe.poll()
-                    time.sleep(0.01)
-                session, arguments = json.loads(result)
-                self.assertEqual(session, os.getsid(0))
-                self.assertEqual(arguments, ["-n", "/tool with spaces/irecovery", "-q"])
-            finally:
-                probe.close()
+        for name in ("sudo", "sudo.ws"):
+            with self.subTest(wrapper=name), tempfile.TemporaryDirectory(prefix="query with spaces ") as folder:
+                sudo = Path(folder) / name
+                code = "import os,sys,json;print(json.dumps([os.getsid(0),sys.argv[1:]]))"
+                sudo.write_text("#!/bin/sh\nexec " + shlex.quote(sys.executable) +
+                                " -B -c " + shlex.quote(code) + ' "$@"\n')
+                sudo.chmod(0o700)
+                probe = RecoveryProbe([str(sudo), "/tool with spaces/irecovery"])
+                try:
+                    result = None
+                    deadline = time.monotonic() + 3
+                    while result is None and time.monotonic() < deadline:
+                        result = probe.poll()
+                        time.sleep(0.01)
+                    session, arguments = json.loads(result)
+                    self.assertEqual(session, os.getsid(0))
+                    self.assertEqual(arguments, ["-n", "/tool with spaces/irecovery", "-q"])
+                finally:
+                    probe.close()
 
 
 if __name__ == "__main__":

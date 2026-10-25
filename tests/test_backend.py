@@ -221,6 +221,10 @@ error() { printf 'ERROR:%s\n' "$*" >&2; exit 9; }
 device_entry() { :; }
 device_get_name() { device_name="fixture"; }
 device_manufacturing() { :; }
+# This fixture isolates the 3G raw-identity repair below. The shared normal
+# entry flow has its own pinned-shell tests and must not query host USB here.
+bl_ios_entry() { return 1; }
+bl_ios_verify_entry() { :; }
 stub_recovery() { printf '%s\n' "$QUERY"; }
 irecovery=stub_recovery
 platform=macos

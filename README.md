@@ -4,7 +4,9 @@
 
 A desktop app for legacy iPhone recovery, with guided timer reset, a pinned recovery backend, backups, and a built-in updater. Desktop downloads include iPhone 3G ARMv6 tools and Intel Mac support targeting macOS 12 Monterey.
 
-Version **2.3.16** adds backup deletion with two confirmation dialogs and replaces terminal-only cancellation instructions with the GUI’s **Stop** button. It also adds a visible iPhone 4S / iPad 2 warning before Start recovery, with a clickable [checkm8-A5 setup guide](https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/checkm8-a5). iPad 2 recovery is not currently supported in Openup.
+Version **2.3.17** improves phone discovery and the normal-mode → Recovery → DFU workflow. Refresh reads available normal-mode identity and, on macOS, also lists recognized phones in DFU or Recovery mode. The detected hardware variant is selected automatically, and model-picker labels distinguish variants such as `iPhone5,1` and `iPhone5,2`. The reported failure log already identified an `iPhone5,1` / `n41ap` in DFU while `iPhone5,2` was selected; the identity check correctly stopped that mismatch before firmware uploads.
+
+The previous **2.3.16** release added backup deletion with two confirmation dialogs and replaced terminal-only cancellation instructions with the GUI’s **Stop** button. It also added a visible iPhone 4S / iPad 2 warning before Start recovery, with a clickable [checkm8-A5 setup guide](https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/checkm8-a5). iPad 2 recovery is not currently supported in Openup.
 
 Version **2.3.13** improves the iPhone 3G bootloader-verification wait after a slow recovery-console response. It also corrects the timer-reset compatibility range for iPhone 5/5c: this tool supports legacy HFS partitions, so iOS 10.3 and its APFS filesystem are excluded. See the compatibility and verification sections below for the distinction between software checks and physical phone testing.
 
@@ -16,7 +18,7 @@ Use **Updates → Update now** to install the latest compatible release, then re
 
 ## Download and open
 
-Get the platform archive from [version 2.3.16](https://github.com/channelramble/Openup/releases/tag/v2.3.16) and extract it completely.
+Get the platform archive from [version 2.3.17](https://github.com/channelramble/Openup/releases/tag/v2.3.17) and extract it completely.
 
 **Already using Openup 2.3.0–2.3.4?** Open **Updates → Check and download directly in the app → Check for updates → Install update**, then restart. Leave the token empty and Include prereleases enabled. This installs the new one-click updater without visiting GitHub.
 
@@ -45,14 +47,16 @@ USB access still depends on the host: macOS's usbmuxd service, Apple Mobile Devi
 
 ## Use the GUI
 
-1. **Choose your phone:** use the shared model and USB controls at the top. A phone in DFU may still be connected even when the USB list is empty.
+1. **Choose your phone:** connect one phone and choose **Refresh**. Available identity selects its exact model automatically; macOS also discovers recognized DFU/Recovery devices. A normal USB phone remains listed when its details cannot be read. In that case, choose its exact model manually. If the host cannot list its current mode, recovery can still guide you through connection and button steps. Disconnect other phones before recovery or ramdisk preparation.
 2. **Choose a task on Start:** if you know the passcode but the phone is locked out, choose timer reset. If you forgot the passcode, choose passcode recovery.
 3. **Timer reset:** follow **Prepare → Review & reset → Done**. Preparation boots the temporary ramdisk and inspects the phone. The pinned backend returns automatically after ramdisk preparation. Review the proposed changes in the result card, then confirm the reset. If the phone is already prepared, use the inspection shortcut. Changing the selected phone or its settings requires a fresh review. After reboot, use the existing passcode.
-4. **Passcode recovery:** click **Start recovery** once; the app downloads the backend when needed. Follow the GUI's DFU steps and countdown. Recovery runs automatically on the iPhone, with the full passcode shown at the end of its output. There is no Show Passcode menu or terminal choice. The app finishes with **Check your iPhone**; sending the recovery system does not confirm a recovered passcode. A temporary masked GUI field still handles any required host password.
+4. **Passcode recovery:** click **Start recovery** once; the app downloads the backend when needed. For a readable normal-mode phone, Openup verifies the selected device and requests Recovery mode, then guides you through the DFU buttons and countdown. If automatic entry is unavailable or cannot be confirmed, follow the manual Recovery steps shown in the GUI. The backend verifies the hardware again before continuing. Recovery runs automatically on the iPhone, with the full passcode shown at the end of its output. There is no Show Passcode menu or terminal choice. The app finishes with **Check your iPhone**; sending the recovery system does not confirm a recovered passcode. A temporary masked GUI field still handles any required host password.
 5. **Advanced options:** expand these only when needed, such as for a local 3G IPSW, a custom tools folder, or connection settings. The normal workflow uses the included tools and default settings.
 6. **Backups and updates:** use Backups to restore original files, finish interrupted cleanup, or delete a selected backup. Deletion requires two confirmations and permanently removes that saved local copy; it does not change the phone. Choose **Updates → Update now** to check, download, verify and install the latest release for your computer. Choose **Restart** when ready to use it. No browser, token, file selection or GitHub CLI is required. Prereleases are included by default because Openup currently publishes prereleases. **Advanced update options** contains rollback, a local ZIP/checksum installer, release notes and an optional token kept only in memory. Updates run when requested; the app never restarts during an operation.
 
 The **session card** displays the current step, requests a response when needed, and shows the result. The terminal stays closed even on failure. Open **Advanced · terminal** to inspect raw output; **Enable manual input** is a separate opt-in. Closing the terminal disables manual input again. Phone and settings controls are locked while an operation runs.
+
+Refresh is read-only: it does not pair with, reboot, or upload anything to the phone. Missing normal-mode details do not remove a USB row. The recovery backend independently checks the selected USB serial, model and board before requesting Recovery, then checks mode and hardware identity across the transition. A model mismatch, changed device, or unverified mode stops the operation. DFU/Recovery list identifiers are never used as normal USB serials. Changing the selected phone requires a fresh timer-reset review, including a change between two DFU phones of the same model.
 
 The 3G button helper uses elapsed-time deadlines, so a slow or missing USB response does not stretch each second. During passcode recovery on macOS, the app temporarily pauses the current user’s Apple device-handling agents and restores those same processes on exit or interruption. This prevents competing automatic device handling during USB entry.
 
@@ -60,13 +64,13 @@ Long operations run outside the GUI process. **Stop** requests a graceful stop; 
 
 Desktop updates verify the GitHub asset digest, platform, clean source revision, archive paths, and all packaged file checksums. They stage a complete replacement runtime, then switch versions. The optional local installer requires a desktop ZIP and matching SHA-256 file from this repository’s release page; a locally supplied checksum checks integrity, not publisher identity. The original launcher remains your entry point; rollback selects the previous installation. Downloading a newer app does not replace an already-open window: check the running version in the title bar and restart after installing. A damaged update falls back to the original app's recovery UI.
 
-**Validation scope:** a diagnostic iPhone 3G ramdisk, authenticated SSH and SFTP have been verified on the connected phone through an Apple Silicon MacBook. Passcode recovery and on-screen timer clearance were not run in that test. Intel USB recovery, native Windows execution and Windows USB passthrough remain unverified. The bundled ARMv6 tools also pass architecture, signature, reproducibility and actual ramdisk-library import checks. See `VERIFICATION.txt`.
+**Validation scope:** read-only discovery identified the connected iPhone 5 as `iPhone5,1` / `n41ap` in DFU. The new backend also accepted its DFU identity and rejected the wrong `iPhone5,2` variant through actual native USB queries. Automated checks cover normal-mode information failures, variant selection, selected-device arguments, multiple-phone refusal and identity checks during entry. The new normal-mode → Recovery → DFU sequence and a full iPhone 5 recovery boot have not been physically verified. Earlier work verified a diagnostic iPhone 3G ramdisk, authenticated SSH and SFTP through an Apple Silicon MacBook; passcode recovery and on-screen timer clearance were not run in that test. Intel USB recovery, native Windows USB and Windows USB passthrough remain unverified. The bundled ARMv6 tools also pass architecture, signature, reproducibility and actual ramdisk-library import checks. See `VERIFICATION.txt`.
 
 The `reset` workflow still requires the correct passcode afterward. The separate `recover` command runs the externally downloaded recovery backend. Activation Lock removal and setup.app removal are outside this app's scope.
 
 ## Source edition and CLI
 
-The unqualified `Openup-2.3.16.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
+The unqualified `Openup-2.3.17.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
 
 Download the ZIP from [Releases](https://github.com/channelramble/Openup/releases) and extract the whole folder onto the computer connected to the phone. Python 3.9 or newer is required.
 
@@ -139,6 +143,14 @@ Run it for a supported legacy iPhone:
 ./Launch.command recover --apply
 ```
 
+To select a normal-mode phone explicitly, use the USB identifier shown by `devices`:
+
+```sh
+./Launch.command recover --udid YOUR_USB_IDENTIFIER --model iPhone5,1 --apply
+```
+
+Connect only that phone. The selected serial reaches normal-mode detection and the checked Recovery request. The backend tries simple and ordinary device-information queries, offers manual Recovery entry when normal identity is unavailable, and verifies chip/board and device identity before accepting the next mode. A failed or timed-out automatic request does not authorize firmware uploads. A phone already in DFU/Recovery can proceed through the verified entry path without inventing a normal-mode USB identifier.
+
 The backend is downloaded directly from tuanemss at commit `4949674b318767de83eb149e57bcc543a6453d6e`. Its script hash and checkout are checked before compatibility edits are applied. The adapter fixes fallback iBSS/iBEC filenames, cross-checks chip/board IDs, rejects incompatible executables, and stops when patching or pwnDFU verification fails.
 
 For an iPhone 3G, the app automatically supplies ARMv6 builds of `bruteforce`, `device_infos`, and `restored_external`:
@@ -191,7 +203,7 @@ This downloads an official Legacy iOS Kit checkout at the revision recorded in `
 ./Launch.command prepare --kit "/path/to/Legacy-iOS-Kit" --apply
 ```
 
-Connect only one phone for the backend's DFU preparation; `--udid` selects the device after ramdisk boot. Follow the backend's dependency and physical DFU prompts. The pinned backend skips its interactive SSH Ramdisk Menu and returns to Openup automatically, keeping the phone in the ramdisk. A custom, unmodified kit can still show that menu; choose Exit there to resume Openup.
+Connect only one phone for the backend's DFU preparation. `--udid` selects the normal-mode phone before entry and the USB SSH device after ramdisk boot. Follow the backend's dependency and physical DFU prompts. The pinned backend skips its interactive SSH Ramdisk Menu and returns to Openup automatically, keeping the phone in the ramdisk. A custom, unmodified kit can still show that menu; choose Exit there to resume Openup.
 
 The pwnDFU exploit and ramdisk builder belong to Legacy iOS Kit; they are not newly implemented here. First-time setup, physical DFU button presses, and backend menus remain interactive. The plist stage is automated. [Upstream ramdisk documentation](https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/SSH-Ramdisk)
 
@@ -289,7 +301,7 @@ Backup originals on the phone retain their original inodes. Staged preferences u
 ./Launch.command reset --help
 ```
 
-`devices` uses usbmuxd and excludes network devices. It will not list a phone that is only in DFU/recovery. Multiple USB devices require explicit selection with `--udid`.
+`devices` uses usbmuxd for USB connections and excludes network devices. It reads available normal-mode model, board and iOS information without pairing; a locked or otherwise unreadable phone remains listed. On macOS it also uses the system USB inventory to recognize DFU/Recovery hardware. Discovery reads have time and response-size limits. Other hosts can still use the backend's guided entry flow when those modes are absent from the list. Recovery-mode selection identifiers are separate from usbmuxd serials and cannot be passed as `--udid`. Connect only one phone for recovery or ramdisk preparation, even when a USB identifier is selected explicitly.
 
 The default SSH credential is the ramdisk's `root` / `alpine`, not the phone's passcode. Use `--ask-password` for a custom ramdisk SSH password. Passwords are not saved.
 

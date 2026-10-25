@@ -63,6 +63,7 @@ def summarize(action, capture, exit_code, interrupted=False):
     no_changes = reset_verified = restore_verified = cleanup_verified = False
     preview = False
     phone_handoff = False
+    model_mismatch = None
 
     def add(value):
         value = _bounded(value)
@@ -78,6 +79,11 @@ def summarize(action, capture, exit_code, interrupted=False):
         if len(raw) > 4096:
             continue
         line = raw.strip()
+        mismatch = re.fullmatch(r"(?:\[Error\] )?Connected device is (iPhone[0-9]+,[0-9]+), but --model selects (iPhone[0-9]+,[0-9]+)\.", line)
+        if mismatch:
+            model_mismatch = mismatch.groups()
+            errors.append(line)
+            continue
         error = _ERROR.fullmatch(line)
         if error:
             value = _bounded(error[1])
@@ -167,6 +173,13 @@ def summarize(action, capture, exit_code, interrupted=False):
     title = titles.get(action, "Operation result")
     if interrupted:
         message = "Stopped at your request. Review any reported result before continuing."
+    elif exit_code not in (None, 0) and model_mismatch:
+        title = "Phone model does not match"
+        actual, _selected = model_mismatch
+        if actual in SUPPORTED:
+            message = f"Choose {SUPPORTED[actual][0]} ({actual}) under Phone model, then start again."
+        else:
+            message = "The connected model is not supported by this workflow. Connect the intended phone and refresh."
     elif exit_code not in (None, 0):
         message = "The operation stopped before completion."
         if not errors:
