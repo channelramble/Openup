@@ -69,10 +69,38 @@ tests pass, and do not add filesystem conversion/repair. A known model mismatch
 must stop before mounting. The existing 4/4S ranges remain inspection gates,
 with no new physical verification implied.
 
-Source validation for 2.3.13: **391 tests passed, zero skips**, with both
-hash-verified pinned script fixtures and Python 3.13.16. The desktop self-test
-and dependency checks passed. Final package and CI results belong in the release
-notes and the post-publication handoff below.
+### Published release and next steps
+
+Version **2.3.13 is published** as a prerelease from clean commit
+`8f90c0be7952b51b0e7bfe57a305651d1ef1635a`; main also contains this later
+verification-only handoff. Ten assets are live (four desktop ZIPs plus source,
+each with its checksum); every GitHub asset digest matched the local build.
+
+- **391 source tests, zero skips**, with both hash-verified pinned fixtures.
+- **391 tests in each Mac package, zero skips**: native Apple Silicon and
+  Intel via Rosetta on the MacBook. Both bundled launchers, strict signatures
+  before/after execution, and full file inventories passed. Rosetta is not
+  native Intel/Monterey or Intel USB validation.
+- All four desktop updater install / rollback / reactivation checks passed in
+  temporary state. All five archive inventories, modes, hashes and clean
+  provenance passed. The published native download was installed, launched,
+  rolled back and reactivated; all four public asset selections matched.
+- GitHub CI passed all four jobs, including packaging:
+  <https://github.com/channelramble/Openup/actions/runs/40164046885>.
+- Final QA logs and reusable helpers remain in ignored `build/release-qa/`.
+  Large build caches and temporary local/remote extractions were removed;
+  `dist/` retains only this release. No user's installed app was replaced.
+
+The MacBook's GUI was observed running **2.3.12**; the Intel run used a temporary
+2.3.13 package. Use **Updates → Update now**, then restart, to run the published
+version normally. The phone was left at its existing recovery endpoint; only
+read-only identity/console checks were performed in this continuation.
+
+Next physical check: with the user available for button entry, start a fresh
+3G recovery session. Verify the exact iBSS then iBEC stage before any ramdisk
+upload, then verify actual startup and the on-phone result. A successful upload
+or the read-only rejection test above cannot stand in for that proof. Other
+models still need the device-specific physical checks listed in VERIFICATION.txt.
 
 ## Product requirements
 

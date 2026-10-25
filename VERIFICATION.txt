@@ -36,8 +36,24 @@ with no skips. This includes 28 recovery-timing tests and 41 upstream shell
 integration tests. The packaged Intel test exposed an overly long fake-clock
 fixture, now limited to a three-second simulated stage wait; the production
 90-second deadline remains unchanged. Independent code review found no blocking
-defect. Desktop self-test and dependency checks also pass. Package/CI results are recorded in
-the release notes after the clean build.
+defect. Desktop self-test and dependency checks also pass.
+
+PUBLISHED PACKAGE VALIDATION, clean revision
+8f90c0be7952b51b0e7bfe57a305651d1ef1635a:
+- All 391 tests passed with zero skips inside each Mac package: native arm64
+  (83.062s) and x86_64 under Rosetta on the MacBook (125.368s).
+- Both bundled native launchers and strict ad-hoc signatures passed before
+  and after execution; final file inventories were unchanged.
+- Four desktop ZIPs and source ZIP passed inventory, mode, hash and clean
+  provenance checks. All four updater install/rollback/reactivation cycles
+  passed in isolated temporary state. Ten uploaded asset digests matched.
+- The published native package passed actual download, verification,
+  installation, launcher self-test, rollback and reactivation. All four public
+  platform asset selections matched the release and expected checksums.
+- GitHub CI completed successfully for all four jobs, including packaging:
+  https://github.com/channelramble/Openup/actions/runs/40164046885
+- This verification record is a docs-only follow-up to the release commit.
+  Rosetta and CI success do not establish the physical device limits below.
 
 Model verification scope:
 - 3G / iOS 4.2.1: v2.3.12 timer plist commit, read-back and restore were
