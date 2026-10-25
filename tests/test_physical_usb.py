@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from ios_timeout import physical_usb
@@ -122,10 +123,15 @@ class PhysicalLinuxInventoryTests(unittest.TestCase):
     def test_physical_device_counts_once_despite_multiple_usb_interfaces(self):
         self.device("usb1", 0x0002, 0x1D6B)
         self.device("1-2.1", 0x1290)
-        (self.root / "1-2.1:1.0").mkdir()
-        (self.root / "1-2.1:1.1").mkdir()
-        self.assertEqual(physical_usb.require_single_mobile_device(),
-                         {"product_id": 0x1290, "location": "1-2.1"})
+        # Linux interface names contain colons, which Windows cannot create.
+        # Only their names may be inspected: interfaces must be skipped before
+        # stat/descriptor reads, while physical devices use real temp files.
+        entries = list(self.root.iterdir()) + [SimpleNamespace(name="1-2.1:1.0"),
+                                              SimpleNamespace(name="1-2.1:1.1")]
+        inventory_root = SimpleNamespace(iterdir=lambda: iter(entries))
+        with patch.object(physical_usb, "SYSFS", inventory_root):
+            self.assertEqual(physical_usb.require_single_mobile_device(),
+                             {"product_id": 0x1290, "location": "1-2.1"})
 
     def test_other_mode_phone_counts_even_without_serial(self):
         self.device("1-1", 0x1222)

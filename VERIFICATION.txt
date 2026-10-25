@@ -45,7 +45,7 @@ read-only MacBook inventory query returned exactly one DFU endpoint (PID 1227).
 That validates the new host inventory against the connected phone, not 2G boot
 or key recovery. No installed app or real backup was changed in this work.
 
-All 562 source tests passed with zero skips (51.039s), using both pinned shell
+All 562 source tests passed with zero skips (53.430s), using both pinned shell
 fixtures. Desktop self-test, dependency check and pip check passed. Coverage
 includes real pinned shell transition/stage gates, actual portable C SSH-owner
 lifetime, exact normal-to-RAM-session targeting, read-only mounts and rejected

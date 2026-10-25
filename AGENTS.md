@@ -25,10 +25,15 @@ assuming that a historical state still applies.
 
 ## Latest continuation (2.3.18)
 
-All **562 source tests passed, zero skips** (51.039s), with both pinned backend
+All **562 source tests passed, zero skips** (53.430s), with both pinned backend
 fixtures. Desktop self-test, dependency check and pip check passed. The release
 is prepared for clean-source packaging; final publication/package results are
 added to this handoff after those checks complete.
+
+CI fixtures isolate the cancellation clock from subprocess cleanup, represent
+Linux USB-interface names without creating NTFS-invalid paths, and run the three
+phone startup shell fixtures only on POSIX. Native Windows uses WSL for that
+backend and skips those three fixtures plus the two existing C-owner tests.
 
 The phone picker now starts at index -1 with genuinely empty display text.
 Detected supported hardware still selects its exact variant. Every popup uses

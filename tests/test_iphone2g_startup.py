@@ -7,6 +7,7 @@ from importlib import resources
 from pathlib import Path
 
 
+@unittest.skipUnless(os.name == "posix", "Phone startup requires POSIX; Windows runs the backend in WSL")
 class OriginalIPhoneStartupTests(unittest.TestCase):
     def run_startup(self, helper_status=0):
         source = resources.files("ios_timeout").joinpath("data/iphone2g-rc.boot").read_text()

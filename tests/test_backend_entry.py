@@ -12,6 +12,7 @@ import sys
 import tempfile
 import time
 import unittest
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from ios_timeout import backend_entry as entry
@@ -96,8 +97,12 @@ class BackendEntryTests(unittest.TestCase):
             child = popen(*args, **kwargs)
             children.append(child)
             return child
+        # Replacing time.sleep on the shared module also interrupts
+        # subprocess.Popen.wait's POSIX cleanup loop. Interrupt only our poll.
+        interrupted_clock = SimpleNamespace(monotonic=time.monotonic,
+                                            sleep=Mock(side_effect=KeyboardInterrupt))
         with patch.object(entry.subprocess, "Popen", side_effect=start), \
-             patch.object(entry.time, "sleep", side_effect=KeyboardInterrupt), \
+             patch.object(entry, "time", interrupted_clock), \
              self.assertRaises(KeyboardInterrupt):
             entry._run_info([sys.executable, "-c", "import time;time.sleep(30)"], timeout=2)
         self.assertEqual(len(children), 1)
