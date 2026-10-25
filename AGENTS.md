@@ -25,10 +25,31 @@ assuming that a historical state still applies.
 
 ## Latest continuation (2.3.18)
 
-All **562 source tests passed, zero skips** (53.430s), with both pinned backend
-fixtures. Desktop self-test, dependency check and pip check passed. The release
-is prepared for clean-source packaging; final publication/package results are
-added to this handoff after those checks complete.
+Version **2.3.18 is published** as a prerelease from clean commit
+`6edf1a5a398a3610cc8df7da552077dd0825a5a6`; main also includes this later
+verification-only handoff. All **562 source tests passed, zero skips** (53.430s),
+with both pinned backend fixtures. Desktop self-test, dependency check and pip
+check passed.
+
+Final release checks:
+
+- Both actual Mac packages passed **562 tests, zero skips**: native Apple Silicon
+  (98.673s) and Intel under Rosetta on the MacBook (166.343s). Bundled launchers,
+  strict signatures before/after execution and complete inventories passed.
+- All five archive checks and all four updater install/rollback/reactivation
+  cycles passed. All ten uploaded asset sizes and SHA-256 digests matched.
+  Public update selection matched 2.3.18 on all four platforms; the native public
+  download passed install, launch, rollback and reactivation in temporary state.
+- All four CI jobs passed, including all-platform desktop packaging:
+  <https://github.com/channelramble/Openup/actions/runs/40172698603>.
+  The 562-test suite had 0 skips on macOS/Python 3.13, 57 desktop-dependency skips
+  on macOS/Python 3.9, 3 Darwin-header skips on Linux, and 131 platform-specific
+  skips on Windows. Those counts are not 562 executed tests on every platform.
+- Firmware/SDK/image research copies, desktop build cache, temporary MacBook
+  test copies and obsolete 2.3.17 archives were removed. `dist/` retains only
+  2.3.18. Small logs/helpers remain under `build/release-qa/`; delivered picker
+  screenshots are in the current Crosstalk workspace. Installed apps and real
+  user backups were not changed. Use **Updates → Update now**, then restart.
 
 CI fixtures isolate the cancellation clock from subprocess cleanup, represent
 Linux USB-interface names without creating NTFS-invalid paths, and run the three
@@ -97,8 +118,8 @@ Physical 2G boot, USB initialization and passcode recovery remain unverified.
 A read-only MacBook probe counted one DFU endpoint (PID 0x1227), without uploading
 firmware or changing the connected phone. Do not claim this is a 2G hardware test.
 Release validation is recorded in the newest VERIFICATION.txt section. Ignored
-helpers/logs use `build/release-qa/*2318*`; temporary firmware/SDK/images must be
-removed after validation, keeping only the newest published release in dist/.
+helpers/logs use `build/release-qa/*2318*`; the offline image report was retained
+as `2g-offline-verification-2318.json` before its temporary inputs were removed.
 
 ## Previous continuation (2.3.17)
 

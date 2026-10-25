@@ -51,9 +51,37 @@ includes real pinned shell transition/stage gates, actual portable C SSH-owner
 lifetime, exact normal-to-RAM-session targeting, read-only mounts and rejected
 timer writes, malicious/corrupt SQLite formats and safe result display. Native
 helper imports, signatures, source correspondence and offline image construction
-were verified separately above. Final package/publication results are added
-after clean-source builds. Ignored logs/helpers are under build/release-qa/ with 2318
-suffixes. Firmware, SDKs, images and temporary copies are not release inputs.
+were verified separately above.
+
+PUBLISHED PACKAGE VALIDATION, clean revision
+6edf1a5a398a3610cc8df7da552077dd0825a5a6:
+- Both actual Mac packages passed 562 tests with zero skips: native arm64
+  (98.673s) and x86_64 under Rosetta on the MacBook (166.343s). Parent and shell
+  child imports used the packaged modules. Launchers, strict code signatures
+  before/after execution and complete bundle inventories passed.
+- All five source/desktop archive checks passed, including clean provenance,
+  modes, content hashes and exact 2G helper/startup/source correspondence.
+- All four updater install, rollback and reactivation cycles passed. All ten
+  uploaded asset sizes and SHA-256 digests matched the local verified files.
+- All four public update selections matched 2.3.18. The native public download
+  passed install, launch, signature checks, rollback and reactivation in temporary
+  state. The release tag points to the exact clean revision above.
+- GitHub CI passed all four jobs and desktop packaging:
+  https://github.com/channelramble/Openup/actions/runs/40172698603
+  macOS/Python 3.13: 562 passed, 0 skipped (53.356s).
+  macOS/Python 3.9: 505 passed, 57 desktop-dependency skips (68.751s).
+  Ubuntu/Python 3.13: 559 passed, 3 Darwin-header skips (37.940s).
+  Windows/Python 3.13: 431 passed, 131 platform-specific skips (24.844s).
+  Test fixtures isolate cancellation from subprocess cleanup and represent
+  Linux USB interface names without creating invalid NTFS paths. Phone startup
+  shell fixtures run on POSIX; Windows uses the WSL backend in production.
+
+Ignored logs/helpers are under build/release-qa/ with 2318 suffixes. Temporary
+firmware, SDKs, images, desktop cache and MacBook copies were removed; the small
+offline report remains as 2g-offline-verification-2318.json. Obsolete 2.3.17
+archives were removed; dist/ retains only the published 2.3.18 release. No
+installed app or real user backup was changed. Physical 2G validation remains
+outstanding as explicitly stated above.
 
 ----------------------------------------------------------------------
 
