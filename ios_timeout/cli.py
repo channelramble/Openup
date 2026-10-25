@@ -119,7 +119,9 @@ def doctor():
     print("\nTimer-reset model/version gates (hardware validation still required):")
     for model, (name, low, high) in SUPPORTED.items():
         print(f"  {model:10} {name:10} iOS {'.'.join(map(str, low))}–{'.'.join(map(str, high))}")
-    print("\niPhone 4S pwnDFU requires external A5 hardware or a suitable existing kDFU setup.")
+    print("\niPhone 4S and iPad 2 recovery requires checkm8-A5 preparation with external hardware.")
+    print("Guide: https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/checkm8-a5")
+    print("iPad 2 recovery is not currently supported in Openup.")
     print("Timer reset requires legacy HFS volumes; APFS (iOS 10.3+) is unsupported.")
     print("Hardware validation varies by model and workflow; see VERIFICATION.txt.")
 

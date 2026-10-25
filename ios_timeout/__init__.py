@@ -1,4 +1,4 @@
 """Openup: legacy iPhone timer reset and recovery."""
 
-__version__ = "2.3.13"
+__version__ = "2.3.14"
 APP_NAME = "Openup"

@@ -9,12 +9,12 @@ assuming that a historical state still applies.
 
 - Project: **Openup**, a dark-mode desktop application for legacy iPhone recovery.
 - Repository: <https://github.com/channelramble/Openup> (public).
-- Current app version: **2.3.13**, with one-click desktop updates.
+- Current app version: **2.3.14**, with one-click desktop updates.
 - Verified device baseline: **2.3.1**, a prerelease built from
   `d6a5117a25038b850a56cea2c2f89b151930c104`. Version **2.3.12** is the first to
   complete a physical iPhone 3G timer reset (SpringBoard lockout plist committed
   and read-back verified live on the device; see VERIFICATION.txt).
-- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.13>.
+- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.14>.
 - Read `README.md`, the newest section of `VERIFICATION.txt`, `CHANGELOG.md`,
   and `THIRD_PARTY.md` before modifying device operations or packaging.
 - `RESEARCH.md` and older verification sections contain historical hypotheses
@@ -23,7 +23,18 @@ assuming that a historical state still applies.
   artifacts from a clean, committed checkout. Keep experiments in ignored
   `build/`, downloads in `.desktop-cache/`, and distributions in `dist/`.
 
-## Latest continuation (2.3.13)
+## Latest continuation (2.3.14)
+
+The recovery page now displays a checkm8-A5 prerequisite warning for iPhone 4S
+and iPad 2 directly above Start recovery. Its explicit RichText QLabel opens
+<https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/checkm8-a5> through an external
+link, accessible by mouse or keyboard. The CLI doctor and README carry the same
+resource. This is guidance only: iPad 2 still has no supported recovery profile,
+and the notice says so. Device gates and recovery operations are unchanged.
+All 391 source tests passed; the minimum-size GUI and actual guide click were
+checked without starting a device operation.
+
+## Previous continuation (2.3.13)
 
 The preceding Openup Chat 2 ended during investigation of the **separate 3G
 passcode-recovery boot**, after v2.3.12's successful timer-reset release. The

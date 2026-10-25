@@ -4,6 +4,8 @@
 
 A desktop app for legacy iPhone recovery, with guided timer reset, a pinned recovery backend, backups, and a built-in updater. Desktop downloads include iPhone 3G ARMv6 tools and Intel Mac support targeting macOS 12 Monterey.
 
+Version **2.3.14** adds a visible iPhone 4S / iPad 2 warning before Start recovery, with a clickable [checkm8-A5 setup guide](https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/checkm8-a5). iPad 2 recovery is not currently supported in Openup.
+
 Version **2.3.13** improves the iPhone 3G bootloader-verification wait after a slow recovery-console response. It also corrects the timer-reset compatibility range for iPhone 5/5c: this tool supports legacy HFS partitions, so iOS 10.3 and its APFS filesystem are excluded. See the compatibility and verification sections below for the distinction between software checks and physical phone testing.
 
 Use **Updates → Update now** to install the latest compatible release, then restart. The interface provides on-screen steps, choices, countdowns, and result cards; the terminal and manual input remain optional Advanced controls.
@@ -14,7 +16,7 @@ Use **Updates → Update now** to install the latest compatible release, then re
 
 ## Download and open
 
-Get the platform archive from [version 2.3.13](https://github.com/channelramble/Openup/releases/tag/v2.3.13) and extract it completely.
+Get the platform archive from [version 2.3.14](https://github.com/channelramble/Openup/releases/tag/v2.3.14) and extract it completely.
 
 **Already using Openup 2.3.0–2.3.4?** Open **Updates → Check and download directly in the app → Check for updates → Install update**, then restart. Leave the token empty and Include prereleases enabled. This installs the new one-click updater without visiting GitHub.
 
@@ -64,7 +66,7 @@ The `reset` workflow still requires the correct passcode afterward. The separate
 
 ## Source edition and CLI
 
-The unqualified `Openup-2.3.13.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
+The unqualified `Openup-2.3.14.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
 
 Download the ZIP from [Releases](https://github.com/channelramble/Openup/releases) and extract the whole folder onto the computer connected to the phone. Python 3.9 or newer is required.
 
@@ -233,7 +235,7 @@ iOS 10.3 and later use APFS and are outside this HFS-only timer-reset implementa
 
 Other models and versions are rejected. Each accepted phone still needs readable legacy HFS system/data partitions, recognized plist fields, an offline ramdisk, SFTP, and the usual Darwin system utilities. Filesystem layout changes, inaccessible encryption keys, unsupported ramdisk binaries, or read-only storage can prevent the operation.
 
-iPhone 4S uses A5. Entering pwnDFU generally requires additional hardware; a software wrapper cannot remove that requirement. See the [upstream A5 guide](https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/checkm8-a5).
+**iPhone 4S and iPad 2: checkm8-A5 required.** Use checkm8-A5 with the required external hardware to enter pwned DFU mode before recovery. Follow the [checkm8-A5 setup guide](https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/checkm8-a5). iPad 2 recovery is not currently supported in Openup.
 
 Modern passcode delays are enforced by the Secure Enclave. This tool excludes iPhone 5s and newer. [Apple Platform Security](https://support.apple.com/guide/security/passcodes-and-passwords-sec20230a10d/web)
 

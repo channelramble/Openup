@@ -1,3 +1,27 @@
+Openup 2.3.14 — checkm8-A5 recovery warning and guide
+Verification date: 2026-10-25
+
+The recovery page shows a visible iPhone 4S / iPad 2 checkm8-A5 prerequisite
+warning immediately before Start recovery, with the user-requested guide:
+https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/checkm8-a5
+The warning explains the external-hardware/pwned-DFU preparation and states
+that iPad 2 recovery is not currently supported in Openup. CLI doctor and
+README include the same resource. Device gates and recovery code are unchanged.
+
+All 391 source tests passed with both pinned backend fixtures and zero skips.
+UI verification: all 49 existing GUI/workflow tests passed. Rendered the recovery
+page at the minimum 940×680 window size with iPhone 4S selected; the notice and
+Start recovery remained visible. Rich text and keyboard-accessible external
+links are enabled. A real Qt mouse click on the guide dispatched the exact
+requested URL to an intercepted QDesktopServices handler; no browser or device
+operation was started by that check.
+
+The linked Legacy iOS Kit guide was read: it identifies iPhone 4S and iPad 2 as
+A5 devices and documents the external hardware required for pwned DFU. This
+release adds guidance; it does not claim new hardware recovery validation.
+
+Historical records follow.
+============================================================
 Openup 2.3.13 — bounded recovery-console waits and corrected HFS compatibility
 Verification date: 2026-10-25
 

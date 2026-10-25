@@ -749,6 +749,16 @@ class MainWindow(QMainWindow):
         body.addWidget(label("1  Connect your phone     →     2  Follow the DFU steps     →     3  Read the passcode on your iPhone", "muted"))
         self.armv6_notice = label("iPhone 3G tools are included. No separate tools folder is needed.", "notice")
         body.addWidget(self.armv6_notice)
+        self.a5_notice = label(
+            "<b>iPhone 4S and iPad 2: checkm8-A5 required</b><br>"
+            "Use checkm8-A5 with the required external hardware to enter pwned DFU mode before recovery.<br>"
+            '<a href="https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/checkm8-a5" '
+            'style="color: #8db5ff;">Open the checkm8-A5 guide ↗</a><br>'
+            "iPad 2 recovery is not currently supported in Openup.", "warning")
+        self.a5_notice.setTextFormat(Qt.TextFormat.RichText)
+        self.a5_notice.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        self.a5_notice.setOpenExternalLinks(True)
+        body.addWidget(self.a5_notice)
         self.recovery_start = self.button("Start recovery", lambda: self.start_operation("recover", apply=True), primary=True)
         body.addWidget(self.recovery_start, 0, Qt.AlignmentFlag.AlignLeft)
         body.addWidget(label("The first run downloads the recovery backend and boot files. The final passcode appears on the iPhone automatically. No Show password menu or terminal input is needed.", "muted"))

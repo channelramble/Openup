@@ -1,5 +1,11 @@
 # Changes
 
+## 2.3.14
+
+- Show an iPhone 4S / iPad 2 checkm8-A5 prerequisite warning directly above Start recovery, with a clickable link to the Legacy iOS Kit guide.
+- Include the guide in CLI diagnostics and the README, and state that iPad 2 recovery is not currently supported in Openup.
+
+
 ## 2.3.13
 
 - Give the 3G recovery-console handoff a bounded retry window for slow or temporarily unavailable replies, while preserving exact iBSS/iBEC stage, board, and build verification. Keep countdown updates responsive during console reads, and stop pending reads at the deadline or cancellation. A timed-out or failed read cannot authorize the next upload.
