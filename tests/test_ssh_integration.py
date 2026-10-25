@@ -185,12 +185,16 @@ class Server(paramiko.ServerInterface):
                         if not satisfied:
                             status = 1
                             break
-                elif args[:2] == ["/bin/cp", "-p"]:
-                    shutil.copy2(self.root / args[2].lstrip("/"), self.root / args[3].lstrip("/"))
                 elif args[:2] == ["/bin/mv", "-f"]:
                     os.replace(self.root / args[2].lstrip("/"), self.root / args[3].lstrip("/"))
-                elif args == ["/bin/sync"]:
-                    pass
+                elif command.decode().startswith("for p in /bin/sync"):
+                    # device.sync() resolving a sync binary: first existing path,
+                    # or empty when the ramdisk ships none.
+                    output = "/bin/sync" if self.owner.has_sync else ""
+                elif args in (["/bin/sync"], ["/sbin/sync"], ["/usr/bin/sync"],
+                              ["/usr/sbin/sync"], ["sync"]):
+                    if not self.owner.has_sync:
+                        status, output = 127, "sync: command not found"  # bare 3.1.3 ramdisk
                 else:
                     status, output = 127, "Unimplemented test command"
                 if output:
@@ -218,6 +222,7 @@ class SSHTests(unittest.TestCase):
         self.ramdisk = True
         self.kernel_query = True
         self.block_nodes = None  # None -> derive block devices from the model
+        self.has_sync = True  # the bare 3.1.3 ramdisk ships no `sync` binary
         self.springboard = False
         self.mounted = True
         self.read_only = False
@@ -334,6 +339,7 @@ class SSHTests(unittest.TestCase):
         # None" failure and confirms recovery through a full preview->commit->restore.
         self.model = "iPhone1,2"
         self.kernel_query = False
+        self.has_sync = False  # the real 3.1.3 ramdisk also ships no `sync`
         version = self.root / SYSTEM_VERSION.lstrip("/")
         version.write_bytes(plistlib.dumps({"ProductVersion": "4.2.1", "ProductBuildVersion": "8C148"}))
         from ios_timeout.core import make_plan, apply_plan, restore_backup
@@ -342,9 +348,23 @@ class SSHTests(unittest.TestCase):
             identity = device.inspect(mount=True, writable=True, expected_model="iPhone1,2")
             self.assertEqual(identity.model, "iPhone1,2")
             self.assertEqual(identity.version, "4.2.1")
+            # Full commit+restore must succeed with no `sync` (staging over SFTP,
+            # sync degraded to a no-op) and verify read-back, reproducing the
+            # logged "Ramdisk command failed (127): /bin/sync" and confirming it.
             folder = apply_plan(device, make_plan(device, identity), self.backups)
+            data = plistlib.loads((self.root / PREFS.lstrip("/")).read_bytes())
+            self.assertEqual(data["SBDeviceLockFailedAttempts"], 0)
             restore_backup(device, identity, folder)
         self.assertEqual((self.root / PREFS.lstrip("/")).read_bytes(), original)
+
+    def test_sync_without_a_sync_binary_is_a_noop_not_a_failure(self):
+        # The bare ramdisk has no `sync`; device.sync() must not raise.
+        self.has_sync = False
+        with self.device() as device:
+            device.sync()  # no exception
+        self.has_sync = True
+        with self.device() as device:
+            device.sync()  # still fine when sync exists
 
     def test_flat_layout_without_an_expected_3g_fails_closed(self):
         # The flat S5L8900 layout is not unique to the 3G (an iPod touch 2G

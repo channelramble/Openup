@@ -9,10 +9,12 @@ assuming that a historical state still applies.
 
 - Project: **Openup**, a dark-mode desktop application for legacy iPhone recovery.
 - Repository: <https://github.com/channelramble/Openup> (public).
-- Current app version: **2.3.11**, with one-click desktop updates.
+- Current app version: **2.3.12**, with one-click desktop updates.
 - Verified device baseline: **2.3.1**, a prerelease built from
-  `d6a5117a25038b850a56cea2c2f89b151930c104`.
-- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.11>.
+  `d6a5117a25038b850a56cea2c2f89b151930c104`. Version **2.3.12** is the first to
+  complete a physical iPhone 3G timer reset (SpringBoard lockout plist committed
+  and read-back verified live on the device; see VERIFICATION.txt).
+- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.12>.
 - Read `README.md`, the newest section of `VERIFICATION.txt`, `CHANGELOG.md`,
   and `THIRD_PARTY.md` before modifying device operations or packaging.
 - `RESEARCH.md` and older verification sections contain historical hypotheses
@@ -195,6 +197,17 @@ Other fixes that must remain intact:
   tell it from the flat 3G. Backed by the iOS-version gate (`core.compatible`)
   and the HFS-mount checks. With no expected 3G, or any non-flat layout, inspect
   must fail closed. Do not restore the free-guess fallback.
+- The 3.1.3 timer ramdisk is a minimal environment (`PATH=/usr/bin:/bin:/usr/sbin:/sbin`)
+  with NO `sync`, `cp`, `ps`, `sysctl`, `uname`, or `umount`; it does have `mv`,
+  `rm`, `ln`, `mkdir`, `dd`, `tar`, `cat`, `chmod`, `chown`, `launchctl`, `mount`,
+  `mount_hfs`, `fsck_hfs`, `reboot_bak`. `device.stage` creates the staged file
+  over SFTP (no `cp`); `device.sync` resolves a `sync` binary and runs it when
+  present (so a real failure still rolls back) but is a no-op when none exists,
+  with durability completed by the clean reboot (`reboot(2)` syncs) and
+  state-based crash-recovery. Do not reintroduce bare `/bin/cp` or a mandatory
+  `/bin/sync`; keep device ops limited to tools this ramdisk actually provides.
+  The `ps`/`launchctl` SpringBoard check and `reboot_bak`/`reboot` fallback are
+  already written this way.
 
 ### RAM-root startup and Error 16
 
@@ -316,9 +329,20 @@ and a live partition-scheme fallback that identifies the iPhone 3G
 (`/dev/disk0s1`+`/dev/disk0s2`, no `/dev/disk0s1s1`). It also adds USB-C dock/hub
 support for Apple Silicon: `usbmux.tunnel` keys identity on the serial and
 follows a re-enumerated DeviceID instead of raising "USB device changed", and
-`USBDevice._open_tunnel` retries a handshake-time re-enumeration bounce. Physical
-iPhone 3G recovery, a real 3.1.3 ramdisk, and real Apple Silicon + USB-C dock
-behavior are still unconfirmed (no phone was attached during this work).
+`USBDevice._open_tunnel` retries a handshake-time re-enumeration bounce.
+For 2.3.12, all 378 source tests passed with both pinned fixtures. A physical
+session (2.3.11) on an Apple Silicon Mac got all the way to the reset write and
+failed with "Ramdisk command failed (127): /bin/sync": the 3.1.3 ramdisk ships
+no `sync` and no `cp`. `device.sync` now resolves/runs a `sync` binary when one
+exists (real failures still roll back) and no-ops when none does; `device.stage`
+creates the staged file over SFTP instead of `cp`. This release is THE FIRST to
+complete a physical iPhone 3G reset: on the connected iPhone1,2 / iOS 4.2.1 in
+the 3.1.3 ramdisk over a USB-C hub, inspect previewed, restore recovered the
+interrupted 2.3.11 transaction, and reset --apply committed the lockout plist
+and read-back verified it (independent SFTP read confirmed
+SBDeviceLockBlocked=false, SBDeviceLockFailedAttempts=0, cached timer keys gone,
+other prefs preserved). On-screen timer clearance after reboot and the separate
+passcode-recovery (4.x bruteforce) flow remain unverified.
 For 2.3.3, 344 tests passed in source and the native Apple Silicon package;
 all-platform updater installation/rollback and a public download check passed.
 The MacBook was unreachable, so that release was not run under Rosetta there.
@@ -438,9 +462,12 @@ build dependencies:
   GUI operations or reuse a temporary firmware image without checking its
   provenance and current device state.
 
-Outstanding validation is **actual passcode recovery, visible timer clearance,
-the separate timer ramdisk, the new boot sequence through physical Intel-Mac
-USB, execution on Monterey hardware, native Windows/Linux execution, and WSL
-USB forwarding**. Packaging and Rosetta success do not establish those results.
-Preserve the distinction between verified boot/SSH and completed recovery when
-planning the next task and reporting results.
+As of 2.3.12 the **iPhone 3G timer reset is physically verified**: the 3.1.3
+ramdisk boot, USB SSH, mount, plist commit + read-back, and restore recovery all
+completed on a connected iPhone1,2 / iOS 4.2.1 over a USB-C hub on an Apple
+Silicon Mac. Still outstanding: **visible on-screen timer/lockout clearance after
+the phone reboots, the separate passcode-recovery (4.x bruteforce) flow, physical
+Intel-Mac USB, execution on Monterey hardware, native Windows/Linux execution,
+and WSL USB forwarding**. Packaging and Rosetta success do not establish those.
+Preserve the distinction between a verified reset commit and confirmed on-screen
+clearance (which needs the phone to boot) when planning and reporting.

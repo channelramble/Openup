@@ -230,12 +230,13 @@ class USBDevice:
         self.safe_parents(destination)
         if self.exists(destination):
             raise ResetError(f"Staging destination exists: {destination}")
-        # Darwin cp -p retains original metadata; truncating the copy keeps its
-        # inode. The original inode is archived unchanged during commit.
-        self.command("/bin/cp -p " + shlex.quote(source) + " " + shlex.quote(destination))
+        # Create the staged replacement directly over SFTP. The minimal Legacy
+        # iOS Kit ramdisk ships no `cp`, and a copied original would be truncated
+        # and overwritten here anyway. Commit archives the untouched original by
+        # renaming the live file aside, so the stage file only needs the new
+        # contents plus the original's metadata, reapplied below.
         with channel_deadline(self.sftp.get_channel(), IO_TIMEOUT):
-            with self.sftp.open(destination, "r+b") as stream:
-                stream.truncate(0)
+            with self.sftp.open(destination, "wb") as stream:
                 stream.write(contents)
                 stream.flush()
         self.sftp.chown(destination, original_metadata.uid, original_metadata.gid)
@@ -262,7 +263,21 @@ class USBDevice:
         self.sftp.remove(path)
 
     def sync(self):
-        self.command("/bin/sync")
+        # Flush buffered writes where a `sync` tool exists (full iOS, the 4.x
+        # recovery ramdisk). The minimal Legacy iOS Kit timer ramdisk ships no
+        # `sync` binary anywhere on its PATH, and its OpenSSH 5.2 has no SFTP
+        # fsync, so there is no in-session flush to call. Durability is then
+        # completed by the clean reboot (reboot(2) flushes mounted volumes), and
+        # crash-recovery stays state-based via the manifest, not sync-dependent.
+        # Resolve a sync binary first: if one exists, run it and let a genuine
+        # failure propagate so the transaction rolls back; if none exists, no-op.
+        path = self.command(
+            "for p in /bin/sync /sbin/sync /usr/bin/sync /usr/sbin/sync; do "
+            'if test -x "$p"; then printf %s "$p"; exit 0; fi; done; '
+            "command -v sync 2>/dev/null || true"
+        ).strip()
+        if path:
+            self.command(path)
 
     def acquire(self, token, recover=False):
         if not re.fullmatch(r"[a-f0-9]{32}", token):
