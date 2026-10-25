@@ -42,9 +42,12 @@ def operation_arguments(action, settings, *, apply=False, backup=None, install_o
             args.append("--apply")
             if settings.reboot:
                 args.append("--reboot")
-    if action == "prepare":
-        if settings.model:
+        # Pass the selected model so inspect/reset can confirm an iPhone 3G in a
+        # bare SSH ramdisk that serves no sysctl. restore/finalize derive the
+        # model from the saved transaction instead.
+        if settings.model and action in {"inspect", "reset", "prepare"}:
             args += ["--model", settings.model]
+    if action == "prepare":
         for value, flag in ((settings.ipsw, "--ipsw"), (settings.kit, "--kit")):
             if value:
                 args += [flag, value]

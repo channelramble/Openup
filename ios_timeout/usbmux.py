@@ -140,17 +140,24 @@ def tunnel(device_id, port=22, path=None, expected_udid=None):
     if type(device_id) is not int or not 0 < device_id < 2**32:
         raise ResetError("Invalid USB connection identifier.")
 
-    def verify_selection():
-        if expected_udid is not None:
-            current = select_device(list_devices(path), expected_udid)
-            if current["device_id"] != device_id:
-                raise ResetError("USB device changed during connection. Re-run device selection.")
+    def resolve():
+        # The USB serial number is the phone's stable identity. usbmuxd's
+        # numeric DeviceID is reassigned every time the phone re-enumerates,
+        # which happens routinely on Apple Silicon Macs where a 30-pin phone
+        # reaches the port through a USB-C adapter, dock, or hub. Re-resolve the
+        # current DeviceID for the selected serial rather than treating a changed
+        # DeviceID as a device swap; a genuinely different or absent serial still
+        # raises the clear selection error. The pinned ramdisk SSH host key is
+        # the cryptographic anti-swap backstop (see device.USBDevice).
+        if expected_udid is None:
+            return device_id
+        return select_device(list_devices(path), expected_udid)["device_id"]
 
-    verify_selection()
+    current = resolve()
     sock = connect_socket(path)
     try:
         reply = request(sock, {
-            "MessageType": "Connect", "DeviceID": device_id,
+            "MessageType": "Connect", "DeviceID": current,
             "PortNumber": socket.htons(port),
         })
         if type(reply.get("Number")) is not int or reply["Number"] != 0:
@@ -158,7 +165,11 @@ def tunnel(device_id, port=22, path=None, expected_udid=None):
                 f"Cannot connect to ramdisk SSH port {port} "
                 f"(usbmuxd result {reply.get('Number')!r}). Boot an SSH ramdisk first."
             )
-        verify_selection()
+        # Confirm the same serial is still the single connected phone. A new
+        # DeviceID for that serial is a benign hub re-enumeration; a vanished or
+        # ambiguous serial raises here.
+        if expected_udid is not None:
+            select_device(list_devices(path), expected_udid)
         return sock
     except BaseException:
         sock.close()

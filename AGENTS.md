@@ -9,10 +9,10 @@ assuming that a historical state still applies.
 
 - Project: **Openup**, a dark-mode desktop application for legacy iPhone recovery.
 - Repository: <https://github.com/channelramble/Openup> (public).
-- Current app version: **2.3.10**, with one-click desktop updates.
+- Current app version: **2.3.11**, with one-click desktop updates.
 - Verified device baseline: **2.3.1**, a prerelease built from
   `d6a5117a25038b850a56cea2c2f89b151930c104`.
-- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.10>.
+- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.11>.
 - Read `README.md`, the newest section of `VERIFICATION.txt`, `CHANGELOG.md`,
   and `THIRD_PARTY.md` before modifying device operations or packaging.
 - `RESEARCH.md` and older verification sections contain historical hypotheses
@@ -169,6 +169,32 @@ Other fixes that must remain intact:
   OpenSSH 5.2. `ssh_compat.py` adds it only to the selected USB transport, after
   modern algorithms. Preserve host-key pinning, password authentication, and
   global SSH settings. Test actual SSH/SFTP handshakes and changed-key rejection.
+- USB device identity is the usbmuxd SerialNumber (udid), not the ephemeral
+  numeric DeviceID. `usbmux.tunnel` re-resolves the current DeviceID for the
+  selected serial so a USB-C dock/hub re-enumeration (same serial, new DeviceID,
+  the normal case for a 30-pin phone on an Apple Silicon Mac) is followed rather
+  than rejected as a swap; a different or absent serial still raises.
+  `device.USBDevice._open_tunnel` retries the usbmux connection for a few seconds
+  to ride a single handshake-time re-enumeration bounce. The pinned ramdisk SSH
+  host key is the cryptographic anti-swap backstop. Keep the serial-keyed identity
+  and the host-key pin; do not reintroduce a DeviceID-equality check.
+- `device.inspect(..., expected_model)` identifies the model from the booted
+  ramdisk by sysctl (`/usr/sbin`, `/sbin`, `/usr/bin`, PATH) and `uname -m`. When
+  the ramdisk answers no kernel query (the Legacy iOS Kit 3.1.3 timer ramdisk
+  ships no sysctl/uname, which produced the logged "Unsupported or unidentifiable
+  hardware: None"), `_flat_3g_partition_layout` CONFIRMS an expected iPhone 3G
+  from the live partition scheme — it never guesses, because the flat scheme is
+  not unique to the 3G (an iPod touch 2G shares it). The fallback fires only when
+  `expected_model == "iPhone1,2"`: cli.run passes `--model` (the GUI sends it on
+  inspect/reset/prepare; restore/finalize derive it from the saved identity), and
+  on prepare the kit DFU/iBSS boot has already verified `n82ap` / S5L8900. Match
+  ONLY the genuine flat 3G scheme — `/dev/disk0s1` + `/dev/disk0s2` present AND
+  `/dev/disk0s1s1`, `/dev/disk0s1s2`, `/dev/disk0s2s1` all absent — per the
+  project's own `mount_partitions.sh`/`util.c`: the iOS 4 nested scheme keeps
+  `/dev/disk0s2` as a block container, so a bare `test -b` on it is not enough to
+  tell it from the flat 3G. Backed by the iOS-version gate (`core.compatible`)
+  and the HFS-mount checks. With no expected 3G, or any non-flat layout, inspect
+  must fail closed. Do not restore the free-guess fallback.
 
 ### RAM-root startup and Error 16
 
@@ -281,6 +307,18 @@ args.action == "prepare" else 0.0` in cli.run) so other actions fail immediately
 on an absent phone, and `legacy_kit._release_kit_agent_control` neutralises the
 kit's own `killall -STOP/-CONT AMP` so the `recovery_agents` guardian is the sole
 owner of the Mac device agents (mirrors upstream.adapt_script).
+For 2.3.11, all 377 source tests passed with both pinned fixtures (suite ~79s).
+It root-causes a physical Intel-Mac log: the 3G timer flow booted the kit 3.1.3
+SSH ramdisk and connected over USB SSH, then stopped at `device.inspect` with
+"Unsupported or unidentifiable hardware: None" because that bare ramdisk serves
+no sysctl/uname. `device._probe_model` now adds more sysctl paths, `uname -m`,
+and a live partition-scheme fallback that identifies the iPhone 3G
+(`/dev/disk0s1`+`/dev/disk0s2`, no `/dev/disk0s1s1`). It also adds USB-C dock/hub
+support for Apple Silicon: `usbmux.tunnel` keys identity on the serial and
+follows a re-enumerated DeviceID instead of raising "USB device changed", and
+`USBDevice._open_tunnel` retries a handshake-time re-enumeration bounce. Physical
+iPhone 3G recovery, a real 3.1.3 ramdisk, and real Apple Silicon + USB-C dock
+behavior are still unconfirmed (no phone was attached during this work).
 For 2.3.3, 344 tests passed in source and the native Apple Silicon package;
 all-platform updater installation/rollback and a public download check passed.
 The MacBook was unreachable, so that release was not run under Rosetta there.

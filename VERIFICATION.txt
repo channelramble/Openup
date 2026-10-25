@@ -1,3 +1,62 @@
+Openup 2.3.11 — iPhone 3G hardware ID on the bare ramdisk; USB-C dock/hub support
+Verification date: 2026-10-24
+
+Two fixes, driven by a physical Intel-Mac session log (Openup 2.3.9) that this
+release reproduces and root-causes. No device-operation, transaction, boot, or
+backend-script logic changed.
+
+1. "Unsupported or unidentifiable hardware: None" on the 3G timer flow (the
+logged failure). The log showed the Legacy iOS Kit 3.1.3 SSH ramdisk boot and a
+successful USB SSH connection ("USB SSH fingerprint: ..." printed), then an
+immediate stop. device.inspect() read the model only with sysctl -n hw.machine/
+hw.model at /usr/sbin and /sbin; the minimal 3.1.3 restore ramdisk serves no
+sysctl (and no uname), so every probe failed, model became None, and the error
+was raised before the mount step. Fix: _probe_model() also tries sysctl on PATH
+and in /usr/bin and tries uname -m, then, when no kernel query is served, uses
+the live partition scheme to CONFIRM an already-expected iPhone 3G rather than to
+guess a model. The project's own ramdisk sources (mount_partitions.sh, util.c
+mountDataPartition) define three disk0 schemes: iOS 5+ LwVM (disk0s1s1 /
+disk0s1s2), iOS 4 nested (disk0s1 / disk0s2s1, with disk0s2 as a block
+container), and the flat iPhone 3G scheme (disk0s1 / disk0s2). The confirmation
+matches ONLY the flat scheme: disk0s1 and disk0s2 present AND disk0s1s1,
+disk0s1s2 and disk0s2s1 all absent — so the nested and LwVM layouts are not
+mistaken for a 3G (a bare `test -b /dev/disk0s2` is insufficient: the nested
+scheme also has that container node). An adversarial review flagged that the flat
+scheme is not unique to the 3G (an iPod touch 2G shares it), so the fallback fires
+only when the caller expects iPhone1,2: --model on inspect/reset/prepare (the GUI
+passes the selected model), the saved transaction identity on restore/finalize,
+and, on prepare, the kit DFU/iBSS boot has independently verified n82ap / S5L8900.
+With no expected 3G it fails closed. inspect() mounts exactly those flat slices,
+and the iOS-version gate (core.compatible) and the HFS-mount checks backstop it.
+Verified (real Paramiko SSH over a socketpair against a bare-ramdisk fixture that
+serves no kernel query and models each scheme's actual block nodes): with
+expected iPhone1,2, inspect() returns iPhone1,2 / iOS 4.2.1 and completes a
+preview -> commit -> restore on the flat layout; the iOS 4 nested (disk0s2s1) and
+iOS 5+ LwVM layouts, a non-3G expected model, and the flat layout with no expected
+model all raise rather than being taken for a 3G.
+
+2. USB-C dock/hub support on Apple Silicon (requested refinement). A 30-pin phone
+reaches an Apple Silicon Mac only through an adapter/dock, which re-enumerates
+the phone routinely: the USB serial is stable but usbmuxd's numeric DeviceID is
+reassigned. usbmux.tunnel() compared the DeviceID and raised "USB device changed
+during connection" on that benign event. Fix: identity is keyed on the serial;
+tunnel() re-resolves the current DeviceID for the selected serial and follows it,
+while a different or absent serial is still rejected (the pinned ramdisk SSH host
+key is the cryptographic anti-swap backstop). USBDevice retries the usbmux
+connection for ~8s, re-resolving each time, so a single handshake-time
+re-enumeration bounce does not fail the operation; the post-boot wait is 30s for
+slower docks. Verified: tunnel() reconnects to a new DeviceID for the same serial
+and sends it; a changed/absent serial still raises and closes the socket; the
+handshake retry recovers from one transient usbmux drop.
+
+All 377 source tests pass with both pinned script fixtures (suite ~79s). Not
+verified here: physical iPhone 3G recovery, a real 3.1.3 ramdisk, and real Apple
+Silicon + USB-C dock behavior — no phone was attached (the reachable Mac's USB
+inventory contained no iPhone). Packaging and test success do not establish those
+results.
+
+Historical records follow.
+============================================================
 Openup 2.3.10 — bug-hunt fixes for the 2.3.9 changes
 Verification date: 2026-10-21
 
@@ -34,8 +93,6 @@ confirmation starts no device write.
 
 All 370 source tests pass with both pinned fixtures (suite time dropped from ~49s
 to ~29s with the slow test fixed). No phone operation was performed.
-
-Historical records follow.
 ============================================================
 Openup 2.3.9 — post-boot USB wait, typed reset confirmation, UI cleanup
 Verification date: 2026-10-21

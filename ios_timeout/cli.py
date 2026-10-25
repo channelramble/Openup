@@ -70,6 +70,9 @@ def parser():
     ):
         item = commands.add_parser(name, help=help_text)
         item.add_argument("--udid", help="Select a specific USB device.")
+        item.add_argument("--model", choices=sorted(SUPPORTED),
+                          help="Expected hardware model; confirms an iPhone 3G (iPhone1,2) in a "
+                               "bare SSH ramdisk that reports no sysctl. 3G is iPhone1,2.")
         item.add_argument("--port", type=port_number, default=22, help="Device SSH port (default 22).")
         item.add_argument("--mount", action="store_true", help="Mount known legacy HFS volumes if needed.")
         item.add_argument("--ask-password", action="store_true",
@@ -88,7 +91,6 @@ def parser():
         if name == "prepare":
             item.add_argument("--kit", type=Path,
                               help="Legacy-iOS-Kit directory; a pinned copy is downloaded if absent.")
-            item.add_argument("--model", choices=sorted(SUPPORTED), help="Explicit firmware target; 3G is iPhone1,2.")
             item.add_argument("--ipsw", type=Path, help="Optional local iPhone 3G 3.1.3/7E18 boot IPSW.")
         if name in ("restore", "finalize"):
             item.add_argument("backup", type=Path, help="Transaction directory containing manifest.json.")
@@ -311,6 +313,10 @@ def run(args):
         _, saved, identity, _ = load_backup(args.backup)
         if args.udid is None:
             args.udid = identity.udid
+        # The saved transaction already recorded the verified model; use it to
+        # confirm identity on a bare ramdisk that reports no sysctl.
+        if getattr(args, "model", None) is None:
+            args.model = identity.model
     state = args.state_dir.expanduser().absolute()
     args.state_dir = state
     if args.action in ("reset", "prepare") and args.backups is None:
@@ -340,7 +346,10 @@ def run(args):
         # phone to re-register with usbmuxd. For the other actions the device is
         # already enumerated, so a missing phone should fail immediately (as it
         # did before 2.3.9) rather than stalling and holding the Mac agents paused.
-        wait_timeout = 20.0 if args.action == "prepare" else 0.0
+        # Re-enumeration through a USB-C dock or hub (the only way to reach a
+        # 30-pin phone from an Apple Silicon Mac) is slower than a direct port,
+        # so allow extra headroom for the just-booted ramdisk to reappear.
+        wait_timeout = 30.0 if args.action == "prepare" else 0.0
         selected = usbmux.wait_for_device(args.udid, timeout=wait_timeout, on_wait=_announce_usb_wait)
         if args.ask_password and os.environ.get("BL_IOS_UI_PROTOCOL") == "1":
             from .desktop_protocol import prompt
@@ -349,7 +358,8 @@ def run(args):
                     if args.ask_password else "alpine")
         with USBDevice(selected, state, password, args.port, args.trust_new_key) as device:
             print(f"USB SSH fingerprint: {device.fingerprint}")
-            identity = device.inspect(mount=args.mount, writable=getattr(args, "apply", False))
+            identity = device.inspect(mount=args.mount, writable=getattr(args, "apply", False),
+                                      expected_model=getattr(args, "model", None))
             if getattr(args, "model", None) and args.model != identity.model:
                 raise ResetError("Booted device does not match --model; no reset was attempted.")
             if args.action in ("restore", "finalize"):

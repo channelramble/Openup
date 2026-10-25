@@ -73,7 +73,7 @@ class USBDevice:
         except ImportError as exc:
             raise ResetError("Install dependencies first: python3 -m pip install .") from exc
         try:
-            self.socket = usbmux.tunnel(selected["device_id"], port, expected_udid=selected["udid"])
+            self.socket = self._open_tunnel(selected, port)
             from .ssh_compat import usb_transport
             self.transport = usb_transport(self.socket)
             self.transport.banner_timeout = 15
@@ -126,6 +126,23 @@ class USBDevice:
             if connection is not None:
                 with suppress(Exception):
                     connection.close()
+
+    def _open_tunnel(self, selected, port):
+        # A phone reaching the Mac through a USB-C dock or hub can briefly drop
+        # off usbmuxd while it re-enumerates, notably right after the ramdisk
+        # boot on Apple Silicon Macs. The phone was already observed present
+        # before this point, so retry the usbmux connection for a few seconds,
+        # re-resolving the serial each time, instead of failing on a single
+        # re-enumeration bounce. A genuinely absent phone has already raised in
+        # wait_for_device, so this does not stall missing-device operations.
+        deadline = time.monotonic() + 8.0
+        while True:
+            try:
+                return usbmux.tunnel(selected["device_id"], port, expected_udid=selected["udid"])
+            except ResetError:
+                if time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.5)
 
     def command(self, command, timeout=30):
         channel = self.transport.open_session(timeout=15)
@@ -300,21 +317,79 @@ class USBDevice:
             self.sftp.remove(LOCK)
         self.sync()
 
-    def inspect(self, mount=False, writable=False):
-        model = None
+    def _flat_3g_partition_layout(self):
+        """True only for the genuine flat iPhone 3G (S5L8900) partition scheme.
+
+        The project's own ramdisk sources (``mount_partitions.sh``,
+        ``util.c`` mountDataPartition) distinguish three disk0 schemes:
+          * iOS 5+ LwVM:   system ``/dev/disk0s1s1``, data ``/dev/disk0s1s2``
+          * iOS 4 nested:  system ``/dev/disk0s1``,   data ``/dev/disk0s2s1``
+                           (``/dev/disk0s2`` is the container, still a block node)
+          * flat (3G):     system ``/dev/disk0s1``,   data ``/dev/disk0s2``
+        Only the flat scheme is the iPhone 3G, and ``inspect`` mounts it as
+        ``/dev/disk0s1`` + ``/dev/disk0s2``. Match that scheme exactly: both flat
+        slices present AND none of the LwVM/nested slices present. A ``test -b``
+        on ``/dev/disk0s2`` alone is not enough, because the nested scheme also
+        has a ``/dev/disk0s2`` block container; requiring the absence of
+        ``/dev/disk0s2s1`` (and the LwVM slices) is what rejects the nested and
+        iOS 5+ layouts, so a non-flat device is never taken for a 3G. Read live
+        from the booted ramdisk, so it works when no kernel query tool exists.
+        """
+        try:
+            self.command(
+                "test -b /dev/disk0s1 && test -b /dev/disk0s2 "
+                "&& test ! -e /dev/disk0s1s1 && test ! -e /dev/disk0s1s2 && test ! -e /dev/disk0s2s1"
+            )
+        except ResetError:
+            return False
+        return True
+
+    def _probe_model(self, expected=None):
+        """Identify the connected hardware from the booted ramdisk.
+
+        Prefer the kernel's own identifier: try sysctl at every common location
+        and over ``PATH``, then ``uname -m``. The minimal Legacy iOS Kit 3.1.3
+        SSH ramdisk used for the iPhone 3G timer flow ships none of these.
+
+        When no kernel identifier is available, the live partition scheme is only
+        used to *confirm* an already-expected iPhone 3G, never to guess a model
+        from scratch. The flat S5L8900 layout is not unique to the 3G (an iPod
+        touch 2G shares it), so without an expected model a bare-ramdisk device
+        stays unidentified and inspect() fails closed. ``expected`` comes from the
+        caller's ``--model``; on the ``prepare`` path the real board/chip (``n82ap``
+        / S5L8900) was also verified during the kit DFU/iBSS boot. This is the
+        inspection gate, not the hardware support proof.
+        """
         for command in ("/usr/sbin/sysctl -n hw.machine", "/usr/sbin/sysctl -n hw.model",
-                        "/sbin/sysctl -n hw.machine", "/sbin/sysctl -n hw.model"):
+                        "/sbin/sysctl -n hw.machine", "/sbin/sysctl -n hw.model",
+                        "/usr/bin/sysctl -n hw.machine", "/usr/bin/sysctl -n hw.model",
+                        "sysctl -n hw.machine", "sysctl -n hw.model",
+                        "/usr/bin/uname -m", "uname -m"):
             try:
                 answer = self.command(command).strip()
             except ResetError:
                 continue
             if answer.startswith("iPhone"):
-                model = answer
-                break
+                return answer
             if answer.lower() in BOARD_MODELS:
-                model = BOARD_MODELS[answer.lower()]
-                break
+                return BOARD_MODELS[answer.lower()]
+        # No kernel identifier (the bare 3.1.3 ramdisk). Confirm an expected 3G
+        # from the genuine flat layout only; the iOS 4 nested and iOS 5+ LwVM
+        # layouts are rejected, and the version gate / HFS-mount checks in
+        # inspect() backstop anything that still slips through.
+        if expected == "iPhone1,2" and self._flat_3g_partition_layout():
+            return "iPhone1,2"
+        return None
+
+    def inspect(self, mount=False, writable=False, expected_model=None):
+        model = self._probe_model(expected_model)
         if model not in SUPPORTED:
+            if model is None and expected_model is None and self._flat_3g_partition_layout():
+                raise ResetError(
+                    "This ramdisk reports no hardware model (no sysctl or uname). "
+                    "For an iPhone 3G in a bare SSH ramdisk, run 'prepare' or pass "
+                    "--model iPhone1,2."
+                )
             raise ResetError(f"Unsupported or unidentifiable hardware: {model!r}.")
         mounts = self.command("/sbin/mount")
         if not re.search(r"^/dev/md\d+ on / \(", mounts, re.MULTILINE):

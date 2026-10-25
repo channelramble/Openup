@@ -143,8 +143,17 @@ class Server(paramiko.ServerInterface):
             status, output = 0, ""
             try:
                 args = shlex.split(command.decode())
-                if args[:2] == ["/usr/sbin/sysctl", "-n"]:
-                    output = self.owner.model + "\n"
+                if (args[:1] in (["/usr/sbin/sysctl"], ["/sbin/sysctl"],
+                                 ["/usr/bin/sysctl"], ["sysctl"]) and args[1:2] == ["-n"]):
+                    if self.owner.kernel_query:
+                        output = self.owner.model + "\n"
+                    else:
+                        status, output = 1, ""  # no sysctl on the bare 3.1.3 ramdisk
+                elif args in (["/usr/bin/uname", "-m"], ["uname", "-m"]):
+                    if self.owner.kernel_query:
+                        output = self.owner.model + "\n"
+                    else:
+                        status, output = 127, ""  # no uname on the bare 3.1.3 ramdisk
                 elif args == ["/sbin/mount"]:
                     root = "/dev/md0" if self.owner.ramdisk else "/dev/disk0s1s1"
                     output = root + " on / (hfs, local)\n"
@@ -158,9 +167,24 @@ class Server(paramiko.ServerInterface):
                         output += "/System/Library/CoreServices/SpringBoard.app/SpringBoard\n"
                 elif args[:1] == ["/sbin/mount_hfs"]:
                     self.owner.mounted = True
-                elif command.decode() in ("test -b /dev/disk0s1s1 && test -b /dev/disk0s1s2",
-                                          "test -b /dev/disk0s1 && test -b /dev/disk0s2"):
-                    pass
+                elif command.decode().startswith("test "):
+                    # Evaluate any && chain of `test -b PATH` / `test ! -e PATH`
+                    # against the device's real set of present block nodes, so
+                    # the partition-scheme probe is exercised for what it is.
+                    nodes = (self.owner.block_nodes if self.owner.block_nodes is not None
+                             else ({"/dev/disk0s1", "/dev/disk0s2"} if self.owner.model == "iPhone1,2"
+                                   else {"/dev/disk0s1", "/dev/disk0s1s1", "/dev/disk0s1s2"}))
+                    for clause in command.decode().split(" && "):
+                        parts = clause.split()
+                        if parts[:2] == ["test", "-b"]:
+                            satisfied = parts[2] in nodes
+                        elif parts[:3] == ["test", "!", "-e"]:
+                            satisfied = parts[3] not in nodes
+                        else:
+                            satisfied = False
+                        if not satisfied:
+                            status = 1
+                            break
                 elif args[:2] == ["/bin/cp", "-p"]:
                     shutil.copy2(self.root / args[2].lstrip("/"), self.root / args[3].lstrip("/"))
                 elif args[:2] == ["/bin/mv", "-f"]:
@@ -192,6 +216,8 @@ class SSHTests(unittest.TestCase):
         self.backups = Path(self.temp.name) / "backups"
         self.model = "iPhone5,2"
         self.ramdisk = True
+        self.kernel_query = True
+        self.block_nodes = None  # None -> derive block devices from the model
         self.springboard = False
         self.mounted = True
         self.read_only = False
@@ -299,6 +325,85 @@ class SSHTests(unittest.TestCase):
             folder = apply_plan(device, make_plan(device, identity), self.backups)
             restore_backup(device, identity, folder)
         self.assertEqual((self.root / PREFS.lstrip("/")).read_bytes(), original)
+
+    def test_3g_without_sysctl_is_identified_from_the_partition_layout(self):
+        # The Legacy iOS Kit 3.1.3 SSH ramdisk used by the timer flow ships no
+        # sysctl or uname, so hw.machine cannot be read. The genuine flat S5L8900
+        # partition scheme still identifies the iPhone 3G live on the ramdisk.
+        # This reproduces the logged "Unsupported or unidentifiable hardware:
+        # None" failure and confirms recovery through a full preview->commit->restore.
+        self.model = "iPhone1,2"
+        self.kernel_query = False
+        version = self.root / SYSTEM_VERSION.lstrip("/")
+        version.write_bytes(plistlib.dumps({"ProductVersion": "4.2.1", "ProductBuildVersion": "8C148"}))
+        from ios_timeout.core import make_plan, apply_plan, restore_backup
+        original = (self.root / PREFS.lstrip("/")).read_bytes()
+        with self.device() as device:
+            identity = device.inspect(mount=True, writable=True, expected_model="iPhone1,2")
+            self.assertEqual(identity.model, "iPhone1,2")
+            self.assertEqual(identity.version, "4.2.1")
+            folder = apply_plan(device, make_plan(device, identity), self.backups)
+            restore_backup(device, identity, folder)
+        self.assertEqual((self.root / PREFS.lstrip("/")).read_bytes(), original)
+
+    def test_flat_layout_without_an_expected_3g_fails_closed(self):
+        # The flat S5L8900 layout is not unique to the 3G (an iPod touch 2G
+        # shares it). With no kernel query AND no expected iPhone1,2, the fallback
+        # must NOT guess a model: it fails closed with a message pointing at
+        # prepare / --model, rather than silently accepting a non-3G device.
+        self.model = "iPhone1,2"
+        self.kernel_query = False
+        with self.device() as device, \
+             self.assertRaisesRegex(ResetError, "reports no hardware model"):
+            device.inspect(mount=True)
+
+    def test_flat_layout_with_a_non_3g_expected_model_fails_closed(self):
+        # The flat-layout fallback only ever confirms iPhone1,2; expecting any
+        # other model on a kernel-query-less ramdisk still fails closed.
+        self.model = "iPhone1,2"
+        self.kernel_query = False
+        with self.device() as device, \
+             self.assertRaisesRegex(ResetError, "Unsupported or unidentifiable hardware"):
+            device.inspect(mount=True, expected_model="iPhone5,2")
+
+    def test_ios4_nested_data_layout_is_not_taken_for_a_3g(self):
+        # The iOS 4 nested scheme (data at /dev/disk0s2s1, with /dev/disk0s2 as a
+        # block container) must NOT be confirmed as the flat iPhone 3G layout,
+        # even when an iPhone1,2 is expected. Otherwise a 3GS/iPhone 4 on iOS 4
+        # would be mislabeled iPhone1,2 instead of failing closed.
+        self.kernel_query = False
+        self.block_nodes = {"/dev/disk0s1", "/dev/disk0s2", "/dev/disk0s2s1"}
+        with self.device() as device, \
+             self.assertRaisesRegex(ResetError, "Unsupported or unidentifiable hardware"):
+            device.inspect(mount=True, expected_model="iPhone1,2")
+
+    def test_unreadable_model_without_old_layout_is_rejected(self):
+        # A ramdisk that serves no kernel query and is not the flat 3G layout
+        # (here the iOS 5+ LwVM scheme) must still fail closed, even when a 3G is
+        # expected, not guess a model.
+        self.kernel_query = False
+        with self.device() as device, \
+             self.assertRaisesRegex(ResetError, "Unsupported or unidentifiable hardware"):
+            device.inspect(mount=True, expected_model="iPhone1,2")
+
+    def test_usb_connection_retries_through_a_hub_reenumeration_bounce(self):
+        # On Apple Silicon a 30-pin phone reaches the Mac through a USB-C dock,
+        # which can briefly drop the phone off usbmuxd during the handshake.
+        # The connection retries (re-resolving the serial) instead of failing.
+        attempts = []
+
+        def flaky(*args, **kwargs):
+            attempts.append(1)
+            if len(attempts) == 1:
+                raise ResetError("No matching USB iPhone is exposed by usbmuxd.")
+            return self.connect(*args, **kwargs)
+
+        with patch("ios_timeout.usbmux.tunnel", side_effect=flaky), \
+             patch("ios_timeout.device.time.sleep", lambda _s: None):
+            device = USBDevice(self.selected, self.state, "alpine")
+            self.addCleanup(device.close)
+        self.assertEqual(len(attempts), 2)
+        self.assertEqual(device.inspect().model, self.model)
 
     def test_symlink_target_is_rejected(self):
         prefs = self.root / PREFS.lstrip("/")
