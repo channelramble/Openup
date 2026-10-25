@@ -1,3 +1,15 @@
+Openup 2.3.20 — clearer phone variants and Exit recovery mode
+Verification date: 2026-10-25
+
+Includes the GSM/CDMA/Global/2012-revision picker labels with visible identifiers,
+and a GUI action to request normal boot from recovery without restoring or erasing.
+All existing bundled Python 2 runtimes are retained unchanged.
+108 focused tests passed before release assembly. Full release checks are recorded
+in the subsequent verification handoff. Physical exit-recovery behavior has not
+been validated on a phone; a successful command reports a request, not a boot.
+
+---- Previous release ----
+
 Openup 2.3.19 — bundled Python 2 for desktop backends
 Verification date: 2026-10-25
 

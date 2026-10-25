@@ -9,7 +9,7 @@ assuming that a historical state still applies.
 
 - Project: **Openup**, a dark-mode desktop application for legacy iPhone recovery.
 - Repository: <https://github.com/channelramble/Openup> (public).
-- Current app version: **2.3.19**, with one-click desktop updates.
+- Current app version: **2.3.20**, with one-click desktop updates.
 - Verified device baseline: **2.3.1**, a prerelease built from
   `d6a5117a25038b850a56cea2c2f89b151930c104`. Version **2.3.12** is the first to
   complete a physical iPhone 3G timer reset (SpringBoard lockout plist committed
@@ -23,7 +23,7 @@ assuming that a historical state still applies.
   artifacts from a clean, committed checkout. Keep experiments in ignored
   `build/`, downloads in `.desktop-cache/`, and distributions in `dist/`.
 
-## Exit recovery action (unreleased)
+## Exit recovery action (2.3.20)
 
 The recovery page now offers **Exit recovery mode**, dispatched through the
 existing isolated worker as `exit-recovery`. Windows automatically uses WSL.
@@ -38,10 +38,10 @@ reboot. Because irecovery can exit zero on errors, require the explicit verbose
 success message. Only report a request, never confirmed normal-mode boot.
 All 108 targeted recovery, GUI, result, discovery, selection and compatibility
 tests passed; the new card was visually checked offscreen. Physical phone
-validation has not been performed. This is source-only pending
-publication; 2.3.19 remains the current downloadable release.
+validation has not been performed. Release 2.3.20 packages this action and the clearer picker labels.
+See the newest VERIFICATION.txt section for release validation status.
 
-## Latest UI continuation (unreleased)
+## Latest UI continuation (2.3.20)
 
 The phone picker now explains duplicate model variants (GSM, CDMA, Global,
 and the iPhone 4 GSM 2012 revision) and displays the identifier for every phone.
@@ -49,8 +49,7 @@ Labels follow the libirecovery device table:
 https://github.com/libimobiledevice/libirecovery/blob/master/src/libirecovery.c
 The mapping is display-only; item data and detected-device selection still use
 exact identifiers. The popup width fits the labels. Blank initial selection and
-hover highlighting remain in place. This change is committed after 2.3.19;
-it is not yet included in the published desktop archives. All 21 model-selection
+hover highlighting remain in place. This change is included in the 2.3.20 desktop archives. All 21 model-selection
 and discovery GUI tests passed; an offscreen popup check confirmed all ten labels
 fit and preserve their identifiers.
 

@@ -4,7 +4,7 @@
 
 A desktop app for legacy iPhone recovery, with guided timer reset, a pinned recovery backend, backups, and a built-in updater. Desktop downloads include iPhone 3G ARMv6 tools and Intel Mac support targeting macOS 12 Monterey.
 
-Version **2.3.19** includes **CPython 2.7.18 inside every desktop download** for legacy backend helpers. Recovery and ramdisk preparation select that app-owned interpreter automatically; users do not install Python 2, pyenv or Homebrew. Windows includes the Linux Python 2 runtime used inside WSL. The GUI continues to use its bundled Python 3 runtime.
+Version **2.3.20** includes **CPython 2.7.18 inside every desktop download** for legacy backend helpers. Recovery and ramdisk preparation select that app-owned interpreter automatically; users do not install Python 2, pyenv or Homebrew. Windows includes the Linux Python 2 runtime used inside WSL. The GUI continues to use its bundled Python 3 runtime.
 
 Version **2.3.18** leaves the phone model blank until selected or detected, highlights the hovered dropdown row, and adds experimental original **iPhone 2G** passcode recovery for **iPhone OS 2.2–3.1.3**. The 2G uses a dedicated 3.1.3 SSH ramdisk and read-only legacy keychain decoder. OS 1.x and 2G timer reset are not supported, and physical 2G validation remains pending.
 
@@ -22,7 +22,7 @@ Use **Updates → Update now** to install the latest compatible release, then re
 
 ## Download and open
 
-Get the platform archive from [version 2.3.18](https://github.com/channelramble/Openup/releases/tag/v2.3.19) and extract it completely.
+Get the platform archive from [version 2.3.20](https://github.com/channelramble/Openup/releases/tag/v2.3.20) and extract it completely.
 
 **Already using Openup 2.3.0–2.3.4?** Open **Updates → Check and download directly in the app → Check for updates → Install update**, then restart. Leave the token empty and Include prereleases enabled. This installs the new one-click updater without visiting GitHub.
 

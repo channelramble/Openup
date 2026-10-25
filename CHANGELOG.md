@@ -1,6 +1,6 @@
 # Changes
 
-## Unreleased
+## 2.3.20
 
 - Add **Exit recovery mode** to the recovery page. It requests normal boot through the pinned kit's recovery tool without restoring or erasing, checks the connected phone before sending, and explains how to leave DFU manually. Windows routes through WSL.
 
