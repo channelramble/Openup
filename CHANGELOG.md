@@ -1,5 +1,9 @@
 # Changes
 
+## Unreleased
+
+- Explain phone-picker variants as GSM, CDMA, Global, or GSM 2012 revision. Keep every hardware identifier visible, including single-variant phones, and size the popup to fit the complete labels.
+
 ## 2.3.19
 
 - Include an app-owned CPython 2.7.18 runtime in every desktop distribution: native Apple Silicon and Intel on macOS, Linux x86_64, and the same Linux runtime for the Windows WSL backend.

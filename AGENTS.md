@@ -23,6 +23,19 @@ assuming that a historical state still applies.
   artifacts from a clean, committed checkout. Keep experiments in ignored
   `build/`, downloads in `.desktop-cache/`, and distributions in `dist/`.
 
+## Latest UI continuation (unreleased)
+
+The phone picker now explains duplicate model variants (GSM, CDMA, Global,
+and the iPhone 4 GSM 2012 revision) and displays the identifier for every phone.
+Labels follow the libirecovery device table:
+https://github.com/libimobiledevice/libirecovery/blob/master/src/libirecovery.c
+The mapping is display-only; item data and detected-device selection still use
+exact identifiers. The popup width fits the labels. Blank initial selection and
+hover highlighting remain in place. This change is committed after 2.3.19;
+it is not yet included in the published desktop archives. All 21 model-selection
+and discovery GUI tests passed; an offscreen popup check confirmed all ten labels
+fit and preserve their identifiers.
+
 ## Latest continuation (2.3.19)
 
 Version **2.3.19 is published** from clean commit

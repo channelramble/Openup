@@ -620,10 +620,27 @@ class MainWindow(QMainWindow):
 
     def model_combo(self):
         combo = combo_box()
+        # Variant names follow libimobiledevice/libirecovery's device table.
+        # Keep these display-only: item data remains the exact hardware identifier.
+        variants = {
+            "iPhone3,1": "GSM",
+            "iPhone3,2": "GSM, 2012 revision",
+            "iPhone3,3": "CDMA",
+            "iPhone5,1": "GSM",
+            "iPhone5,2": "Global",
+            "iPhone5,3": "GSM",
+            "iPhone5,4": "Global",
+        }
         for model, (name, low, high) in SUPPORTED.items():
-            duplicates = sum(details[0] == name for details in SUPPORTED.values())
-            combo.addItem(f"{name} · {model}" if duplicates > 1 else name, model)
-            combo.setItemData(combo.count() - 1, model, Qt.ItemDataRole.ToolTipRole)
+            variant = variants.get(model)
+            title = f"{name} ({variant})" if variant else name
+            text = f"{title} · {model}"
+            combo.addItem(text, model)
+            combo.setItemData(combo.count() - 1, text, Qt.ItemDataRole.ToolTipRole)
+        # The popup must fit the full variant and identifier at the current font size.
+        width = max(combo.fontMetrics().horizontalAdvance(combo.itemText(i))
+                    for i in range(combo.count())) + 48
+        combo.view().setMinimumWidth(width)
         combo.setCurrentIndex(combo.findData(self.settings.model))
         return combo
 
