@@ -237,7 +237,7 @@ class ProtocolTests(unittest.TestCase):
 
     def test_wsl_protocol_flag_preserves_existing_environment_entries(self):
         from ios_timeout.wsl import desktop_wsl_environment
-        with patch.dict(os.environ, {"BL_IOS_UI_PROTOCOL": "1", "WSLENV": "EXISTING/p:BL_IOS_UI_PROTOCOL/l:OTHER/u"}):
+        with patch.dict(os.environ, {"BL_IOS_UI_PROTOCOL": "1", "WSLENV": "EXISTING/p:BL_IOS_UI_PROTOCOL/l:OTHER/u"}, clear=True):
             environment = desktop_wsl_environment()
         self.assertEqual(environment["WSLENV"], "EXISTING/p:OTHER/u:BL_IOS_UI_PROTOCOL/u")
         self.assertEqual(environment["BL_IOS_UI_PROTOCOL"], "1")
