@@ -1,4 +1,23 @@
-Openup 2.3.15 — GUI backup deletion and desktop cancellation guidance
+Openup 2.3.16 — confirmed backup deletion and GUI button guidance
+Verification date: 2026-10-25
+
+Includes the GUI deletion, Stop/Continue guidance and checkm8-A5 warning
+prepared in the unpublished 2.3.14/2.3.15 drafts below. The 2.3.15 Windows CI
+job caught deletion rejecting unchanged files because a descriptor-based file
+snapshot was compared to path-based stat metadata. This release reopens the
+current regular file and compares descriptor metadata and content hashes
+consistently. Directory identity stays path-based on Windows. Both explicit
+confirmations, link/reparse rejection, exact file scope and host locking remain.
+
+All 416 source tests passed with both pinned backend fixtures and zero skips
+under Python 3.13.16 (34.174s). The 20 deletion tests include two Windows-path
+regressions: a descriptor/path metadata difference still permits the confirmed
+backup deletion, and changed bytes with identical metadata stop before unlink.
+The previously checked Qt dialogs and guidance are unchanged by this fix.
+
+Historical records follow.
+============================================================
+Openup 2.3.15 (unpublished draft) — GUI backup deletion and desktop cancellation guidance
 Verification date: 2026-10-25
 
 The Backups page offers deletion of the selected local transaction after two

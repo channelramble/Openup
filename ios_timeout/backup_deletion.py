@@ -47,26 +47,28 @@ def _plain_directory(path):
     return path.resolve()
 
 
+def _file_snapshot(path, name, directory_fd=None):
+    if directory_fd is None:
+        reject_link(path / name)
+        fd = open_regular(path / name, os.O_RDONLY)
+    else:
+        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory_fd)
+    with os.fdopen(fd, "rb") as stream:
+        before = os.fstat(stream.fileno())
+        limit = 128 * 1024 if name == "manifest.json" else MAX_FILE
+        if not stat.S_ISREG(before.st_mode) or before.st_size > limit:
+            raise ResetError("Backup deletion accepts only bounded regular backup files.")
+        data = stream.read(limit + 1)
+        after = os.fstat(stream.fileno())
+        if len(data) != before.st_size or _identity(before) != _identity(after):
+            raise ResetError("The backup changed while being checked. Refresh and try again.")
+        return BackupFile(name, _identity(before), hashlib.sha256(data).hexdigest())
+
+
 def _snapshot(path, directory_fd=None):
     directory = os.fstat(directory_fd) if directory_fd is not None else path.lstat()
     names = sorted(os.listdir(directory_fd if directory_fd is not None else path))
-    files = []
-    for name in names:
-        if directory_fd is None:
-            reject_link(path / name)
-            fd = open_regular(path / name, os.O_RDONLY)
-        else:
-            fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory_fd)
-        with os.fdopen(fd, "rb") as stream:
-            before = os.fstat(stream.fileno())
-            limit = 128 * 1024 if name.startswith("manifest.json") else MAX_FILE
-            if not stat.S_ISREG(before.st_mode) or before.st_size > limit:
-                raise ResetError("Backup deletion accepts only bounded regular backup files.")
-            data = stream.read(limit + 1)
-            after = os.fstat(stream.fileno())
-            if len(data) != before.st_size or _identity(before) != _identity(after):
-                raise ResetError("The backup changed while being checked. Refresh and try again.")
-            files.append(BackupFile(name, _identity(before), hashlib.sha256(data).hexdigest()))
+    files = [_file_snapshot(path, name, directory_fd) for name in names]
     return _identity(directory), tuple(files)
 
 
@@ -135,9 +137,11 @@ def delete_backup(snapshot, state):
                 for item in snapshot.files:
                     _plain_directory(snapshot.path)
                     directory = snapshot.path.lstat()
-                    reject_link(snapshot.path / item.name)
                     if ((directory.st_dev, directory.st_ino) != snapshot.directory[:2]
-                            or _identity((snapshot.path / item.name).lstat()) != item.identity):
+                            # Windows path stat and descriptor stat can report
+                            # different identities for the same file. Reopen
+                            # safely and compare descriptor metadata + bytes.
+                            or _file_snapshot(snapshot.path, item.name) != item):
                         raise ResetError("The backup changed during deletion.")
                     (snapshot.path / item.name).unlink()
                     removed += 1

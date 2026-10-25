@@ -1,15 +1,11 @@
 # Changes
 
-## 2.3.15
+## 2.3.16
 
-- Delete a selected backup from the GUI after two separate confirmations. Cancellation at either dialog leaves it untouched. The dialogs identify the local folder and explain that deletion cannot be undone.
-- Show GUI cancellation guidance using the Stop button instead of asking desktop users to press Ctrl+C. CLI instructions and graceful interruption remain available.
-
-## 2.3.14 (unpublished; included in 2.3.15)
-
+- Delete a selected backup from the GUI after two separate confirmations. Cancellation at either dialog leaves it untouched. The dialogs identify the local folder and explain that deletion cannot be undone. File checks preserve unrelated contents and prevent deletion during an active operation.
+- Show GUI cancellation guidance using the Stop button instead of asking desktop users to press Ctrl+C. Continue prompts refer to the Continue button. CLI instructions, path-entry defaults and graceful interruption are preserved.
 - Show an iPhone 4S / iPad 2 checkm8-A5 prerequisite warning directly above Start recovery, with a clickable link to the Legacy iOS Kit guide.
 - Include the guide in CLI diagnostics and the README, and state that iPad 2 recovery is not currently supported in Openup.
-
 
 ## 2.3.13
 

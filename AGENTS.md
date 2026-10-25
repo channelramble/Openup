@@ -9,12 +9,12 @@ assuming that a historical state still applies.
 
 - Project: **Openup**, a dark-mode desktop application for legacy iPhone recovery.
 - Repository: <https://github.com/channelramble/Openup> (public).
-- Current app version: **2.3.15**, with one-click desktop updates.
+- Current app version: **2.3.16**, with one-click desktop updates.
 - Verified device baseline: **2.3.1**, a prerelease built from
   `d6a5117a25038b850a56cea2c2f89b151930c104`. Version **2.3.12** is the first to
   complete a physical iPhone 3G timer reset (SpringBoard lockout plist committed
   and read-back verified live on the device; see VERIFICATION.txt).
-- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.15>.
+- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.16>.
 - Read `README.md`, the newest section of `VERIFICATION.txt`, `CHANGELOG.md`,
   and `THIRD_PARTY.md` before modifying device operations or packaging.
 - `RESEARCH.md` and older verification sections contain historical hypotheses
@@ -23,13 +23,14 @@ assuming that a historical state still applies.
   artifacts from a clean, committed checkout. Keep experiments in ignored
   `build/`, downloads in `.desktop-cache/`, and distributions in `dist/`.
 
-## Latest continuation (2.3.15)
+## Latest continuation (2.3.16)
 
 This release adds GUI backup deletion with two explicit confirmation dialogs,
 and replaces terminal-only cancellation instructions with Stop-button guidance
 in the desktop flow. The CLI keeps its terminal instructions. The previously
-prepared 2.3.14 draft was superseded before publication; 2.3.15 includes its
-checkm8-A5 notice below.
+prepared 2.3.14 draft was superseded before publication. The 2.3.15 draft was
+held after Windows CI caught a descriptor-vs-path stat mismatch in deletion;
+2.3.16 corrects that comparison and includes the checkm8-A5 notice below.
 
 Backup deletion is a local filesystem operation, not a phone restore. Keep two
 separate Cancel-default confirmations, the selected path and permanent-loss
@@ -46,12 +47,20 @@ after prompt classification. Keep raw diagnostics/CLI unchanged, Enter defaults
 for path input, prompt-ID duplicate suppression, and the single graceful interrupt.
 Do not send input merely because a prompt was translated.
 
-All **414 source tests passed, zero skips**, with both pinned backend fixtures.
+The 2.3.15 candidate passed **414 source tests, zero skips**, with both pinned
+backend fixtures, but failed Windows deletion tests and was not published.
 Actual Qt dialogs were clicked against disposable backups, with both defaults
 set to Cancel, no deletion before the second acceptance, and a sibling folder
 preserved. macOS omits QMessageBox window titles, so the confirmation question
 must also remain in its visible text. Package/publication results follow in the
 final release handoff.
+
+For 2.3.16, all **416 source tests passed with zero skips**. Windows deletion
+must compare descriptor-derived file snapshots consistently: path `lstat` and
+`fstat` can differ for the same Windows file. Reopen with `open_regular`, compare
+metadata and SHA-256, and keep the directory's path identity separately. The two
+new regressions exercise differing path/descriptor metadata and changed content
+with unchanged metadata; neither should weaken link rejection or exact scope.
 
 ## Checkm8-A5 notice (prepared in 2.3.14)
 

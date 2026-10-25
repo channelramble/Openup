@@ -4,7 +4,7 @@
 
 A desktop app for legacy iPhone recovery, with guided timer reset, a pinned recovery backend, backups, and a built-in updater. Desktop downloads include iPhone 3G ARMv6 tools and Intel Mac support targeting macOS 12 Monterey.
 
-Version **2.3.15** adds backup deletion with two confirmation dialogs and replaces terminal-only cancellation instructions with the GUI’s **Stop** button. It also adds a visible iPhone 4S / iPad 2 warning before Start recovery, with a clickable [checkm8-A5 setup guide](https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/checkm8-a5). iPad 2 recovery is not currently supported in Openup.
+Version **2.3.16** adds backup deletion with two confirmation dialogs and replaces terminal-only cancellation instructions with the GUI’s **Stop** button. It also adds a visible iPhone 4S / iPad 2 warning before Start recovery, with a clickable [checkm8-A5 setup guide](https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/checkm8-a5). iPad 2 recovery is not currently supported in Openup.
 
 Version **2.3.13** improves the iPhone 3G bootloader-verification wait after a slow recovery-console response. It also corrects the timer-reset compatibility range for iPhone 5/5c: this tool supports legacy HFS partitions, so iOS 10.3 and its APFS filesystem are excluded. See the compatibility and verification sections below for the distinction between software checks and physical phone testing.
 
@@ -16,7 +16,7 @@ Use **Updates → Update now** to install the latest compatible release, then re
 
 ## Download and open
 
-Get the platform archive from [version 2.3.15](https://github.com/channelramble/Openup/releases/tag/v2.3.15) and extract it completely.
+Get the platform archive from [version 2.3.16](https://github.com/channelramble/Openup/releases/tag/v2.3.16) and extract it completely.
 
 **Already using Openup 2.3.0–2.3.4?** Open **Updates → Check and download directly in the app → Check for updates → Install update**, then restart. Leave the token empty and Include prereleases enabled. This installs the new one-click updater without visiting GitHub.
 
@@ -66,7 +66,7 @@ The `reset` workflow still requires the correct passcode afterward. The separate
 
 ## Source edition and CLI
 
-The unqualified `Openup-2.3.15.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
+The unqualified `Openup-2.3.16.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
 
 Download the ZIP from [Releases](https://github.com/channelramble/Openup/releases) and extract the whole folder onto the computer connected to the phone. Python 3.9 or newer is required.
 

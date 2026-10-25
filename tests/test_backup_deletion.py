@@ -1,9 +1,11 @@
 import importlib.util
 import json
 import os
+import stat
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from ios_timeout import backup_deletion as deletion
@@ -139,6 +141,55 @@ class BackupDeletionTests(BackupFixtures, unittest.TestCase):
                 deletion.delete_backup(snapshot, self.state)
         self.assertIn(str(selected), str(error.exception))
         self.assertEqual(len(list(selected.iterdir())), 2)
+
+    def test_windows_delete_compares_descriptor_metadata_consistently(self):
+        selected, sibling = self.backup(), self.backup()
+        snapshot = deletion.prepare_backup_deletion(selected, self.state)
+        path_stat = Path.lstat
+        def different_file_stat(path):
+            info = path_stat(path)
+            if stat.S_ISREG(info.st_mode):
+                values = {name: getattr(info, name) for name in dir(info) if name.startswith("st_")}
+                values["st_ino"] += 1
+                return SimpleNamespace(**values)
+            return info
+        # Exercise the Windows path on every host without changing pathlib's
+        # OS selection or host_lock's native implementation.
+        windows_os = SimpleNamespace(**dict(vars(os), name="nt"))
+        with patch.object(deletion, "os", windows_os), patch.object(Path, "lstat", different_file_stat):
+            self.assertNotEqual(deletion._identity((selected / snapshot.files[0].name).lstat()),
+                                snapshot.files[0].identity)
+            deletion.delete_backup(snapshot, self.state)
+        self.assertFalse(selected.exists())
+        self.assertEqual(len(list(sibling.iterdir())), 3)
+
+    def test_windows_recheck_rejects_changed_bytes_even_with_same_metadata(self):
+        selected = self.backup()
+        snapshot = deletion.prepare_backup_deletion(selected, self.state)
+        prepare, read_file = deletion.prepare_backup_deletion, deletion._file_snapshot
+        checked = False
+        def prepare_then_race(*args):
+            nonlocal checked
+            result = prepare(*args)
+            checked = True
+            return result
+        def changed_file(path, name, directory_fd=None):
+            if not checked:
+                return read_file(path, name, directory_fd)
+            item = next(item for item in snapshot.files if item.name == name)
+            contents = (path / name).read_bytes()
+            (path / name).write_bytes(bytes([contents[0] ^ 1]) + contents[1:])
+            fields = ("st_dev", "st_ino", "st_mode", "st_size", "st_mtime_ns", "st_ctime_ns")
+            unchanged_metadata = SimpleNamespace(**dict(zip(fields, item.identity)))
+            with patch.object(deletion.os, "fstat", return_value=unchanged_metadata):
+                return read_file(path, name, directory_fd)
+        windows_os = SimpleNamespace(**dict(vars(os), name="nt"))
+        with patch.object(deletion, "os", windows_os), \
+                patch.object(deletion, "prepare_backup_deletion", prepare_then_race), \
+                patch.object(deletion, "_file_snapshot", changed_file):
+            with self.assertRaisesRegex(ResetError, "changed during deletion"):
+                deletion.delete_backup(snapshot, self.state)
+        self.assertEqual(len(list(selected.iterdir())), 3)
 
 
 @unittest.skipUnless(importlib.util.find_spec("PySide6"), "Desktop dependencies are not installed.")
