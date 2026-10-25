@@ -9,12 +9,12 @@ assuming that a historical state still applies.
 
 - Project: **Openup**, a dark-mode desktop application for legacy iPhone recovery.
 - Repository: <https://github.com/channelramble/Openup> (public).
-- Current app version: **2.3.18**, with one-click desktop updates.
+- Current app version: **2.3.19**, with one-click desktop updates.
 - Verified device baseline: **2.3.1**, a prerelease built from
   `d6a5117a25038b850a56cea2c2f89b151930c104`. Version **2.3.12** is the first to
   complete a physical iPhone 3G timer reset (SpringBoard lockout plist committed
   and read-back verified live on the device; see VERIFICATION.txt).
-- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.18>.
+- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.19>.
 - Read `README.md`, the newest section of `VERIFICATION.txt`, `CHANGELOG.md`,
   and `THIRD_PARTY.md` before modifying device operations or packaging.
 - `RESEARCH.md` and older verification sections contain historical hypotheses
@@ -23,7 +23,43 @@ assuming that a historical state still applies.
   artifacts from a clean, committed checkout. Keep experiments in ignored
   `build/`, downloads in `.desktop-cache/`, and distributions in `dist/`.
 
-## Latest continuation (2.3.18)
+## Latest continuation (2.3.19)
+
+The user's explicit request is to include genuine Python 2 in the app, with no
+external interpreter installation. Every desktop package now includes a native
+CPython 2.7.18 local-helper runtime at `python2-runtime`; Windows includes the
+Linux x86_64 runtime for its WSL backend. The GUI keeps its existing Python 3.
+
+`bundled_python2.environment` locates the runtime relative to the application
+code, checks version, 64-bit pointers, exact relocated prefix and required
+imports, and prepends its `bin` directory to recovery/preparation child PATH.
+Existing backend Python 2 lookups therefore resolve to the app-owned wrapper.
+Missing/damaged desktop runtimes stop with an app-reinstallation message; do not
+silently use host Python. Source-only CLI workflows retain their existing setup.
+The wrapper ignores ambient Python settings; the parent Python 3 environment is
+preserved. WSL forwards the desktop requirement as well as its UI protocol flag.
+
+Runtime archives and full file inventories live in `packaging/python2`.
+`build_desktop.install_python2` checks hashes, paths, regular-file types and modes
+before inclusion. Final app signing can change Mach-O signature bytes, so the
+normal final DESKTOP.json inventory covers installed signed files. Do not compare
+post-signing binaries against their pre-signing runtime-archive hashes.
+
+Maintainer recipes and the seven pinned pyenv macOS compatibility patches are
+under `third_party/python2-runtime`. Official CPython source is pinned by SHA-256;
+Mac runtimes use only system libraries, while Linux includes libffi/bzip2/zlib
+with notices and relative library search paths. Optional TLS, database, readline
+and GUI extensions are omitted from this local helper interpreter. Actual runtime
+tests cover relocation with spaces, hostile Python settings, native imports and
+Linux library resolution. Builds never install Python system-wide or access USB.
+
+This work was isolated from an unfinished Python 3/native-loader experiment in
+another working tree. That uncommitted work was preserved. This release retains
+the existing pinned recovery behavior and only supplies its host Python 2 runtime;
+no new physical phone recovery success is claimed. Final test/package/publication
+results are recorded in VERIFICATION.txt after completion.
+
+## Previous continuation (2.3.18)
 
 Version **2.3.18 is published** as a prerelease from clean commit
 `6edf1a5a398a3610cc8df7da552077dd0825a5a6`; main also includes this later

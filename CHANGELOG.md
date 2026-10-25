@@ -1,5 +1,13 @@
 # Changes
 
+## 2.3.19
+
+- Include an app-owned CPython 2.7.18 runtime in every desktop distribution: native Apple Silicon and Intel on macOS, Linux x86_64, and the same Linux runtime for the Windows WSL backend.
+- Select bundled Python 2 automatically for recovery and ramdisk-preparation child processes. Check its version, architecture, prefix and required imports before launching the backend; a missing or damaged desktop runtime prompts reinstallation instead of using an external Python.
+- Isolate the legacy interpreter from ambient Python configuration and retain the bundled Python 3 GUI/runtime. Runtime archives, file inventories, source hashes, macOS compatibility patches and licenses accompany the build recipe.
+
+This release changes host dependency packaging; it does not claim a new physical phone recovery result. See `VERIFICATION.txt` for completed validation.
+
 ## 2.3.18
 
 - Start with a blank phone-model field. Selecting or detecting a phone fills it; an unknown setting cannot silently fall back to iPhone 3G. Boot operations require a selected model. Dropdown popups highlight the hovered row on macOS without changing the selection.

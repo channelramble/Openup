@@ -517,6 +517,8 @@ def run_backend(args):
         print("Preview only. Add --apply to prepare and boot the upstream passcode-recovery ramdisk.")
         print("iPhone 3G uses bundled ARMv6 tools and a 4.2.1 recovery ramdisk. --armv6-tools is an optional override.")
         return 0
+    from .bundled_python2 import environment as python2_environment
+    backend_environment = python2_environment()
     # The managed startup's wait helper always comes from our verified bundle,
     # even when a developer overrides the three recovery executables.
     read_bundled_payloads()
@@ -536,7 +538,7 @@ def run_backend(args):
         if args.install_only:
             print(f"Pinned backend installed and adapted script syntax verified: {backend}")
             return 0
-        env = {**os.environ, "BL_IOS_BACKEND": str(alias), "BL_IOS_PYTHON": sys.executable,
+        env = {**backend_environment, "BL_IOS_BACKEND": str(alias), "BL_IOS_PYTHON": sys.executable,
                "BL_IOS_MODEL": args.model or "", "BL_IOS_UDID": getattr(args, "udid", None) or "",
                "PYTHONPATH": str(Path(__file__).resolve().parent.parent) +
                (os.pathsep + os.environ["PYTHONPATH"] if os.environ.get("PYTHONPATH") else "")}

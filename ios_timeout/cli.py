@@ -245,7 +245,8 @@ def launch_backend(args):
                         if args.model == "iPhone1,1" else nullcontext(None))
     boot_serial = None
     with prepared as running_script, helper_directory as operation:
-        env = {**os.environ, "BL_IOS_PYTHON": sys.executable,
+        from .bundled_python2 import environment as python2_environment
+        env = {**python2_environment(), "BL_IOS_PYTHON": sys.executable,
                "BL_IOS_MODEL": args.model or "",
                "BL_IOS_UDID": getattr(args, "udid", None) or "",
                # Boot the ramdisk and return without the interactive SSH Ramdisk

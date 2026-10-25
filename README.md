@@ -4,6 +4,8 @@
 
 A desktop app for legacy iPhone recovery, with guided timer reset, a pinned recovery backend, backups, and a built-in updater. Desktop downloads include iPhone 3G ARMv6 tools and Intel Mac support targeting macOS 12 Monterey.
 
+Version **2.3.19** includes **CPython 2.7.18 inside every desktop download** for legacy backend helpers. Recovery and ramdisk preparation select that app-owned interpreter automatically; users do not install Python 2, pyenv or Homebrew. Windows includes the Linux Python 2 runtime used inside WSL. The GUI continues to use its bundled Python 3 runtime.
+
 Version **2.3.18** leaves the phone model blank until selected or detected, highlights the hovered dropdown row, and adds experimental original **iPhone 2G** passcode recovery for **iPhone OS 2.2–3.1.3**. The 2G uses a dedicated 3.1.3 SSH ramdisk and read-only legacy keychain decoder. OS 1.x and 2G timer reset are not supported, and physical 2G validation remains pending.
 
 Version **2.3.17** improved phone discovery and the normal-mode → Recovery → DFU workflow. Refresh reads available normal-mode identity and, on macOS, also lists recognized phones in DFU or Recovery mode. Detected variants such as `iPhone5,1` and `iPhone5,2` remain distinct and are selected automatically. Exact hardware mismatch checks remain enabled.
@@ -14,13 +16,13 @@ Version **2.3.13** improves the iPhone 3G bootloader-verification wait after a s
 
 Use **Updates → Update now** to install the latest compatible release, then restart. The interface provides on-screen steps, choices, countdowns, and result cards; the terminal and manual input remain optional Advanced controls.
 
-**Desktop downloads include Python, Qt, SSH libraries, and their Python dependencies. No Python, pip, virtual environment, or package installation is needed to open the app.** The Windows archive also includes the Linux Python/SSH runtime used by its WSL bridge.
+**Desktop downloads include Python 3, Python 2.7.18, Qt, SSH libraries, and their Python dependencies. No Python, pip, virtual environment, or package installation is needed to open the app or supply its legacy interpreter.** The Windows archive also includes the Linux Python/SSH runtimes used by its WSL bridge.
 
 ![Desktop start screen](docs/desktop-overview.png)
 
 ## Download and open
 
-Get the platform archive from [version 2.3.18](https://github.com/channelramble/Openup/releases/tag/v2.3.18) and extract it completely.
+Get the platform archive from [version 2.3.18](https://github.com/channelramble/Openup/releases/tag/v2.3.19) and extract it completely.
 
 **Already using Openup 2.3.0–2.3.4?** Open **Updates → Check and download directly in the app → Check for updates → Install update**, then restart. Leave the token empty and Include prereleases enabled. This installs the new one-click updater without visiting GitHub.
 

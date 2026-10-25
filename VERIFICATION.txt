@@ -1,3 +1,45 @@
+Openup 2.3.19 — bundled Python 2 for desktop backends
+Verification date: 2026-10-25
+
+Every desktop download includes CPython 2.7.18 at python2-runtime. Apple Silicon
+and Intel packages use native Mac builds; Linux and Windows/WSL use the Linux
+x86_64 runtime. Both recovery and ramdisk preparation receive a child PATH that
+selects its absolute app-owned wrapper. Desktop mode never falls back to an
+external interpreter. Preflight checks version, pointer width, relocated prefix
+and ctypes/hashlib/struct/zlib imports; missing/damaged runtimes stop before the
+backend launches. Runtime/bin directory links and leaf links are rejected.
+
+The recipes use pinned official CPython source. Mac compatibility patches are
+pinned to pyenv 0effba62c4bbf8f8ca2ad8f0eabbfd8221cc7bc6. Both Mac runtimes passed
+actual execution, relocation into paths with spaces, hostile Python settings,
+ctypes callbacks, hashlib/zlib/bz2 and 64-bit checks. All 93 Mach-O images in each
+runtime target the intended architecture and deployment target (arm64 14.0,
+x86_64 12.0), with only system-library load paths. Linux runtime execution and
+relocation passed on Ubuntu 22.04, using bundled libffi/bzip2/zlib dependencies.
+Runtime source hashes, files, archive hashes, licenses and build provenance are
+recorded in packaging/python2/manifest.json and third_party/python2-runtime.
+
+Native Intel build and smoke check:
+https://github.com/channelramble/Openup/actions/runs/40219392588
+Linux artifact build and smoke check:
+https://github.com/channelramble/Openup/actions/runs/40219260421
+The MacBook was unreachable; the Intel check ran on a native Intel CI Mac.
+
+All 573 source tests passed with both pinned backend fixtures and zero skips
+(51.719s). New cases cover automatic runtime selection, no external desktop
+fallback, preservation of the Python 3 parent environment, wrong interpreter
+identity, bounded startup failures, symlink redirection, WSL flag forwarding,
+archive corruption/traversal, and actual native relocation. Linux CI also checks
+that non-glibc ELF dependencies resolve inside the relocated runtime.
+
+This release changes host runtime packaging. No phone was booted or otherwise
+operated on, and no new physical recovery success is claimed. The existing
+pinned backend remains in use; the separate unfinished Python 3/native-loader
+experiment was preserved outside this isolated release worktree.
+Final app-package, CI and publication results are recorded after completion.
+
+----------------------------------------------------------------------
+
 Openup 2.3.18 — blank model picker, hover feedback and original-iPhone recovery
 Verification date: 2026-10-25
 
