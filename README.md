@@ -4,7 +4,7 @@
 
 A desktop app for legacy iPhone recovery, with guided timer reset, a pinned recovery backend, backups, and a built-in updater. Desktop downloads include iPhone 3G ARMv6 tools and Intel Mac support targeting macOS 12 Monterey.
 
-Version **2.3.14** adds a visible iPhone 4S / iPad 2 warning before Start recovery, with a clickable [checkm8-A5 setup guide](https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/checkm8-a5). iPad 2 recovery is not currently supported in Openup.
+Version **2.3.15** adds backup deletion with two confirmation dialogs and replaces terminal-only cancellation instructions with the GUI’s **Stop** button. It also adds a visible iPhone 4S / iPad 2 warning before Start recovery, with a clickable [checkm8-A5 setup guide](https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/checkm8-a5). iPad 2 recovery is not currently supported in Openup.
 
 Version **2.3.13** improves the iPhone 3G bootloader-verification wait after a slow recovery-console response. It also corrects the timer-reset compatibility range for iPhone 5/5c: this tool supports legacy HFS partitions, so iOS 10.3 and its APFS filesystem are excluded. See the compatibility and verification sections below for the distinction between software checks and physical phone testing.
 
@@ -16,7 +16,7 @@ Use **Updates → Update now** to install the latest compatible release, then re
 
 ## Download and open
 
-Get the platform archive from [version 2.3.14](https://github.com/channelramble/Openup/releases/tag/v2.3.14) and extract it completely.
+Get the platform archive from [version 2.3.15](https://github.com/channelramble/Openup/releases/tag/v2.3.15) and extract it completely.
 
 **Already using Openup 2.3.0–2.3.4?** Open **Updates → Check and download directly in the app → Check for updates → Install update**, then restart. Leave the token empty and Include prereleases enabled. This installs the new one-click updater without visiting GitHub.
 
@@ -50,7 +50,7 @@ USB access still depends on the host: macOS's usbmuxd service, Apple Mobile Devi
 3. **Timer reset:** follow **Prepare → Review & reset → Done**. Preparation boots the temporary ramdisk and inspects the phone. The pinned backend returns automatically after ramdisk preparation. Review the proposed changes in the result card, then confirm the reset. If the phone is already prepared, use the inspection shortcut. Changing the selected phone or its settings requires a fresh review. After reboot, use the existing passcode.
 4. **Passcode recovery:** click **Start recovery** once; the app downloads the backend when needed. Follow the GUI's DFU steps and countdown. Recovery runs automatically on the iPhone, with the full passcode shown at the end of its output. There is no Show Passcode menu or terminal choice. The app finishes with **Check your iPhone**; sending the recovery system does not confirm a recovered passcode. A temporary masked GUI field still handles any required host password.
 5. **Advanced options:** expand these only when needed, such as for a local 3G IPSW, a custom tools folder, or connection settings. The normal workflow uses the included tools and default settings.
-6. **Backups and updates:** use Backups to restore original files or finish interrupted cleanup. Choose **Updates → Update now** to check, download, verify and install the latest release for your computer. Choose **Restart** when ready to use it. No browser, token, file selection or GitHub CLI is required. Prereleases are included by default because Openup currently publishes prereleases. **Advanced update options** contains rollback, a local ZIP/checksum installer, release notes and an optional token kept only in memory. Updates run when requested; the app never restarts during an operation.
+6. **Backups and updates:** use Backups to restore original files, finish interrupted cleanup, or delete a selected backup. Deletion requires two confirmations and permanently removes that saved local copy; it does not change the phone. Choose **Updates → Update now** to check, download, verify and install the latest release for your computer. Choose **Restart** when ready to use it. No browser, token, file selection or GitHub CLI is required. Prereleases are included by default because Openup currently publishes prereleases. **Advanced update options** contains rollback, a local ZIP/checksum installer, release notes and an optional token kept only in memory. Updates run when requested; the app never restarts during an operation.
 
 The **session card** displays the current step, requests a response when needed, and shows the result. The terminal stays closed even on failure. Open **Advanced · terminal** to inspect raw output; **Enable manual input** is a separate opt-in. Closing the terminal disables manual input again. Phone and settings controls are locked while an operation runs.
 
@@ -66,7 +66,7 @@ The `reset` workflow still requires the correct passcode afterward. The separate
 
 ## Source edition and CLI
 
-The unqualified `Openup-2.3.14.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
+The unqualified `Openup-2.3.15.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
 
 Download the ZIP from [Releases](https://github.com/channelramble/Openup/releases) and extract the whole folder onto the computer connected to the phone. Python 3.9 or newer is required.
 

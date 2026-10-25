@@ -3,6 +3,7 @@
 import codecs
 import errno
 import os
+import re
 import signal
 import sys
 import threading
@@ -22,6 +23,36 @@ def command(arguments):
     if executable.name.lower() == "pythonw.exe":
         executable = executable.with_name("python.exe")
     return [str(executable), "-I", "-B", "-u", str(root / "desktop.py"), "--cli", *arguments]
+
+
+_CONTROL_C = r"(?:\b(?:ctrl|control)\s*(?:[+-]\s*)?c\b|\^c\b)"
+
+
+def _gui_message(text, *, kind=None):
+    """Translate terminal actions only on the desktop's guided surfaces.
+
+    Classify prompts before this step so an Enter/path default stays an input
+    request. Raw terminal output and CLI text remain useful diagnostic evidence.
+    """
+    # Closing a terminal is not a desktop action; Stop already requests the
+    # same graceful interrupt without bypassing the app's cleanup lifecycle.
+    text = re.sub("(" + _CONTROL_C + r")\s+or\s+close\s+the\s+terminal(?:\s+window)?",
+                  r"\1", text, flags=re.I)
+
+    def click(label):
+        return lambda match: ("Click " if match.group(0)[0].isupper() else "click ") + label
+
+    text = re.sub(r"\b(?:press|hit)\s+" + _CONTROL_C, click("Stop"), text, flags=re.I)
+    text = re.sub(_CONTROL_C + r"(?=\s+to\s+(?:cancel|quit|exit|stop|abort)\b)",
+                  "click Stop", text, flags=re.I)
+    if kind == "continue":
+        text = re.sub(r"\b(?:press|hit)\s+(?:the\s+)?(?:enter(?:/return)?|return|any key)\b",
+                      click("Continue"), text, flags=re.I)
+        text = re.sub(r"(click Continue)\s+to\s+continue\b", r"\1 when ready", text, flags=re.I)
+    text = re.sub(r"(click Stop)\s+to\s+(?:quit|exit)\b", r"\1 to cancel", text, flags=re.I)
+    text = re.sub(r"\bTo stop and exit,\s+(?:just\s+)?click Stop\b",
+                  "To stop this operation, click Stop", text, flags=re.I)
+    return text
 
 
 class SessionProtocol:
@@ -56,7 +87,7 @@ class SessionProtocol:
             self._done()
             remaining = event.get("remaining")
             self.emit({"type": "progress", "title": str(event.get("title", "Working"))[:200],
-                       "message": str(event.get("message", ""))[:6000],
+                       "message": _gui_message(str(event.get("message", "")))[:6000],
                        "remaining": remaining if isinstance(remaining, int) and 0 <= remaining <= 3600 else None})
         elif event.get("type") == "prompt":
             if event.get("kind") == "auto":
@@ -69,7 +100,8 @@ class SessionProtocol:
                 return
             question = {"type": "prompt", "kind": event["kind"],
                         "title": str(event.get("title", "The tool needs your response"))[:200],
-                        "message": str(event.get("message", ""))[:6000], "options": [],
+                        "message": _gui_message(str(event.get("message", "")), kind=event["kind"])[:6000],
+                        "options": [],
                         "secret": event["kind"] == "password" or bool(event.get("secret", False))}
             options = event.get("options", [])
             if not isinstance(options, list):

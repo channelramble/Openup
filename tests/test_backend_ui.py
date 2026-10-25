@@ -87,6 +87,16 @@ class BackendUiTests(unittest.TestCase):
                 self.assertEqual(events, [])
                 self.assertEqual(result.stdout, "[Input] Main Menu\n* Hold TOP and HOME buttons...\n")
 
+    def test_cli_pause_keeps_enter_and_ctrl_c_instructions(self):
+        for backend in ("recover", "legacy"):
+            with self.subTest(backend=backend):
+                result, events = self.run_shell(backend, "pause <<<'\n'", enabled=False)
+                self.assertEqual(events, [])
+                self.assertIn("Press Enter", result.stdout)
+                self.assertIn("Ctrl+C to cancel", result.stdout)
+                self.assertNotIn("Stop", result.stdout)
+                self.assertNotIn("Click Continue", result.stdout)
+
     def test_nonblocking_input_label_is_progress_not_a_prompt(self):
         _, events = self.run_shell("legacy", "input 'Main Menu'")
         self.assertEqual(events, [["progress", "Recovery tool", "Main Menu"]])

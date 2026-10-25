@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 
 from . import APP_NAME, __version__
 from .core import ResetError, SUPPORTED
+from .backup_deletion import delete_backup, prepare_backup_deletion
 from .desktop_model import Settings, TerminalText, backup_inventory, operation_arguments
 from .host import state_directory
 from .session_log import SessionLog
@@ -798,6 +799,9 @@ class MainWindow(QMainWindow):
         self.restore_button = self.button("Restore selected backup…", lambda: self.recover_backup("restore"), primary=True)
         actions.addWidget(self.restore_button)
         body.addLayout(actions)
+        self.delete_backup_button = self.button("Delete selected backup…", self.delete_selected_backup)
+        self.delete_backup_button.setObjectName("danger")
+        body.addWidget(self.delete_backup_button, 0, Qt.AlignmentFlag.AlignLeft)
         self.backup_note = label("", "muted")
         body.addWidget(self.backup_note)
         layout.addWidget(frame)
@@ -873,7 +877,7 @@ class MainWindow(QMainWindow):
         descriptions = ["Choose the task that matches your situation.",
                         "Prepare your phone, review the changes, then reset.",
                         "Follow the on-screen steps to prepare your phone and view the result.",
-                        "Restore original files or finish an interrupted operation.",
+                        "Restore original files, finish interrupted cleanup, or delete a saved backup.",
                         "Keep the app and its included tools up to date.",
                         "Check this computer and adjust connection settings."]
         self.pages.setCurrentIndex(index)
@@ -948,6 +952,7 @@ class MainWindow(QMainWindow):
         valid_backup = 0 <= row < len(self.backup_rows) and self.backup_rows[row]["valid"]
         self.restore_button.setEnabled(not self.busy and valid_backup)
         self.finalize_button.setEnabled(not self.busy and valid_backup)
+        self.delete_backup_button.setEnabled(not self.busy and 0 <= row < len(self.backup_rows))
         self.sync_timer_flow()
 
     def set_busy(self, busy, message="Ready"):
@@ -1279,6 +1284,61 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Choose a valid backup", "Select a verified transaction or choose its folder.")
             return
         self.start_operation(action, apply=True, backup=self.backup_rows[row]["path"])
+
+    def backup_delete_dialog(self, title, text, confirm=None):
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle(title)
+        dialog.setIcon(QMessageBox.Icon.Warning)
+        dialog.setTextFormat(Qt.TextFormat.PlainText)
+        dialog.setText(title)
+        dialog.setInformativeText(text)
+        if confirm:
+            dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel)
+            dialog.button(QMessageBox.StandardButton.Yes).setText(confirm)
+            dialog.setDefaultButton(QMessageBox.StandardButton.Cancel)
+            dialog.setEscapeButton(QMessageBox.StandardButton.Cancel)
+        else:
+            dialog.setStandardButtons(QMessageBox.StandardButton.Ok)
+        return dialog.exec() == QMessageBox.StandardButton.Yes
+
+    def delete_selected_backup(self):
+        if self.busy:
+            return
+        row = self.backup_table.currentRow()
+        if not 0 <= row < len(self.backup_rows):
+            return
+        state = state_directory()
+        path = self.backup_rows[row]["path"]
+        try:
+            snapshot = prepare_backup_deletion(path, state)
+        except (ResetError, OSError) as exc:
+            self.refresh_backups()
+            self.backup_delete_dialog("Could not delete backup", str(exc))
+            return
+        consequence = ("This permanently removes the local recovery copy needed to restore the original files "
+                       "or finish an interrupted transaction. It cannot be undone. Your phone is not changed.")
+        if not snapshot.valid:
+            consequence += "\n\nThis backup is invalid; deleting it also removes any files that might still be recoverable."
+        elif snapshot.status not in {"committed", "restored", "rolled_back", "not_started"}:
+            consequence += "\n\nThis transaction is unfinished. Deleting its backup may prevent restoration or interrupted cleanup."
+        details = f"Folder:\n{snapshot.path}\n\nStatus: {snapshot.status}\n\n{consequence}"
+        if not self.backup_delete_dialog("Delete selected backup?", details, "Continue") or self.busy:
+            return
+        if not self.backup_delete_dialog("Permanently delete this backup?", details, "Delete permanently") or self.busy:
+            return
+        self.set_busy(True, "Deleting backup…")
+        error = None
+        try:
+            delete_backup(snapshot, state)
+        except (ResetError, OSError) as exc:
+            error = str(exc)
+        finally:
+            self.set_busy(False, "Backup deletion needs attention" if error else "Backup deleted")
+            self.refresh_backups()
+        if error:
+            self.backup_delete_dialog("Backup deletion did not finish", error)
+        else:
+            self.backup_note.setText(f"Deleted backup: {snapshot.path}")
 
     def open_backups(self):
         folder = state_directory() / "backups"

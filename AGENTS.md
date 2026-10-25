@@ -9,12 +9,12 @@ assuming that a historical state still applies.
 
 - Project: **Openup**, a dark-mode desktop application for legacy iPhone recovery.
 - Repository: <https://github.com/channelramble/Openup> (public).
-- Current app version: **2.3.14**, with one-click desktop updates.
+- Current app version: **2.3.15**, with one-click desktop updates.
 - Verified device baseline: **2.3.1**, a prerelease built from
   `d6a5117a25038b850a56cea2c2f89b151930c104`. Version **2.3.12** is the first to
   complete a physical iPhone 3G timer reset (SpringBoard lockout plist committed
   and read-back verified live on the device; see VERIFICATION.txt).
-- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.14>.
+- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.15>.
 - Read `README.md`, the newest section of `VERIFICATION.txt`, `CHANGELOG.md`,
   and `THIRD_PARTY.md` before modifying device operations or packaging.
 - `RESEARCH.md` and older verification sections contain historical hypotheses
@@ -23,7 +23,37 @@ assuming that a historical state still applies.
   artifacts from a clean, committed checkout. Keep experiments in ignored
   `build/`, downloads in `.desktop-cache/`, and distributions in `dist/`.
 
-## Latest continuation (2.3.14)
+## Latest continuation (2.3.15)
+
+This release adds GUI backup deletion with two explicit confirmation dialogs,
+and replaces terminal-only cancellation instructions with Stop-button guidance
+in the desktop flow. The CLI keeps its terminal instructions. The previously
+prepared 2.3.14 draft was superseded before publication; 2.3.15 includes its
+checkm8-A5 notice below.
+
+Backup deletion is a local filesystem operation, not a phone restore. Keep two
+separate Cancel-default confirmations, the selected path and permanent-loss
+explanation, and stronger wording for interrupted transactions. Keep the GUI
+busy guard, the shared state host lock, and a final comparison with the files
+shown before confirmation. Delete only the exact flat backup inventory; never
+recurse through a selected folder or follow links/reparse points. Valid external
+backups may be renamed; invalid backups require a canonical transaction folder
+directly inside the managed backup root. Report partial failures honestly and
+refresh the list. Regression fixtures must be temporary, never real user backups.
+
+`desktop_session._gui_message` translates guided prompt/progress text only,
+after prompt classification. Keep raw diagnostics/CLI unchanged, Enter defaults
+for path input, prompt-ID duplicate suppression, and the single graceful interrupt.
+Do not send input merely because a prompt was translated.
+
+All **414 source tests passed, zero skips**, with both pinned backend fixtures.
+Actual Qt dialogs were clicked against disposable backups, with both defaults
+set to Cancel, no deletion before the second acceptance, and a sibling folder
+preserved. macOS omits QMessageBox window titles, so the confirmation question
+must also remain in its visible text. Package/publication results follow in the
+final release handoff.
+
+## Checkm8-A5 notice (prepared in 2.3.14)
 
 The recovery page now displays a checkm8-A5 prerequisite warning for iPhone 4S
 and iPad 2 directly above Start recovery. Its explicit RichText QLabel opens

@@ -1,4 +1,37 @@
-Openup 2.3.14 — checkm8-A5 recovery warning and guide
+Openup 2.3.15 — GUI backup deletion and desktop cancellation guidance
+Verification date: 2026-10-25
+
+The Backups page offers deletion of the selected local transaction after two
+separate confirmation dialogs. Each cancellation path preserves the backup.
+The dialogs identify the exact folder and explain permanent removal of the
+saved restore/recovery copy. No phone files are changed by deletion.
+
+Desktop prompt/progress guidance uses the GUI's Stop and Continue controls.
+Raw diagnostic output and CLI instructions retain their original text; the
+reply and graceful-interruption protocol is unchanged.
+
+Includes the iPhone 4S / iPad 2 checkm8-A5 warning and linked setup guide that
+were prepared for 2.3.14. That draft was superseded before publication.
+No additional hardware recovery or timer-clearance validation is claimed.
+
+All 414 source tests passed with both pinned backend fixtures and zero skips
+under Python 3.13.16 (35.244s). This includes 18 new backup-deletion tests and
+five new session/CLI-guidance regressions. Coverage includes cancellation at
+either dialog, stale contents, host-lock contention, unrelated files, links,
+renamed external backups, damaged journal-only backups, and partial deletion.
+The guidance checks preserve prompt identity, delayed-duplicate suppression,
+path-entry defaults, original CLI text, and exactly one graceful interrupt.
+
+Real Qt verification used disposable fake backups at the minimum 940x680 window
+size. The Delete control is reachable in the scrollable Backups page. Both
+visible questions, exact folder, Cancel defaults and Escape handling were
+checked; the folder survived the first click and was removed only after the
+second, with a sibling folder preserved. Questions are in QMessageBox text,
+not only the window title that macOS omits. No real user backup was deleted.
+
+Historical records follow.
+============================================================
+Openup 2.3.14 (unpublished draft) — checkm8-A5 recovery warning and guide
 Verification date: 2026-10-25
 
 The recovery page shows a visible iPhone 4S / iPad 2 checkm8-A5 prerequisite
