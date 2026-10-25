@@ -47,7 +47,7 @@ def main():
         disabled = ["_ssl", "_hashlib", "readline", "_sqlite3", "_tkinter", "_bsddb",
                     "dbm", "gdbm", "crypt", "_curses", "_curses_panel", "nis"]
         setup.write_text(content.replace(original, "disabled_module_list = " + repr(disabled)))
-        runtime = temporary / "original location/python2-runtime"
+        runtime = temporary / "original-location/python2-runtime"
         env = {**os.environ, "CFLAGS": "-O2 -fcommon -Wno-implicit-function-declaration"}
         subprocess.run(["./configure", "--prefix=" + str(runtime), "--disable-shared",
                         "--without-ensurepip", "--with-system-ffi"], cwd=source, env=env, check=True)
