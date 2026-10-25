@@ -1,5 +1,16 @@
 # Changes
 
+## 2.3.13
+
+- Give the 3G recovery-console handoff a bounded retry window for slow or temporarily unavailable replies, while preserving exact iBSS/iBEC stage, board, and build verification. Keep countdown updates responsive during console reads, and stop pending reads at the deadline or cancellation. A timed-out or failed read cannot authorize the next upload.
+- Correct the iPhone 5/5c timer-reset range to iOS 10.2.1 and report APFS as unsupported. The HFS-only adapter previously advertised iOS 10.3 even though it could not inspect its APFS volumes.
+- Reject a known mismatch between the connected and selected model before mounting partitions.
+- Update the shared development handoff and remove stale README instructions to exit a menu that the pinned backend now skips automatically.
+
+All 391 source tests pass with both pinned backend fixtures, with no skips. The patched read-only verifier was also exercised against the connected 3G and stopped without authorizing an upload.
+
+This release does not establish physical recovery success on every advertised model. The new boot wait still needs a fresh iPhone 3G session; the previously verified v2.3.12 timer reset is a separate operation.
+
 ## 2.3.12
 
 - Fix the iPhone 3G timer reset failing at `Error: Ramdisk command failed (127): /bin/sync`. The Legacy iOS Kit 3.1.3 SSH ramdisk is a minimal environment (`PATH=/usr/bin:/bin:/usr/sbin:/sbin`) that ships **no `sync` and no `cp`** — the device transaction had assumed a fuller Darwin toolset. `device.sync()` now resolves a `sync` binary and runs it where one exists (full iOS, the 4.x recovery ramdisk), so a genuine sync failure still rolls the transaction back, and degrades to a no-op when none exists — durability is then completed by the clean reboot (`reboot(2)` flushes mounted volumes) and crash-recovery stays state-based via the transaction manifest. `device.stage()` now writes the staged replacement directly over SFTP instead of shelling out to `cp` (the copied bytes were overwritten anyway, and the commit still archives the untouched original by renaming the live file aside). This also unblocks restore/finalize, which hit the same missing `/bin/sync`.

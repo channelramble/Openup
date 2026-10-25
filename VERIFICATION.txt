@@ -1,3 +1,55 @@
+Openup 2.3.13 — bounded recovery-console waits and corrected HFS compatibility
+Verification date: 2026-10-25
+
+The supplied Openup Chat 2 recovery log verified the 3.1.3 iBSS, then failed
+at "Recovery console verification timed out" after sending the 4.2.1 iBEC.
+No ramdisk was sent. This is separate from v2.3.12's verified timer reset.
+The previous chat's inconsistent console observations do not prove hub data
+corruption or successful iBEC startup. In particular, SRTG=N?A in a summary
+is the existing diagnostic sanitizer replacing the slash in N/A.
+
+Changes:
+- Console reads use a polled subprocess with a 30-second per-read allowance
+  and a 90-second overall stage deadline. Countdown updates continue while a
+  read is pending. Timeout, failed and oversized reads cannot authorize an
+  upload; pending children and private temporary files are cleaned up.
+- Missing/malformed observations and unverified console banners may be retried.
+  A concrete different chip/board or conflicting USB identity stops immediately.
+  Only the exact expected stage + n82ap + build is accepted; installed iBoot,
+  mixed banners and output arriving after the deadline remain rejected.
+- iPhone 5/5c timer-reset gates stop at iOS 10.2.1. iOS 10.3 APFS is outside
+  the HFS-only implementation; mounted APFS reports an explicit unsupported
+  error. Known selected/connected model mismatch stops before mounting.
+
+Live read-only check on the Apple Silicon MacBook through the USB-C hub:
+- The connected 3G exposed the expected S5L8900 / board 04 Recovery endpoint.
+- A console read completed in 0.6 seconds and reported iBoot for n82ap /
+  iBoot-931.71.16. Its device identifier matched the USB query (identifiers
+  deliberately omitted here). That is NOT a verified iBEC handoff.
+- The patched read-only verifier rejected the unverified endpoint at a
+  three-second test deadline (3.02 seconds observed), emitted progress, and
+  cleaned up its child. This is a rejection test, not a successful boot test.
+- No firmware was uploaded and no phone files were changed in these checks.
+
+All 391 source tests pass with both pinned script fixtures under Python 3.13.16,
+with no skips. This includes 28 recovery-timing tests and 41 upstream shell
+integration tests. Independent code review found no blocking defect. Desktop
+self-test and dependency checks also pass. Package/CI results are recorded in
+the release notes after the clean build.
+
+Model verification scope:
+- 3G / iOS 4.2.1: v2.3.12 timer plist commit, read-back and restore were
+  physically verified. Visible clearance after reboot and a recovered passcode
+  remain unverified. This release's fresh full recovery boot remains pending.
+- 4 / 4S: shared HFS and pinned adapter tests; no physical model-specific proof.
+  A5 pwnDFU on the 4S still requires the documented external setup.
+- 5 / 5c: boundary coverage for all four products and shared SSH fixtures
+  (full transaction fixture uses iPhone5,2 / iOS 9.3.5), not physical validation.
+- Windows/Linux device access, WSL USB forwarding, Intel-Mac USB recovery,
+  and native Monterey execution remain unverified by this work.
+
+Historical records follow.
+============================================================
 Openup 2.3.12 — missing ramdisk binaries; FIRST physical iPhone 3G reset
 Verification date: 2026-10-25
 

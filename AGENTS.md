@@ -2,19 +2,19 @@
 
 This file applies to the whole repository. Keep it current when architecture,
 release procedures, or verified hardware behavior changes. The snapshot below
-is dated **2026-10-21**; inspect the checkout and connected devices before
+is dated **2026-10-25**; inspect the checkout and connected devices before
 assuming that a historical state still applies.
 
 ## Start here
 
 - Project: **Openup**, a dark-mode desktop application for legacy iPhone recovery.
 - Repository: <https://github.com/channelramble/Openup> (public).
-- Current app version: **2.3.12**, with one-click desktop updates.
+- Current app version: **2.3.13**, with one-click desktop updates.
 - Verified device baseline: **2.3.1**, a prerelease built from
   `d6a5117a25038b850a56cea2c2f89b151930c104`. Version **2.3.12** is the first to
   complete a physical iPhone 3G timer reset (SpringBoard lockout plist committed
   and read-back verified live on the device; see VERIFICATION.txt).
-- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.12>.
+- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.13>.
 - Read `README.md`, the newest section of `VERIFICATION.txt`, `CHANGELOG.md`,
   and `THIRD_PARTY.md` before modifying device operations or packaging.
 - `RESEARCH.md` and older verification sections contain historical hypotheses
@@ -22,6 +22,53 @@ assuming that a historical state still applies.
 - Check `git status --short` and preserve existing user changes. Build release
   artifacts from a clean, committed checkout. Keep experiments in ignored
   `build/`, downloads in `.desktop-cache/`, and distributions in `dist/`.
+
+## Latest continuation (2.3.13)
+
+The preceding Openup Chat 2 ended during investigation of the **separate 3G
+passcode-recovery boot**, after v2.3.12's successful timer-reset release. The
+supplied recovery log verified iBSS and then failed while reading the iBEC
+console; no ramdisk was sent. Later console reads in that chat were inconsistent.
+Those observations do **not** establish USB hub data corruption, NAND failure,
+or a successful complete recovery boot. Keep the underlying physical cause open
+until a fresh device session proves it. `SRTG=N?A` in Openup diagnostics is
+`early_dfu_summary` sanitizing the slash in `N/A`, not evidence of USB corruption.
+
+Continue from `/Users/user/crosstalk-workspaces/chat-2026-10-25/Openup` on this
+Mac. The old `/chat-2026-10-20/iphone-timeout-reset` checkout has a separate,
+unpushed overview redesign at `1019fdf`; it was not included in this release.
+Do not overwrite or silently merge it. No `CLAUDE.md` or `agents/claude.md` was
+present in the current repository; this `AGENTS.md` is the shared handoff.
+
+`recovery_timing.RecoveryProbe.bootloader_console()` is now nonblocking:
+`None` means a console child is still in flight. Do not call `poll()` concurrently
+with that read. The owner closes/reaps it at cancellation or the stage deadline.
+Only completed zero-status output within the size limit is accepted. Keep the
+30-second read / 90-second overall bounds, responsive countdown, exact stage /
+board / build gate, and immediate rejection of a concrete wrong hardware ID.
+Tests include real slow subprocesses, late/partial results, failed/oversized
+output, mixed banners, and cleanup; shell integration uses the same public probe
+contract. Do not restore the prior patch's catch-all identity retry.
+
+A fresh read-only check in this continuation found a connected 3G reporting
+`iBoot for n82ap / iBoot-931.71.16` in 0.6 seconds, with its console and USB
+identifiers agreeing. It was not verified as iBEC, so no further component was
+sent. The patched read-only stage wait also stopped at a three-second test
+deadline without a success event, with responsive progress and no remaining
+console child. Full testing needs a fresh physical button-entry sequence. Never loosen
+the iBEC check to accept this installed-iBoot banner.
+
+The iPhone 5/5c timer range ends at **10.2.1** because the device adapter handles
+legacy HFS only. Apple's default filesystem changed to APFS at iOS 10.3. APFS
+must be rejected explicitly; do not claim it works because model/version unit
+tests pass, and do not add filesystem conversion/repair. A known model mismatch
+must stop before mounting. The existing 4/4S ranges remain inspection gates,
+with no new physical verification implied.
+
+Source validation for 2.3.13: **391 tests passed, zero skips**, with both
+hash-verified pinned script fixtures and Python 3.13.16. The desktop self-test
+and dependency checks passed. Final package and CI results belong in the release
+notes and the post-publication handoff below.
 
 ## Product requirements
 

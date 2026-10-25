@@ -120,7 +120,8 @@ def doctor():
     for model, (name, low, high) in SUPPORTED.items():
         print(f"  {model:10} {name:10} iOS {'.'.join(map(str, low))}–{'.'.join(map(str, high))}")
     print("\niPhone 4S pwnDFU requires external A5 hardware or a suitable existing kDFU setup.")
-    print("This release has not been validated on a physical phone.")
+    print("Timer reset requires legacy HFS volumes; APFS (iOS 10.3+) is unsupported.")
+    print("Hardware validation varies by model and workflow; see VERIFICATION.txt.")
 
 
 def describe(plan):

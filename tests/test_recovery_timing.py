@@ -10,7 +10,8 @@ import unittest
 from unittest.mock import Mock, patch
 
 from ios_timeout.core import ResetError
-from ios_timeout.recovery_timing import RecoveryProbe, guide, wait_bootloader, verify_ibss_console, verify_bootloader_console
+from ios_timeout.recovery_timing import (ConsoleReadError, RecoveryProbe, guide, wait_bootloader,
+                                         verify_ibss_console, verify_bootloader_console)
 
 
 WTF = "MODE: WTF\nCPID: 8900\nBDID: 00\n"
@@ -88,21 +89,182 @@ class RecoveryTimingTests(unittest.TestCase):
         probe = Probe(clock, ready_at=0, result=STOCK.replace("DFU", "Recovery"))
         probe.bootloader_console = lambda: IBSS_CONSOLE.replace("iBSS for", "iBoot for") + "ECID: private-id\n"
         events = []
-        with self.assertRaisesRegex(ResetError, "uploaded iBSS was not verified") as failure:
-            wait_bootloader("iPhone1,2", probe, clock=clock, sleep=clock.sleep,
+        with self.assertRaisesRegex(ResetError, "did not reappear with a verified iBSS console") as failure:
+            wait_bootloader("iPhone1,2", probe, timeout=1, clock=clock, sleep=clock.sleep,
                             emit=lambda *args: events.append(args), output=lambda *a, **k: None)
         self.assertTrue(probe.closed)
         self.assertNotIn("private-id", str(failure.exception))
         self.assertFalse(any(event[0] == "Recovery bootloader detected" for event in events))
 
+    def test_flaky_or_slow_console_reads_retry_until_a_clean_match(self):
+        # A slow or incomplete read is not proof that the bootloader failed.
+        # Only a later complete, exact match may authorize the next upload.
+        clock = Clock()
+        probe = Probe(clock, ready_at=0, result=STOCK.replace("DFU", "Recovery"))
+        reads = [
+            ConsoleReadError("Recovery console verification timed out. No ramdisk was uploaded."),
+            "garbage \x00 partial read",
+            IBEC_CONSOLE.replace("iBEC for", "iBoot for"),  # looks like installed iBoot
+            IBEC_CONSOLE,                                    # finally a clean iBEC read
+        ]
+
+        def flaky():
+            item = reads.pop(0)
+            if isinstance(item, Exception):
+                raise item
+            return item
+
+        probe.bootloader_console = flaky
+        events = []
+        wait_bootloader("iPhone1,2", probe, stage="ibec", timeout=5, clock=clock,
+                        sleep=clock.sleep, emit=lambda *a: events.append(a), output=lambda *a, **k: None)
+        self.assertEqual(events[-1][0], "Recovery bootloader detected")
+        self.assertEqual(reads, [])  # all four reads consumed; only the clean iBEC won
+
     def test_console_reader_uses_local_exit_and_private_history_directory(self):
-        probe = RecoveryProbe(["/tool/irecovery"])
-        with patch("ios_timeout.recovery_timing.subprocess.run") as run:
-            run.return_value = subprocess.CompletedProcess([], 0, IBSS_CONSOLE)
-            self.assertEqual(probe.bootloader_console(), IBSS_CONSOLE)
-        self.assertEqual(run.call_args.args[0], ["/tool/irecovery", "-s"])
-        self.assertEqual(run.call_args.kwargs["input"], "/exit\n")
-        self.assertFalse(Path(run.call_args.kwargs["cwd"]).exists())
+        code = "import os,sys,json; print(json.dumps([os.getcwd(),sys.argv[-1],sys.stdin.readline()]))"
+        probe = RecoveryProbe([sys.executable, "-B", "-c", code])
+        try:
+            result = None
+            deadline = time.monotonic() + 3
+            while result is None and time.monotonic() < deadline:
+                result = probe.bootloader_console()
+                time.sleep(0.01)
+            folder, argument, instruction = json.loads(result)
+            self.assertEqual(argument, "-s")
+            self.assertEqual(instruction, "/exit\n")
+            self.assertIn("openup-boot-console-", folder)
+            self.assertFalse(Path(folder).exists())
+        finally:
+            probe.close()
+
+    def test_slow_console_does_not_freeze_countdown_or_exceed_stage_deadline(self):
+        code = ("import sys,time; "
+                "print(" + repr(STOCK.replace("DFU", "Recovery")) + ") if sys.argv[-1]=='-q' "
+                "else (print(" + repr(IBEC_CONSOLE) + ",flush=True),time.sleep(30))")
+        probe = RecoveryProbe([sys.executable, "-B", "-c", code])
+        events = []
+        started = time.monotonic()
+        with self.assertRaisesRegex(ResetError, "verified iBEC console"):
+            wait_bootloader("iPhone1,2", probe, stage="ibec", timeout=1.2,
+                            emit=lambda *a: events.append(a), output=lambda *a, **k: None)
+        self.assertLess(time.monotonic() - started, 2.0)
+        console_events = [e for e in events if e[1].startswith("Reading the recovery console")]
+        self.assertTrue(console_events)
+        self.assertFalse(any(e[0] == "Recovery bootloader detected" for e in events))
+        self.assertIsNone(probe.process)
+        self.assertIsNone(probe.console_directory)
+        self.assertIsNone(probe.console_output)
+
+    def test_console_in_flight_keeps_ticks_and_never_starts_a_second_query(self):
+        clock = Clock()
+        probe = Probe(clock, ready_at=0, result=STOCK.replace("DFU", "Recovery"))
+        probe.poll = Mock(wraps=probe.poll)
+        probe.bootloader_console = Mock(return_value=None)
+        events = []
+        with self.assertRaisesRegex(ResetError, "verified iBEC console"):
+            wait_bootloader("iPhone1,2", probe, stage="ibec", timeout=2.2, clock=clock,
+                            sleep=clock.sleep, emit=lambda *a: events.append(a), output=lambda *a, **k: None)
+        self.assertEqual([e[-1] for e in events], [3, 2, 1])
+        self.assertEqual(probe.poll.call_count, 1)
+        self.assertAlmostEqual(clock(), 2.2)
+        self.assertTrue(probe.closed)
+
+    def test_cancellation_reaps_pending_console_and_removes_private_files(self):
+        code = ("import sys,time; "
+                "print(" + repr(STOCK.replace("DFU", "Recovery")) + ") if sys.argv[-1]=='-q' "
+                "else time.sleep(30)")
+        probe = RecoveryProbe([sys.executable, "-B", "-c", code])
+        running = []
+        def interrupt(delay):
+            if probe.console_directory is not None:
+                running.append((probe.process, Path(probe.console_directory.name)))
+                raise KeyboardInterrupt
+            time.sleep(delay)
+        with self.assertRaises(KeyboardInterrupt):
+            wait_bootloader("iPhone1,2", probe, timeout=3, sleep=interrupt,
+                            emit=lambda *a: None, output=lambda *a, **k: None)
+        self.assertEqual(len(running), 1)
+        process, directory = running[0]
+        self.assertIsNotNone(process.poll())
+        self.assertFalse(directory.exists())
+        self.assertIsNone(probe.process)
+        self.assertIsNone(probe.console_directory)
+        self.assertIsNone(probe.console_output)
+
+    def test_timeout_partial_console_is_discarded_and_child_reaped(self):
+        code = "import time; print(" + repr(IBEC_CONSOLE) + ",flush=True); time.sleep(30)"
+        probe = RecoveryProbe([sys.executable, "-B", "-c", code])
+        with patch("ios_timeout.recovery_timing.CONSOLE_READ_TIMEOUT", 0.15):
+            with self.assertRaisesRegex(ConsoleReadError, "timed out"):
+                while probe.bootloader_console() is None:
+                    time.sleep(0.01)
+        self.assertIsNone(probe.process)
+        self.assertIsNone(probe.console_directory)
+
+    def test_failed_or_oversized_console_cannot_authorize_upload(self):
+        for code in ("import sys; print(" + repr(IBEC_CONSOLE) + "); sys.exit(9)",
+                     "print(" + repr(IBEC_CONSOLE) + "); print('x'*70000)"):
+            probe = RecoveryProbe([sys.executable, "-B", "-c", code])
+            with self.subTest(code=code), self.assertRaises(ConsoleReadError):
+                while probe.bootloader_console() is None:
+                    time.sleep(0.01)
+            self.assertIsNone(probe.process)
+            self.assertIsNone(probe.console_directory)
+
+    def test_late_matching_console_cannot_authorize_upload(self):
+        clock = Clock()
+        probe = Probe(clock, ready_at=0, result=STOCK.replace("DFU", "Recovery"))
+        def late():
+            clock.sleep(1.1)
+            return IBEC_CONSOLE
+        probe.bootloader_console = late
+        events = []
+        with self.assertRaisesRegex(ResetError, "verified iBEC console"):
+            wait_bootloader("iPhone1,2", probe, stage="ibec", timeout=1, clock=clock,
+                            sleep=clock.sleep, emit=lambda *a: events.append(a), output=lambda *a, **k: None)
+        self.assertFalse(any(e[0] == "Recovery bootloader detected" for e in events))
+        self.assertTrue(probe.closed)
+
+    def test_incomplete_query_retries_but_wrong_hardware_stops_before_console(self):
+        clock = Clock()
+        probe = Probe(clock)
+        probe.poll = Mock(side_effect=["MODE: Recovery\nCPID: ???\n", STOCK.replace("DFU", "Recovery")])
+        wait_bootloader("iPhone1,2", probe, timeout=1, clock=clock,
+                        sleep=clock.sleep, emit=lambda *a: None, output=lambda *a, **k: None)
+        self.assertEqual(probe.poll.call_count, 2)
+        for snapshot in (STOCK.replace("8900", "8920"), STOCK.replace("04", "00"),
+                         STOCK + "BDID: 04\n"):
+            clock = Clock()
+            probe = Probe(clock, ready_at=0, result=snapshot.replace("DFU", "Recovery"))
+            probe.bootloader_console = Mock(return_value=IBSS_CONSOLE)
+            with self.subTest(snapshot=snapshot), self.assertRaises(ResetError):
+                wait_bootloader("iPhone1,2", probe, timeout=1, clock=clock,
+                                sleep=clock.sleep, emit=lambda *a: None, output=lambda *a, **k: None)
+            self.assertEqual(clock(), 0)
+            probe.bootloader_console.assert_not_called()
+            self.assertTrue(probe.closed)
+
+    def test_wrong_console_board_stops_instead_of_retrying(self):
+        clock = Clock()
+        probe = Probe(clock, ready_at=0, result=STOCK.replace("DFU", "Recovery"))
+        probe.bootloader_console = Mock(side_effect=[IBSS_CONSOLE.replace("n82ap", "m68ap"), IBSS_CONSOLE])
+        with self.assertRaisesRegex(ResetError, "board does not match"):
+            wait_bootloader("iPhone1,2", probe, clock=clock, sleep=clock.sleep,
+                            emit=lambda *a: None, output=lambda *a, **k: None)
+        self.assertEqual(clock(), 0)
+        self.assertEqual(probe.bootloader_console.call_count, 1)
+        self.assertTrue(probe.closed)
+
+    def test_mixed_console_banners_cannot_authorize_upload(self):
+        clock = Clock()
+        probe = Probe(clock, ready_at=0, result=STOCK.replace("DFU", "Recovery"))
+        probe.bootloader_console = Mock(return_value=IBEC_CONSOLE + IBSS_CONSOLE)
+        events = []
+        with self.assertRaisesRegex(ResetError, "verified iBEC console"):
+            wait_bootloader("iPhone1,2", probe, stage="ibec", timeout=0.2, clock=clock,
+                            sleep=clock.sleep, emit=lambda *a: events.append(a), output=lambda *a, **k: None)
+        self.assertFalse(any(e[0] == "Recovery bootloader detected" for e in events))
 
     def test_ibss_upload_requires_matching_recovery_mode(self):
         clock = Clock()

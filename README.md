@@ -2,7 +2,11 @@
 
 [![Test and package](https://github.com/channelramble/Openup/actions/workflows/ci.yml/badge.svg)](https://github.com/channelramble/Openup/actions/workflows/ci.yml)
 
-A desktop app for legacy iPhone recovery. Version **2.3.12** is the first to complete a timer reset on a physical iPhone 3G: the Legacy iOS Kit 3.1.3 SSH ramdisk ships no `sync` or `cp`, so the reset died at `/bin/sync` — Openup now stages the plist directly over SFTP and treats `sync` as best-effort (durability is completed by the clean reboot), and the lockout plist was committed and read-back verified on a real device over a USB-C hub on an Apple Silicon Mac. Version **2.3.11** fixed the iPhone 3G "Unsupported or unidentifiable hardware" failure on the timer flow — the 3.1.3 SSH ramdisk serves no `sysctl`, so the model is now read from the device's live partition layout — and made USB device handling work through USB-C docks and hubs on Apple Silicon Macs, where a re-enumerated phone is followed by its stable USB serial instead of being rejected as a device swap. Version **2.3.10** fixes a 20s stall introduced in 2.3.9 (only "prepare" now waits for the phone to re-appear on USB after a boot; other actions fail immediately on an absent phone) and makes Openup the sole owner of Apple's device agents during a timer reset. Version 2.3.9 added the post-boot USB wait, a typed "Yes" reset confirmation, and a clearer Step 1 / Step 2 UI. Version 2.3.8 held the macOS device-agent reservation across the whole timer operation. Its built-in updater works directly: **Updates → Update now** fetches and installs the latest compatible release without a browser or sign-in, then offers a restart. It retains the OLED-black theme, automatic recovery without a repeating menu, immediate 3G progress output, small-screen result display and tested iPhone 3G boot and RAM-disk fixes. Its interface provides on-screen instructions, menu buttons, countdowns, and result cards. The terminal and manual input are optional Advanced controls, both off by default. It includes guided timer reset, a pinned [recovery backend](https://github.com/tuanemss/32bit-Bruteforce-Passcode), backups, and a built-in updater. iPhone 3G ARMv6 tools and Intel Mac builds targeting macOS 12 Monterey are included.
+A desktop app for legacy iPhone recovery, with guided timer reset, a pinned recovery backend, backups, and a built-in updater. Desktop downloads include iPhone 3G ARMv6 tools and Intel Mac support targeting macOS 12 Monterey.
+
+Version **2.3.13** improves the iPhone 3G bootloader-verification wait after a slow recovery-console response. It also corrects the timer-reset compatibility range for iPhone 5/5c: this tool supports legacy HFS partitions, so iOS 10.3 and its APFS filesystem are excluded. See the compatibility and verification sections below for the distinction between software checks and physical phone testing.
+
+Use **Updates → Update now** to install the latest compatible release, then restart. The interface provides on-screen steps, choices, countdowns, and result cards; the terminal and manual input remain optional Advanced controls.
 
 **Desktop downloads include Python, Qt, SSH libraries, and their Python dependencies. No Python, pip, virtual environment, or package installation is needed to open the app.** The Windows archive also includes the Linux Python/SSH runtime used by its WSL bridge.
 
@@ -10,7 +14,7 @@ A desktop app for legacy iPhone recovery. Version **2.3.12** is the first to com
 
 ## Download and open
 
-Get the platform archive from [version 2.3.12](https://github.com/channelramble/Openup/releases/tag/v2.3.12) and extract it completely.
+Get the platform archive from [version 2.3.13](https://github.com/channelramble/Openup/releases/tag/v2.3.13) and extract it completely.
 
 **Already using Openup 2.3.0–2.3.4?** Open **Updates → Check and download directly in the app → Check for updates → Install update**, then restart. Leave the token empty and Include prereleases enabled. This installs the new one-click updater without visiting GitHub.
 
@@ -41,7 +45,7 @@ USB access still depends on the host: macOS's usbmuxd service, Apple Mobile Devi
 
 1. **Choose your phone:** use the shared model and USB controls at the top. A phone in DFU may still be connected even when the USB list is empty.
 2. **Choose a task on Start:** if you know the passcode but the phone is locked out, choose timer reset. If you forgot the passcode, choose passcode recovery.
-3. **Timer reset:** follow **Prepare → Review & reset → Done**. Preparation boots the temporary ramdisk and inspects the phone. When the on-screen SSH Ramdisk Menu appears, choose Exit while leaving the ramdisk running. Review the proposed changes in the result card, then confirm the reset. If the phone is already prepared, use the inspection shortcut. Changing the selected phone or its settings requires a fresh review. After reboot, use the existing passcode.
+3. **Timer reset:** follow **Prepare → Review & reset → Done**. Preparation boots the temporary ramdisk and inspects the phone. The pinned backend returns automatically after ramdisk preparation. Review the proposed changes in the result card, then confirm the reset. If the phone is already prepared, use the inspection shortcut. Changing the selected phone or its settings requires a fresh review. After reboot, use the existing passcode.
 4. **Passcode recovery:** click **Start recovery** once; the app downloads the backend when needed. Follow the GUI's DFU steps and countdown. Recovery runs automatically on the iPhone, with the full passcode shown at the end of its output. There is no Show Passcode menu or terminal choice. The app finishes with **Check your iPhone**; sending the recovery system does not confirm a recovered passcode. A temporary masked GUI field still handles any required host password.
 5. **Advanced options:** expand these only when needed, such as for a local 3G IPSW, a custom tools folder, or connection settings. The normal workflow uses the included tools and default settings.
 6. **Backups and updates:** use Backups to restore original files or finish interrupted cleanup. Choose **Updates → Update now** to check, download, verify and install the latest release for your computer. Choose **Restart** when ready to use it. No browser, token, file selection or GitHub CLI is required. Prereleases are included by default because Openup currently publishes prereleases. **Advanced update options** contains rollback, a local ZIP/checksum installer, release notes and an optional token kept only in memory. Updates run when requested; the app never restarts during an operation.
@@ -60,7 +64,7 @@ The `reset` workflow still requires the correct passcode afterward. The separate
 
 ## Source edition and CLI
 
-The unqualified `Openup-2.3.12.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
+The unqualified `Openup-2.3.13.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
 
 Download the ZIP from [Releases](https://github.com/channelramble/Openup/releases) and extract the whole folder onto the computer connected to the phone. Python 3.9 or newer is required.
 
@@ -185,7 +189,7 @@ This downloads an official Legacy iOS Kit checkout at the revision recorded in `
 ./Launch.command prepare --kit "/path/to/Legacy-iOS-Kit" --apply
 ```
 
-Connect only one phone for the backend's DFU preparation; `--udid` selects the device after ramdisk boot. Follow the backend's dependency and physical DFU prompts. When it reaches the **SSH Ramdisk Menu**, select **Exit**, keeping the phone in the ramdisk. The reset resumes automatically. Do not select a restore or erase operation.
+Connect only one phone for the backend's DFU preparation; `--udid` selects the device after ramdisk boot. Follow the backend's dependency and physical DFU prompts. The pinned backend skips its interactive SSH Ramdisk Menu and returns to Openup automatically, keeping the phone in the ramdisk. A custom, unmodified kit can still show that menu; choose Exit there to resume Openup.
 
 The pwnDFU exploit and ramdisk builder belong to Legacy iOS Kit; they are not newly implemented here. First-time setup, physical DFU button presses, and backend menus remain interactive. The plist stage is automated. [Upstream ramdisk documentation](https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/SSH-Ramdisk)
 
@@ -222,8 +226,10 @@ These are the versions the program **accepts for inspection**, not a hardware-te
 | 3G | iPhone1,2 | 4.0–4.2.1 |
 | 4 | iPhone3,1 / 3,2 / 3,3 | 6.0–7.1.2 |
 | 4S | iPhone4,1 | 6.0–9.3.6 |
-| 5 | iPhone5,1 / 5,2 | 6.0–10.3.4 |
-| 5c | iPhone5,3 / 5,4 | 7.0–10.3.3 |
+| 5 | iPhone5,1 / 5,2 | 6.0–10.2.1 |
+| 5c | iPhone5,3 / 5,4 | 7.0–10.2.1 |
+
+iOS 10.3 and later use APFS and are outside this HFS-only timer-reset implementation. Openup does not attempt filesystem conversion or repair. [Apple filesystem documentation](https://developer.apple.com/documentation/foundation/about-apple-file-system).
 
 Other models and versions are rejected. Each accepted phone still needs readable legacy HFS system/data partitions, recognized plist fields, an offline ramdisk, SFTP, and the usual Darwin system utilities. Filesystem layout changes, inaccessible encryption keys, unsupported ramdisk binaries, or read-only storage can prevent the operation.
 

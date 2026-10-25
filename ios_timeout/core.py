@@ -39,11 +39,15 @@ SUPPORTED = {
     "iPhone3,2": ("iPhone 4", (6, 0, 0), (7, 1, 2)),
     "iPhone3,3": ("iPhone 4", (6, 0, 0), (7, 1, 2)),
     "iPhone4,1": ("iPhone 4S", (6, 0, 0), (9, 3, 6)),
-    "iPhone5,1": ("iPhone 5", (6, 0, 0), (10, 3, 4)),
-    "iPhone5,2": ("iPhone 5", (6, 0, 0), (10, 3, 4)),
-    "iPhone5,3": ("iPhone 5c", (7, 0, 0), (10, 3, 3)),
-    "iPhone5,4": ("iPhone 5c", (7, 0, 0), (10, 3, 3)),
+    "iPhone5,1": ("iPhone 5", (6, 0, 0), (10, 2, 1)),
+    "iPhone5,2": ("iPhone 5", (6, 0, 0), (10, 2, 1)),
+    "iPhone5,3": ("iPhone 5c", (7, 0, 0), (10, 2, 1)),
+    "iPhone5,4": ("iPhone 5c", (7, 0, 0), (10, 2, 1)),
 }
+APFS_UNSUPPORTED = (
+    "APFS volumes (iOS 10.3 and later) are not supported for timer reset. "
+    "This release requires legacy HFS system/data volumes."
+)
 REMOVE_KEYS = (
     "SBDeviceLockBlockTimeIntervalSinceReferenceDate",
     "SBDeviceLockBlockStateGeneration",
@@ -78,6 +82,8 @@ def compatible(model, version):
     parts = tuple(int(x) for x in version.split("."))
     parts += (0,) * (3 - len(parts))
     name, low, high = SUPPORTED[model]
+    if model.startswith("iPhone5,") and parts >= (10, 3, 0):
+        raise ResetError(APFS_UNSUPPORTED)
     if not low <= parts <= high:
         raise ResetError(f"{name} on iOS {version} is outside this release's range.")
     return name

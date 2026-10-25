@@ -139,6 +139,7 @@ class Server(paramiko.ServerInterface):
 
     def check_channel_exec_request(self, channel, command):
         self.owner.channels.append(channel)
+        self.owner.commands.append(command.decode())
         def work():
             status, output = 0, ""
             try:
@@ -161,6 +162,8 @@ class Server(paramiko.ServerInterface):
                         options = "hfs, local, read-only" if self.owner.read_only else "hfs, local"
                         prefix = "/dev/disk0s" if self.owner.model == "iPhone1,2" else "/dev/disk0s1s"
                         output += f"{prefix}1 on /mnt1 (hfs, local)\n{prefix}2 on /mnt2 ({options})\n"
+                    if self.owner.mount_output is not None:
+                        output = self.owner.mount_output
                 elif command.decode().startswith("if test -x /bin/ps;"):
                     output = "/sbin/launchd\n/usr/sbin/sshd\n"
                     if self.owner.springboard:
@@ -225,6 +228,8 @@ class SSHTests(unittest.TestCase):
         self.has_sync = True  # the bare 3.1.3 ramdisk ships no `sync` binary
         self.springboard = False
         self.mounted = True
+        self.mount_output = None
+        self.commands = []
         self.read_only = False
         self.legacy_hostkey = False
         self.selected = {"udid": "e" * 40, "device_id": 9}
@@ -299,6 +304,39 @@ class SSHTests(unittest.TestCase):
         with self.device() as device, self.assertRaises(ResetError):
             device.inspect(mount=True)
         self.assertFalse(self.mounted)
+
+    def test_known_model_mismatch_is_rejected_before_mount_or_write(self):
+        self.mounted = False
+        originals = {path: (self.root / path.lstrip("/")).read_bytes()
+                     for path in (PREFS, JOURNAL)}
+        with self.device() as device, \
+             self.assertRaisesRegex(ResetError, "does not match --model"):
+            device.inspect(mount=True, writable=True, expected_model="iPhone3,1")
+        self.assertFalse(self.mounted)
+        self.assertFalse(any(command.startswith("/sbin/mount") for command in self.commands))
+        self.assertEqual(originals, {path: (self.root / path.lstrip("/")).read_bytes()
+                                     for path in originals})
+        self.assertFalse((self.root / LOCK.lstrip("/")).exists())
+
+    def test_apfs_mount_is_rejected_before_any_mount_or_write(self):
+        self.mounted = False
+        originals = {path: (self.root / path.lstrip("/")).read_bytes()
+                     for path in (PREFS, JOURNAL)}
+        for volume in ("1", "2"):
+            with self.subTest(volume=volume):
+                # An APFS mount may use a different device name. Detect its
+                # filesystem before trying to mount the missing legacy volume.
+                self.mount_output = ("/dev/md0 on / (hfs, local)\n"
+                                     f"/dev/disk1s{volume} on /mnt{volume} (apfs, local)\n")
+                self.commands.clear()
+                with self.device() as device, \
+                     self.assertRaisesRegex(ResetError, "APFS.*not supported"):
+                    device.inspect(mount=True, writable=True, expected_model=self.model)
+                self.assertFalse(self.mounted)
+                self.assertFalse(any(command.startswith("/sbin/mount_hfs") for command in self.commands))
+                self.assertEqual(originals, {path: (self.root / path.lstrip("/")).read_bytes()
+                                             for path in originals})
+                self.assertFalse((self.root / LOCK.lstrip("/")).exists())
 
     def test_live_ios_is_rejected(self):
         self.ramdisk = False

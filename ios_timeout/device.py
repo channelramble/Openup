@@ -14,7 +14,7 @@ from pathlib import Path, PurePosixPath
 
 from . import usbmux
 from .core import (
-    Identity, LockBusy, MAX_FILE, Metadata, ResetError, SUPPORTED, SYSTEM_VERSION,
+    APFS_UNSUPPORTED, Identity, LockBusy, MAX_FILE, Metadata, ResetError, SUPPORTED, SYSTEM_VERSION,
     plist, read_local_file, secure_write,
 )
 
@@ -406,6 +406,8 @@ class USBDevice:
                     "--model iPhone1,2."
                 )
             raise ResetError(f"Unsupported or unidentifiable hardware: {model!r}.")
+        if expected_model is not None and model != expected_model:
+            raise ResetError("Booted device does not match --model; refusing to mount or reset.")
         mounts = self.command("/sbin/mount")
         if not re.search(r"^/dev/md\d+ on / \(", mounts, re.MULTILINE):
             raise ResetError("The running root filesystem is not a recognized SSH ramdisk.")
@@ -421,9 +423,12 @@ class USBDevice:
             for number in ("1", "2"):
                 found = re.search(r"^(\S+) on /mnt" + number + r" \(([^)]*)\)", output, re.MULTILINE)
                 if found:
+                    options = [part.strip() for part in found.group(2).split(",")]
+                    if "apfs" in options:
+                        raise ResetError(APFS_UNSUPPORTED)
                     if found.group(1) != disk_prefix + number:
                         raise ResetError(f"Unexpected volume mounted at /mnt{number}.")
-                    if "hfs" not in [part.strip() for part in found.group(2).split(",")]:
+                    if "hfs" not in options:
                         raise ResetError(f"/mnt{number} is not an HFS filesystem.")
                     result.add(number)
             return result
