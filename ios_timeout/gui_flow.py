@@ -13,6 +13,10 @@ class ActionCopy:
 
 def action_copy(action, *, apply=False, install_only=False):
     """Describe the requested operation without promising a device outcome."""
+    if action == "exit-recovery":
+        return ActionCopy("Exit recovery mode", "Requesting a normal boot…",
+                          "Restart requested — check the phone screen",
+                          "Could not exit recovery — review the result")
     if action == "doctor":
         return ActionCopy(
             "Run diagnostics",

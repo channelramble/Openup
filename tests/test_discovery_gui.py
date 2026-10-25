@@ -122,6 +122,15 @@ class DiscoveryGuiTests(unittest.TestCase):
         self.assertNotIn(DFU["selection_id"], arguments)
         self.assertEqual(arguments[arguments.index("--model") + 1], "iPhone5,1")
 
+    def test_exit_recovery_button_starts_isolated_worker_and_invalidates_review(self):
+        self.window.timer_flow.stage = "review"
+        with self.fake_worker():
+            self.window.exit_recovery_button.click()
+            self.assertIn("exit-recovery", self.window.process.arguments)
+            self.assertNotIn("--apply", self.window.process.arguments)
+        self.assertFalse(self.window.timer_flow.can_apply)
+        self.assertFalse(self.window.exit_recovery_button.isEnabled())
+
     def test_model_picker_distinguishes_same_named_hardware_variants(self):
         combo = self.window.phone_model
         first = combo.itemText(combo.findData("iPhone5,1"))

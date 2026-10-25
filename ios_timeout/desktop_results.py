@@ -185,6 +185,7 @@ def summarize(action, capture, exit_code, interrupted=False):
     details = details[:MAX_DETAILS]
     titles = {
         "doctor": "Computer checks", "devices": "Phone connection",
+        "exit-recovery": "Exit recovery mode",
         "prepare": "Phone preparation", "inspect": "Timer inspection",
         "reset": "Timer reset", "restore": "Restore originals",
         "finalize": "Transaction cleanup", "recover": "Passcode recovery",
@@ -206,6 +207,9 @@ def summarize(action, capture, exit_code, interrupted=False):
     elif exit_code is None:
         message = ("The backend reported a passcode. Verify it on the phone."
                    if passcodes else "The operation is still running.")
+    elif action == "exit-recovery":
+        message = ("Normal boot requested. Check the phone screen, then choose Refresh. "
+                   "If it returns to recovery, its installed system may need repair. No restore or erase was performed.")
     elif action in {"prepare", "inspect"} or (action == "reset" and preview):
         message = ("Inspection finished. No file changes are needed." if no_changes else
                    "Inspection finished. Review the proposed changes before applying a reset.")

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add **Exit recovery mode** to the recovery page. It requests normal boot through the pinned kit's recovery tool without restoring or erasing, checks the connected phone before sending, and explains how to leave DFU manually. Windows routes through WSL.
+
 - Explain phone-picker variants as GSM, CDMA, Global, or GSM 2012 revision. Keep every hardware identifier visible, including single-variant phones, and size the popup to fit the complete labels.
 
 ## 2.3.19

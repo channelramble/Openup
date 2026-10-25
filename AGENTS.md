@@ -23,6 +23,24 @@ assuming that a historical state still applies.
   artifacts from a clean, committed checkout. Keep experiments in ignored
   `build/`, downloads in `.desktop-cache/`, and distributions in `dist/`.
 
+## Exit recovery action (unreleased)
+
+The recovery page now offers **Exit recovery mode**, dispatched through the
+existing isolated worker as `exit-recovery`. Windows automatically uses WSL.
+`exit_recovery.py` requires one physical Apple mobile endpoint in recovery mode,
+checks queried hardware and any selected model, rechecks identity before the
+command, and selects a nonzero ECID explicitly. Original iPhone/3G zero ECIDs
+retain the strict singleton checks. DFU and normal mode are rejected.
+The pinned Legacy iOS Kit supplies `bin/macos/irecovery` or the native Linux tool;
+first use may download the kit. No firmware upload, restore or erase occurs.
+The ordinary `-n` command enables auto-boot, saves that setting, and requests
+reboot. Because irecovery can exit zero on errors, require the explicit verbose
+success message. Only report a request, never confirmed normal-mode boot.
+All 108 targeted recovery, GUI, result, discovery, selection and compatibility
+tests passed; the new card was visually checked offscreen. Physical phone
+validation has not been performed. This is source-only pending
+publication; 2.3.19 remains the current downloadable release.
+
 ## Latest UI continuation (unreleased)
 
 The phone picker now explains duplicate model variants (GSM, CDMA, Global,

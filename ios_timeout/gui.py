@@ -815,6 +815,12 @@ class MainWindow(QMainWindow):
         body.addWidget(self.recovery_start, 0, Qt.AlignmentFlag.AlignLeft)
         body.addWidget(label("The first run downloads the recovery backend and boot files. Results appear on the phone or in Openup, depending on the model. No terminal input is needed.", "muted"))
         layout.addWidget(frame)
+        exit_frame, exit_body = card("Leave recovery mode",
+                                    "Restart a phone showing the cable/computer recovery screen. This does not restore or erase it.")
+        self.exit_recovery_button = self.button("Exit recovery mode", lambda: self.start_operation("exit-recovery"))
+        exit_body.addWidget(self.exit_recovery_button, 0, Qt.AlignmentFlag.AlignLeft)
+        exit_body.addWidget(label("Connect only one phone. The first use may download recovery tools. For a black DFU screen, hold Home and Power until the Apple logo appears.", "muted"))
+        layout.addWidget(exit_frame)
         self.recovery_advanced = Disclosure("Advanced options")
         advanced = self.recovery_advanced.body
         advanced.addWidget(label("Custom iPhone 3G tools (optional)", "eyebrow"))
@@ -1073,10 +1079,12 @@ class MainWindow(QMainWindow):
     def start_operation(self, action, *, apply=False, backup=None, install_only=False):
         if self.busy:
             return
-        if (action == "prepare" or (action == "recover" and apply)) and self.discovered_device_count > 1:
+        if (action in {"prepare", "exit-recovery"} or (action == "recover" and apply)) and self.discovered_device_count > 1:
             QMessageBox.information(self, "Connect one phone",
                                     "Disconnect the other phones, then choose Refresh before starting recovery or ramdisk preparation.")
             return
+        if action == "exit-recovery":
+            self.timer_flow.invalidate()
         if action == "reset" and apply and not self.timer_flow.can_apply:
             QMessageBox.information(self, "Inspect the phone first",
                                     "Prepare or inspect this phone, then review the proposed changes before resetting.")

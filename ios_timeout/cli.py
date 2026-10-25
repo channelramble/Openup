@@ -47,6 +47,12 @@ def parser():
     devices_command = commands.add_parser("devices", help="Discover normal-mode and recovery/DFU phones (read-only).")
     devices_command.add_argument("--wsl", action="store_true", help="Windows: list devices inside WSL.")
     devices_command.add_argument("--wsl-distro")
+    exit_command = commands.add_parser("exit-recovery", help="Request a normal boot from recovery mode without restoring or erasing.")
+    exit_command.add_argument("--model", choices=sorted(PHONES))
+    exit_command.add_argument("--kit", type=Path)
+    exit_command.add_argument("--state-dir", type=Path, default=DEFAULT_STATE)
+    exit_command.add_argument("--wsl", action="store_true")
+    exit_command.add_argument("--wsl-distro")
     commands.add_parser("doctor", help="Check this computer and show platform requirements.")
     commands.add_parser("wizard", help="Interactive menu, also used by Launch.command.")
     update = commands.add_parser("update", help="Check/install a verified GitHub release, or roll back.")
@@ -356,6 +362,11 @@ def run(args):
             print("No USB phone was detected. Check the cable and USB service, then refresh. "
                   "You can also start recovery for a guided connection check.")
         return 0
+    if args.action == "exit-recovery":
+        from .exit_recovery import exit_recovery
+        args.state_dir = args.state_dir.expanduser().absolute()
+        with host_lock(args.state_dir):
+            return exit_recovery(args)
     if args.action == "wizard":
         return wizard()
     if args.action == "recover":
@@ -478,7 +489,7 @@ def main(argv=None):
             return dispatched
         options = parser().parse_args(arguments)
         if sys.platform == "win32" and (
-            options.action in ("prepare", "recover")
+            options.action in ("prepare", "recover", "exit-recovery")
             or getattr(options, "wsl", False) or getattr(options, "wsl_distro", None)
         ):
             from .wsl import run_in_wsl

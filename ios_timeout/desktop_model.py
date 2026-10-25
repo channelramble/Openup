@@ -23,7 +23,7 @@ class Settings:
 
 
 def operation_arguments(action, settings, *, apply=False, backup=None, install_only=False):
-    if action not in {"doctor", "devices", "inspect", "reset", "prepare", "restore", "finalize", "recover"}:
+    if action not in {"doctor", "devices", "inspect", "reset", "prepare", "restore", "finalize", "recover", "exit-recovery"}:
         raise ResetError("Unknown desktop operation.")
     if not settings.model and (action == "prepare" or (action == "recover" and apply)):
         raise ResetError("Choose the connected phone's model above, or use Refresh to detect it, before starting.")
@@ -51,6 +51,12 @@ def operation_arguments(action, settings, *, apply=False, backup=None, install_o
         # model from the saved transaction instead.
         if settings.model and action in {"inspect", "reset", "prepare"}:
             args += ["--model", settings.model]
+    if action == "exit-recovery":
+        for value, flag in ((settings.model, "--model"), (settings.kit, "--kit")):
+            if value:
+                args += [flag, value]
+        if settings.wsl:
+            args.append("--wsl")
     if action == "prepare":
         for value, flag in ((settings.ipsw, "--ipsw"), (settings.kit, "--kit")):
             if value:
