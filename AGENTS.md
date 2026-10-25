@@ -25,42 +25,57 @@ assuming that a historical state still applies.
 
 ## Latest continuation (2.3.16)
 
-This release adds GUI backup deletion with two explicit confirmation dialogs,
-and replaces terminal-only cancellation instructions with Stop-button guidance
-in the desktop flow. The CLI keeps its terminal instructions. The previously
-prepared 2.3.14 draft was superseded before publication. The 2.3.15 draft was
-held after Windows CI caught a descriptor-vs-path stat mismatch in deletion;
-2.3.16 corrects that comparison and includes the checkm8-A5 notice below.
+Version **2.3.16 is published** as a prerelease from clean commit
+`ff3a64168fd8589937a29031a3011cd59202d086`; main also includes this later
+verification-only handoff. It combines GUI backup deletion, Stop/Continue
+prompt guidance, and the checkm8-A5 notice below. The 2.3.14 draft was superseded;
+2.3.15 was held after Windows CI caught a descriptor-vs-path stat mismatch.
+Both unpublished drafts and their obsolete local archives were removed.
 
 Backup deletion is a local filesystem operation, not a phone restore. Keep two
-separate Cancel-default confirmations, the selected path and permanent-loss
-explanation, and stronger wording for interrupted transactions. Keep the GUI
-busy guard, the shared state host lock, and a final comparison with the files
-shown before confirmation. Delete only the exact flat backup inventory; never
-recurse through a selected folder or follow links/reparse points. Valid external
-backups may be renamed; invalid backups require a canonical transaction folder
-directly inside the managed backup root. Report partial failures honestly and
-refresh the list. Regression fixtures must be temporary, never real user backups.
+separate Cancel-default confirmations, the exact selected path, permanent-loss
+explanation, and stronger wording for interrupted transactions. macOS omits
+QMessageBox window titles, so questions must remain in the visible dialog text.
+Preserve the GUI busy guard, shared state host lock, and final comparison with
+the confirmed file snapshot. Delete only the exact flat backup inventory; never
+recurse or follow links/reparse points. Valid external backups may be renamed;
+invalid backups require a canonical transaction folder directly inside the
+managed backup root. Report partial failures honestly and refresh the list.
+Regression fixtures must be temporary, never real user backups.
+
+Windows deletion must compare descriptor-derived file snapshots consistently:
+path `lstat` and `fstat` can differ for the same file. Reopen with `open_regular`,
+compare metadata and SHA-256, and keep directory path identity separately. Tests
+cover different path/descriptor metadata and changed bytes with unchanged
+metadata; neither should weaken link rejection or exact file scope.
 
 `desktop_session._gui_message` translates guided prompt/progress text only,
 after prompt classification. Keep raw diagnostics/CLI unchanged, Enter defaults
-for path input, prompt-ID duplicate suppression, and the single graceful interrupt.
-Do not send input merely because a prompt was translated.
+for path input, prompt-ID duplicate suppression, and the single graceful
+interrupt. Never send input merely because a prompt was translated.
 
-The 2.3.15 candidate passed **414 source tests, zero skips**, with both pinned
-backend fixtures, but failed Windows deletion tests and was not published.
-Actual Qt dialogs were clicked against disposable backups, with both defaults
-set to Cancel, no deletion before the second acceptance, and a sibling folder
-preserved. macOS omits QMessageBox window titles, so the confirmation question
-must also remain in its visible text. Package/publication results follow in the
-final release handoff.
+Final validation:
 
-For 2.3.16, all **416 source tests passed with zero skips**. Windows deletion
-must compare descriptor-derived file snapshots consistently: path `lstat` and
-`fstat` can differ for the same Windows file. Reopen with `open_regular`, compare
-metadata and SHA-256, and keep the directory's path identity separately. The two
-new regressions exercise differing path/descriptor metadata and changed content
-with unchanged metadata; neither should weaken link rejection or exact scope.
+- **416 source tests and 416 tests in each Mac package, zero skips**, with both
+  pinned backend fixtures. Apple Silicon ran natively; Intel ran under Rosetta
+  on the MacBook. Both launchers, strict signatures and final inventories passed.
+- Twenty deletion tests cover cancellation at either dialog, stale snapshots,
+  host-lock contention, exact scope, invalid/journal-only and external copies,
+  links, partial failures and Windows metadata differences. Actual Qt dialogs
+  were clicked against disposable backups; a sibling folder was preserved.
+- All four updater install/rollback/reactivation cycles and all five archive
+  inventory/hash/mode/provenance checks passed. All ten uploaded digests matched.
+  A public download was installed, launched, rolled back and reactivated in
+  temporary state; all four public platform selections matched version 2.3.16.
+- GitHub CI passed all four jobs, including native Windows deletion tests and
+  all-platform packaging: <https://github.com/channelramble/Openup/actions/runs/40165713950>.
+- Logs/helpers remain in ignored `build/release-qa/` with `-2316` suffixes.
+  Build caches, obsolete archives and temporary MacBook files were removed;
+  `dist/` retains only 2.3.16. No installed app was replaced. Use **Updates →
+  Update now**, then restart. No real user backup was deleted in validation.
+
+No new phone recovery operation was performed. The physical-device limits and
+next fresh 3G button-entry check from the previous continuation still apply.
 
 ## Checkm8-A5 notice (prepared in 2.3.14)
 

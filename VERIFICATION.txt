@@ -15,6 +15,29 @@ regressions: a descriptor/path metadata difference still permits the confirmed
 backup deletion, and changed bytes with identical metadata stop before unlink.
 The previously checked Qt dialogs and guidance are unchanged by this fix.
 
+PUBLISHED PACKAGE VALIDATION, clean revision
+ff3a64168fd8589937a29031a3011cd59202d086:
+- 416 tests passed with zero skips inside each Mac package: native arm64
+  (77.849s) and x86_64 under Rosetta on the MacBook (118.192s).
+- Both bundled launchers, strict ad-hoc signatures before/after execution and
+  final exact file inventories passed.
+- All four updater install/rollback/reactivation cycles and all five archive
+  inventory, file-mode, payload, hash and clean-provenance checks passed.
+- All ten GitHub asset sizes and SHA-256 digests matched local builds. All four
+  public platform selections matched 2.3.16. The native public download passed
+  actual install, launch/self-test, rollback and reactivation in temporary state.
+  GitHub's public release feed briefly returned 2.3.13 immediately after
+  publication; the normal updater request returned 2.3.16 on retry.
+- GitHub CI passed all four jobs, including native Windows deletion tests and
+  all-platform packaging: https://github.com/channelramble/Openup/actions/runs/40165713950
+- Superseded unpublished drafts 2.3.14/2.3.15 were removed. Only current 2.3.16
+  distribution files are retained locally. Build caches and temporary local/
+  MacBook extractions were removed. No installed app or real user backup was
+  replaced/deleted during validation; no phone recovery operation was run.
+- This record is a docs-only follow-up to the release commit. Rosetta is not
+  native Intel/Monterey or physical Intel USB verification. Existing physical
+  device and native Windows/Linux desktop-launch limits remain unchanged.
+
 Historical records follow.
 ============================================================
 Openup 2.3.15 (unpublished draft) — GUI backup deletion and desktop cancellation guidance
