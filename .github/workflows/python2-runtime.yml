@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install build libraries
-        run: sudo apt-get update && sudo apt-get install -y libffi-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev
+        run: sudo apt-get update && sudo apt-get install -y libffi-dev zlib1g-dev libbz2-dev patchelf
       - name: Build and test relocated runtime
         run: python third_party/python2-runtime/build_linux.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

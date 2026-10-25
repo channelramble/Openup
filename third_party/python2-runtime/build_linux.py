@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -38,6 +39,9 @@ def main():
         with tarfile.open(source_archive) as archive:
             archive.extractall(temporary, filter="data")
         source = temporary / "Python-2.7.18"
+        (source / "Modules/Setup.local").write_text(
+            "*disabled*\n_ssl\n_hashlib\nreadline\n_sqlite3\n_tkinter\n"
+            "_bsddb\ndbm\ngdbm\ncrypt\n_curses\n_curses_panel\nnis\n")
         runtime = temporary / "original location/python2-runtime"
         env = {**os.environ, "CFLAGS": "-O2 -fcommon -Wno-implicit-function-declaration"}
         subprocess.run(["./configure", "--prefix=" + str(runtime), "--disable-shared",
@@ -59,6 +63,32 @@ def main():
             if path != binary:
                 path.unlink()
         (runtime / "LICENSE.Python").write_bytes((source / "LICENSE").read_bytes())
+        # Bundle the three non-glibc dependencies. Module rpaths and each
+        # library's own rpath resolve within the relocated app.
+        native = runtime / "lib/native"
+        native.mkdir()
+        licenses = runtime / "licenses"
+        licenses.mkdir()
+        system = re.compile(r"^(?:ld-linux|linux-vdso|libc\.|libm\.|libdl\.|libpthread\.|librt\.|libutil\.)")
+        expected = {"libffi.so.8": "libffi8", "libbz2.so.1.0": "libbz2-1.0", "libz.so.1": "zlib1g"}
+        pending = [p for p in runtime.rglob("*") if p.is_file() and not p.is_symlink()
+                   and p.open("rb").read(4) == b"\x7fELF"]
+        while pending:
+            path = pending.pop()
+            listing = subprocess.check_output(["ldd", str(path)], text=True)
+            for name, origin in re.findall(r"^\s*(\S+) => (/\S+)", listing, re.MULTILINE):
+                if system.match(name):
+                    continue
+                if name not in expected:
+                    raise ValueError("Unexpected Python runtime dependency: " + name)
+                destination = native / name
+                if not destination.exists():
+                    shutil.copyfile(origin, destination)
+                    shutil.copyfile(Path("/usr/share/doc") / expected[name] / "copyright",
+                                    licenses / (expected[name] + ".copyright"))
+                    pending.append(destination)
+            relative = os.path.relpath(native, path.parent)
+            subprocess.run(["patchelf", "--set-rpath", "$ORIGIN/" + relative, str(path)], check=True)
         # A separate shell entry can strip ambient Python configuration without
         # changing the app's Python 3 process environment.
         launcher = runtime / "bin/python2"
