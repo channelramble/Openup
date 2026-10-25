@@ -14,7 +14,7 @@ assuming that a historical state still applies.
   `d6a5117a25038b850a56cea2c2f89b151930c104`. Version **2.3.12** is the first to
   complete a physical iPhone 3G timer reset (SpringBoard lockout plist committed
   and read-back verified live on the device; see VERIFICATION.txt).
-- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.19>.
+- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.20>.
 - Read `README.md`, the newest section of `VERIFICATION.txt`, `CHANGELOG.md`,
   and `THIRD_PARTY.md` before modifying device operations or packaging.
 - `RESEARCH.md` and older verification sections contain historical hypotheses
@@ -22,6 +22,35 @@ assuming that a historical state still applies.
 - Check `git status --short` and preserve existing user changes. Build release
   artifacts from a clean, committed checkout. Keep experiments in ignored
   `build/`, downloads in `.desktop-cache/`, and distributions in `dist/`.
+
+## Published release 2.3.20
+
+Published from clean source `83f812ffbd8056b2488111396f3b5d3e5ca5fe01`.
+Includes the clearer phone variants, Exit recovery mode, and the unchanged
+bundled Python 2 runtimes from 2.3.19. All 580 source tests passed (55.526s,
+zero skips); the actual Apple Silicon app passed all 580 tests (101.841s),
+launcher, strict signatures before/after execution and inventory checks.
+Both Mac archives passed architecture/deployment checks and strict signatures;
+the complete Intel app was not executed in this release validation.
+All five archives, four updater install/rollback/reactivation cycles, and ten
+uploaded asset size/hash comparisons passed.
+
+All four CI jobs passed for the release source:
+https://github.com/channelramble/Openup/actions/runs/40244694543
+macOS/Python 3.13: 580 passed, zero skips; macOS/Python 3.9: 522 passed,
+58 dependency skips; Linux: 577 passed, 3 platform skips; Windows: 448 passed,
+132 platform skips. All-platform CI packaging also passed.
+
+Public updater metadata selects 2.3.20 for all four platforms with matching
+hashes. The first immediate anonymous lookup briefly returned GitHub's cached
+2.3.19 listing; the unmodified updater selected 2.3.20 on retry.
+The actual public native download passed app-owned Python 2 startup with PATH
+limited to system tools, launcher/self-test, strict signatures, installation,
+rollback and reactivation in temporary state.
+Physical exit-recovery and successful normal boot remain unverified. No phone,
+installed app or real backup was changed during release validation.
+Old local 2.3.19 archives and temporary test fixtures were deleted; dist/ keeps
+only 2.3.20. Small QA logs and helpers remain under build/release-qa/.
 
 ## Exit recovery action (2.3.20)
 
