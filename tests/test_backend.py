@@ -21,6 +21,11 @@ class BackendTests(unittest.TestCase):
         self.kit = Path(self.temp.name) / "backend"
         self.args = cli.parser().parse_args(["prepare", "--kit", str(self.kit)])
         self.calls = []
+        # These tests replace every backend subprocess. Runtime selection has
+        # separate real-interpreter tests and must not use this shell stub.
+        runtime = patch("ios_timeout.bundled_python2.environment", side_effect=lambda: os.environ.copy())
+        runtime.start()
+        self.addCleanup(runtime.stop)
 
     def fake_run(self, command, **kwargs):
         self.calls.append(command)
@@ -469,6 +474,7 @@ printf 'RET:%s\n' "$?"
                 return subprocess.CompletedProcess(command, 0)
 
             with patch("ios_timeout.cli.subprocess.run", side_effect=fake_run), \
+                 patch("ios_timeout.bundled_python2.environment", side_effect=lambda: os.environ.copy()), \
                  patch("ios_timeout.cli.platform.system", return_value="Darwin"), \
                  redirect_stdout(io.StringIO()):
                 cli.launch_backend(args)

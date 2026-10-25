@@ -278,6 +278,7 @@ echo BOOT_UPLOADS_COMPLETE
                     launched.append(helper)
                 return subprocess.CompletedProcess(command, 0)
             with patch.object(cli.platform, 'system', return_value='Darwin'), \
+                 patch('ios_timeout.bundled_python2.environment', side_effect=lambda: os.environ.copy()), \
                  patch.object(cli.subprocess, 'run', side_effect=run), redirect_stdout(io.StringIO()):
                 serial = cli.launch_backend(args)
             self.assertRegex(serial, r'^[0-9a-f]{40}$')
