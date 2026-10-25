@@ -39,9 +39,14 @@ def main():
         with tarfile.open(source_archive) as archive:
             archive.extractall(temporary, filter="data")
         source = temporary / "Python-2.7.18"
-        (source / "Modules/Setup.local").write_text(
-            "*disabled*\n_ssl\n_hashlib\nreadline\n_sqlite3\n_tkinter\n"
-            "_bsddb\ndbm\ngdbm\ncrypt\n_curses\n_curses_panel\nnis\n")
+        setup = source / "setup.py"
+        content = setup.read_text()
+        original = "disabled_module_list = []"
+        if content.count(original) != 1:
+            raise ValueError("Unexpected Python module selection layout")
+        disabled = ["_ssl", "_hashlib", "readline", "_sqlite3", "_tkinter", "_bsddb",
+                    "dbm", "gdbm", "crypt", "_curses", "_curses_panel", "nis"]
+        setup.write_text(content.replace(original, "disabled_module_list = " + repr(disabled)))
         runtime = temporary / "original location/python2-runtime"
         env = {**os.environ, "CFLAGS": "-O2 -fcommon -Wno-implicit-function-declaration"}
         subprocess.run(["./configure", "--prefix=" + str(runtime), "--disable-shared",
