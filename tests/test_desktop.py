@@ -92,7 +92,7 @@ class DesktopPlanningTests(unittest.TestCase):
             self.assertEqual(list(root.rglob("*.pyc")), [])
 
     def test_gui_arguments_parse_with_spaces_and_shell_characters(self):
-        settings = Settings(udid="abcdef123456", ipsw="/tmp/a ' $(touch bad).ipsw")
+        settings = Settings(udid="abcdef123456", model="iPhone1,2", ipsw="/tmp/a ' $(touch bad).ipsw")
         args = operation_arguments("prepare", settings)
         parsed = parser().parse_args(args)
         self.assertEqual(args[args.index("--ipsw") + 1], settings.ipsw)
@@ -101,7 +101,7 @@ class DesktopPlanningTests(unittest.TestCase):
         self.assertFalse(parsed.apply)
 
     def test_recovery_uses_bundled_armv6_for_3g_and_rejects_damaged_bundle(self):
-        args = operation_arguments("recover", Settings(), apply=True)
+        args = operation_arguments("recover", Settings(model="iPhone1,2"), apply=True)
         self.assertIn("--apply", args)
         self.assertNotIn("--armv6-tools", args)
         self.assertEqual(parser().parse_args(args).model, "iPhone1,2")
@@ -111,7 +111,7 @@ class DesktopPlanningTests(unittest.TestCase):
                 side_effect=ResetError(problem),
             ):
                 with self.assertRaisesRegex(ResetError, problem):
-                    operation_arguments("recover", Settings(), apply=True)
+                    operation_arguments("recover", Settings(model="iPhone1,2"), apply=True)
         args = operation_arguments("recover", Settings(), install_only=True)
         self.assertIn("--install-only", args)
         self.assertNotIn("--apply", args)

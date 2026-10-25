@@ -88,11 +88,13 @@ def _identity(serial):
         fields[name] = int(value, 16)
     if "CPID" not in fields or "BDID" not in fields:
         return None
-    if "ECID" in fields and not fields["ECID"]:
+    if "ECID" in fields and not fields["ECID"] and (fields["CPID"], fields["BDID"]) != (0x8900, 0x00):
         return None
     matches = [(model, board) for model, (board, chip, board_id) in PHONES.items()
                if (chip, board_id) == (fields["CPID"], fields["BDID"])]
-    return (*matches[0], fields.get("ECID")) if len(matches) == 1 else None
+    # The original iPhone can expose ECID zero. Its known chip/board is enough
+    # for a discovery hint only; use the port key and keep upload checks separate.
+    return (*matches[0], fields.get("ECID") or None) if len(matches) == 1 else None
 
 
 def _parse(payload, data_type):

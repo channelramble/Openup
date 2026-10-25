@@ -73,12 +73,12 @@ def _select_normal(udid="", *, required=True, deadline=None):
     return device
 
 
-def _ecid(value, base=10):
+def _ecid(value, base=10, *, allow_zero=False):
     if isinstance(value, bool):
         raise ValueError("Invalid ECID")
     if isinstance(value, str):
         value = int(value, base)
-    if type(value) is not int or not 0 < value < 2**64:
+    if type(value) is not int or not (0 if allow_zero else 1) <= value < 2**64:
         raise ValueError("Invalid ECID")
     return str(value)
 
@@ -92,7 +92,7 @@ def _normal_identity(values, udid, expected):
     if reported_udid and reported_udid != udid:
         raise ResetError("Normal-mode identity disagrees with the selected USB serial. No device was rebooted.")
     try:
-        ecid = _ecid(values.get("UniqueChipID"))
+        ecid = _ecid(values.get("UniqueChipID"), allow_zero=expected == "iPhone1,1")
     except (TypeError, ValueError):
         raise UnreadableNormalDevice() from None
     version = values.get("ProductVersion", "Unknown")
@@ -136,6 +136,9 @@ def read_normal(info, udid="", expected="", *, timeout=12.0):
     """Select once, query that serial, then recheck it; never substitute a model."""
     deadline = time.monotonic() + timeout
     device = _select_normal(udid, deadline=deadline)
+    if expected == "iPhone1,1":
+        from .physical_usb import require_single_mobile_device
+        require_single_mobile_device(deadline=deadline)
     udid = device["udid"]
     _progress("Reading the connected iPhone's identity.")
 
@@ -162,6 +165,8 @@ def read_normal(info, udid="", expected="", *, timeout=12.0):
                 except UnreadableNormalDevice:
                     continue
                 _select_normal(udid, deadline=deadline)
+                if expected == "iPhone1,1":
+                    require_single_mobile_device(deadline=deadline)
                 return identity
     # A few older tool/device combinations answer individual keys but not XML.
     values = {}
@@ -175,6 +180,8 @@ def read_normal(info, udid="", expected="", *, timeout=12.0):
                     break
     identity = _normal_identity(values, udid, expected)
     _select_normal(udid, deadline=deadline)
+    if expected == "iPhone1,1":
+        require_single_mobile_device(deadline=deadline)
     return identity
 
 
@@ -195,10 +202,10 @@ def recovery_identity(model, snapshot, expected_ecid="", wanted=None):
     if (chip, board) != PHONES[model][1:]:
         raise ResetError("The recovery USB chip/board does not match the selected iPhone. No firmware was uploaded.")
     try:
-        ecid = _ecid(fields.get("ECID"), 16)
+        ecid = _ecid(fields.get("ECID"), 16, allow_zero=model == "iPhone1,1")
     except (TypeError, ValueError):
         return None
-    if expected_ecid and expected_ecid != "-" and ecid != _ecid(expected_ecid):
+    if expected_ecid and expected_ecid != "-" and ecid != _ecid(expected_ecid, allow_zero=model == "iPhone1,1"):
         raise ResetError("A different iPhone appeared during the USB transition. No firmware was uploaded.")
     if wanted and fields["MODE"] != wanted:
         return None
@@ -223,6 +230,9 @@ def wait_mode(model, ecid, query, *, wanted="Recovery", timeout=50.0, udid="",
                 if result is not None:
                     identity = recovery_identity(model, result, ecid, wanted)
                     if identity is not None:
+                        if model == "iPhone1,1":
+                            from .physical_usb import require_single_mobile_device
+                            require_single_mobile_device(deadline=deadline)
                         # An unrelated recovery phone must not satisfy a wait
                         # while the selected normal-mode phone is still present.
                         normal = _select_normal(udid, required=False, deadline=deadline) if udid else None
@@ -266,7 +276,7 @@ def enter_recovery(info, enter_tool, model, udid, ecid, query):
         identity = read_normal(info, udid, model)
     except UnreadableNormalDevice:
         return manual_recovery(model, ecid, udid, query, "The phone no longer permits its normal identity to be read.")
-    if identity[3] != _ecid(ecid):
+    if identity[3] != _ecid(ecid, allow_zero=model == "iPhone1,1"):
         raise ResetError("The normal-mode phone changed before recovery entry. No device was rebooted.")
     _progress("Sending the selected iPhone to Recovery mode.")
     try:

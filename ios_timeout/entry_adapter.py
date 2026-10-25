@@ -31,8 +31,8 @@ bl_ios_entry() {
 }
 
 bl_ios_verify_entry() {
-    # The 3G uses its separate WTF/patched-DFU identity and stage checks.
-    [[ $device_proc == 1 || $device_type == "iPhone1,2" ]] && return 0
+    # S5L8900 uses separate WTF/patched-DFU identity and stage checks.
+    [[ $device_proc == 1 || $device_type == "iPhone1,1" || $device_type == "iPhone1,2" ]] && return 0
     case "$device_mode" in
         DFU | Recovery | iBSS | iBEC ) bl_ios_entry verify;;
         Normal ) :;;
@@ -104,7 +104,7 @@ def adapt_entry(source, backend):
     start = source.index('    case $device_mode in\n', source.index("device_get_info() {\n"))
     body = source.index('\n', source.index(' )\n', start)) + 1
     end = source.index('\n        ;;', body)
-    source = source[:body] + '            if [[ -z $bl_ios_entry_ecid ]]; then\n' + source[body:end] + \
+    source = source[:body] + '            if [[ -z $bl_ios_entry_ecid && -z $bl_ios_2g_identity_ready ]]; then\n' + source[body:end] + \
         '\n            fi' + source[end:]
     replace("device_dfuhelper() {\n", '''device_dfuhelper() {
     if [[ $device_proc != 1 ]]; then

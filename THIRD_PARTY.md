@@ -51,3 +51,16 @@ the app and replace the corresponding files under `runtime`. The update verifier
 rejects modified update installations; use an independently extracted development
 copy with `--original` instead. Application source, native launcher source, and the
 build recipe are included in the project's source release.
+
+The original iPhone 2G uses a separate Openup helper built for the 3.1.3 RAM
+disk. Its source, recipe, notices and actual-library validation are under
+`third_party/iphone2g-helper`, also bundled as `ios_timeout/data/iphone2g-source.zip`.
+`iphone2g-helper.zip` preserves its signatures; the adjacent JSON is checked
+before extraction. The helper's fixed IOAES key835 interface follows the
+documented iPhone Data Protection Tools protocol. The host's independent
+legacy-keychain decoder follows the same pinned project's version-3 format,
+retaining attribution in `legacy_keychain.py`. It uses the already bundled
+cryptography library. Apple SDKs, firmware and proprietary libraries are not
+redistributed. Research also consulted the user's MIT-licensed
+[iPhone2Gkit](https://github.com/channelramble/iPhone2Gkit/tree/4e23a7434e8bc5e1d8f9a95bd1c8248a2c2bbc75);
+its installer, activation and filesystem-repair routines are not included.

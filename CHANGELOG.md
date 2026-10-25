@@ -1,5 +1,14 @@
 # Changes
 
+## 2.3.18
+
+- Start with a blank phone-model field. Selecting or detecting a phone fills it; an unknown setting cannot silently fall back to iPhone 3G. Boot operations require a selected model. Dropdown popups highlight the hovered row on macOS without changing the selection.
+- Add experimental original iPhone 2G passcode recovery for installed iPhone OS 2.2–3.1.3 with a recognized version-3 keychain. A dedicated ARMv6 helper runs in the pinned 3.1.3 m68 SSH ramdisk, verifies kernel hardware and RAM root, and supplies the legacy hardware-key query. Host recovery reads only the passcode record from read-only volumes and verifies padding/integrity before displaying it. Keys are not logged; passcodes remain in the session and explicit exports.
+- Require a complete physical USB singleton inventory for zero-ECID legacy hardware, exact patched DFU board identity, and the m68 iBSS build before uploading the ramdisk. Keep the positive-ECID and exact model checks for later phones. Recognize the 2G's zero-ECID DFU descriptor in macOS discovery without interpreting generic WTF as a physical 2G.
+- Block 2G timer transactions and direct users to passcode recovery. OS 1.x and 2.0/2.1 remain unsupported because their storage formats are not verified. The 2G route does not reuse the 3G's iOS 4 payloads or the OS 1.0 kit's installer/activation routines.
+
+All 562 source tests passed with zero skips. The 2G helper passed reproducible-build, signature and actual 3.1.3 RAM-library import checks. The real pinned ramdisk image pipeline built all four m68 components offline and retained the exact helper bytes and reviewed startup. Physical iPhone 2G boot and recovery remain unverified; see `VERIFICATION.txt` for release checks.
+
 ## 2.3.17
 
 - Correct the phone-selection gap exposed by a log that detected `iPhone5,1` / `n41ap` in DFU while the selected model was `iPhone5,2`. Refresh now selects an available detected model, same-named variants have distinct picker labels, and mismatch results explain which model to choose. The existing hardware mismatch gate remains in place.

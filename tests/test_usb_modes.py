@@ -82,6 +82,17 @@ class USBModeTests(unittest.TestCase):
         self.assertEqual(len(rows), 2)
         self.assertEqual(len({row["selection_id"] for row in rows}), 2)
 
+    def test_original_iphone_dfu_with_zero_ecid_is_a_location_hint_not_a_udid(self):
+        first = node(serial="CPID:8900 BDID:00 ECID:0")
+        second = dict(first, USBKeyLocationID="0x01300000")
+        rows = usb_modes._parse(payload([first, second]), usb_modes.DATA_TYPES[0])
+        self.assertEqual([row["model"] for row in rows], ["iPhone1,1", "iPhone1,1"])
+        self.assertTrue(all(row["udid"] == "" and row["mode"] == "DFU" for row in rows))
+        self.assertEqual(len({row["selection_id"] for row in rows}), 2)
+        # Generic WTF shares the S5L8900 boot ROM identity and cannot select 2G.
+        self.assertEqual(usb_modes._parse(payload([dict(first, USBDeviceKeyProductID="0x1222")]),
+                                         usb_modes.DATA_TYPES[0]), [])
+
     def test_malformed_and_oversized_json_do_not_escape(self):
         for bad in (None, b"{", b"[]", b'{"SPUSBHostDataType":{}}', b"x" * (usb_modes.MAX_OUTPUT + 1)):
             with self.subTest(length=len(bad) if bad else None):

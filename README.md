@@ -4,7 +4,9 @@
 
 A desktop app for legacy iPhone recovery, with guided timer reset, a pinned recovery backend, backups, and a built-in updater. Desktop downloads include iPhone 3G ARMv6 tools and Intel Mac support targeting macOS 12 Monterey.
 
-Version **2.3.17** improves phone discovery and the normal-mode → Recovery → DFU workflow. Refresh reads available normal-mode identity and, on macOS, also lists recognized phones in DFU or Recovery mode. The detected hardware variant is selected automatically, and model-picker labels distinguish variants such as `iPhone5,1` and `iPhone5,2`. The reported failure log already identified an `iPhone5,1` / `n41ap` in DFU while `iPhone5,2` was selected; the identity check correctly stopped that mismatch before firmware uploads.
+Version **2.3.18** leaves the phone model blank until selected or detected, highlights the hovered dropdown row, and adds experimental original **iPhone 2G** passcode recovery for **iPhone OS 2.2–3.1.3**. The 2G uses a dedicated 3.1.3 SSH ramdisk and read-only legacy keychain decoder. OS 1.x and 2G timer reset are not supported, and physical 2G validation remains pending.
+
+Version **2.3.17** improved phone discovery and the normal-mode → Recovery → DFU workflow. Refresh reads available normal-mode identity and, on macOS, also lists recognized phones in DFU or Recovery mode. Detected variants such as `iPhone5,1` and `iPhone5,2` remain distinct and are selected automatically. Exact hardware mismatch checks remain enabled.
 
 The previous **2.3.16** release added backup deletion with two confirmation dialogs and replaced terminal-only cancellation instructions with the GUI’s **Stop** button. It also added a visible iPhone 4S / iPad 2 warning before Start recovery, with a clickable [checkm8-A5 setup guide](https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/checkm8-a5). iPad 2 recovery is not currently supported in Openup.
 
@@ -18,7 +20,7 @@ Use **Updates → Update now** to install the latest compatible release, then re
 
 ## Download and open
 
-Get the platform archive from [version 2.3.17](https://github.com/channelramble/Openup/releases/tag/v2.3.17) and extract it completely.
+Get the platform archive from [version 2.3.18](https://github.com/channelramble/Openup/releases/tag/v2.3.18) and extract it completely.
 
 **Already using Openup 2.3.0–2.3.4?** Open **Updates → Check and download directly in the app → Check for updates → Install update**, then restart. Leave the token empty and Include prereleases enabled. This installs the new one-click updater without visiting GitHub.
 
@@ -99,6 +101,18 @@ bash Launch.command
 ```
 
 First launch creates a separate virtual environment for this version under the user's state directory and downloads the pinned dependencies. Every launch checks locked versions and native imports. Runtime dependencies, backups, and downloaded backends stay outside the app folder.
+
+## Original iPhone 2G
+
+Select **iPhone 2G**, then **Recover a passcode**. This experimental path accepts installed iPhone OS **2.2–3.1.3** and the recognized version-3 keychain schema. It boots the pinned Legacy iOS Kit **3.1.3 / 7E18 m68** SSH ramdisk, verifies the actual board and bootloader, then checks the running kernel's hardware identity. The installed OS stays in place.
+
+The data and system volumes must be read-only. Openup reads only the SpringBoard passcode record, verifies its encrypted data and integrity checksum, and displays the result in Openup. It does not try passcodes or modify the keychain. Pending database journals, unsupported schemas, mismatched hardware and writable volumes stop recovery. Exported session logs can contain the displayed passcode.
+
+```sh
+./Launch.command recover --model iPhone1,1 --apply
+```
+
+The user's [iPhone2Gkit](https://github.com/channelramble/iPhone2Gkit) informed the legacy USB/ramdisk research. Its proven OS 1.0 one-shot interface differs from this SSH workflow. **OS 1.x, OS 2.0/2.1 and 2G timer reset are not supported.** The 2G helper is built against the 3.1.3 SDK and its imports were checked against the actual ramdisk libraries; the iOS 4 iPhone 3G tools are never used for it. Offline image construction and simulated USB transitions do not establish physical 2G recovery. See `VERIFICATION.txt`.
 
 ## iPhone 3G on iOS 4
 
@@ -237,6 +251,7 @@ These are the versions the program **accepts for inspection**, not a hardware-te
 
 | iPhone | Product types | Accepted installed iOS |
 |---|---|---|
+| 2G | iPhone1,1 | 2.2–3.1.3, read-only inspection and passcode recovery only |
 | 3G | iPhone1,2 | 4.0–4.2.1 |
 | 4 | iPhone3,1 / 3,2 / 3,3 | 6.0–7.1.2 |
 | 4S | iPhone4,1 | 6.0–9.3.6 |

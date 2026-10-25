@@ -9,7 +9,7 @@ from .core import ResetError, load_backup
 @dataclass
 class Settings:
     udid: str = ""
-    model: str = "iPhone1,2"
+    model: str = ""
     port: int = 22
     mount: bool = True
     ask_password: bool = False
@@ -25,6 +25,10 @@ class Settings:
 def operation_arguments(action, settings, *, apply=False, backup=None, install_only=False):
     if action not in {"doctor", "devices", "inspect", "reset", "prepare", "restore", "finalize", "recover"}:
         raise ResetError("Unknown desktop operation.")
+    if not settings.model and (action == "prepare" or (action == "recover" and apply)):
+        raise ResetError("Choose the connected phone's model above, or use Refresh to detect it, before starting.")
+    if settings.model == "iPhone1,1" and action in {"prepare", "reset"}:
+        raise ResetError("For iPhone 2G, choose Recover a passcode. Timer reset is not supported for this model.")
     args = [action]
     if action in {"restore", "finalize"}:
         if not backup:

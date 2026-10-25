@@ -5,15 +5,18 @@ data; in particular it does not save or export reported recovery passcodes.
 """
 
 from collections import deque
+import json
 import re
 
 from .core import JOURNAL, PREFS, SUPPORTED
 from .backend_ui import RECOVERY_HANDOFF_LINE, RECOVERY_HANDOFF_TITLE, RECOVERY_HANDOFF_MESSAGE
+from .legacy_keychain import MAX_PASSCODE_BYTES
 
 
 MAX_CAPTURE_CHARS = 1024 * 1024
 MAX_DETAIL_CHARS = 400
 MAX_DETAILS = 16
+LEGACY_PASSCODE_PREFIX = "Legacy passcode: "
 
 _IDENTITY = re.compile(
     r"^(iPhone [^·]{1,32}) · (iPhone\d+,\d+) · iOS ([0-9.]{3,12}) "
@@ -47,6 +50,19 @@ _BACKUPS = (
 def _bounded(value):
     value = " ".join("".join(char for char in value if char.isprintable()).split())
     return value if len(value) <= MAX_DETAIL_CHARS else value[:MAX_DETAIL_CHARS - 1] + "…"
+
+
+def _legacy_passcode(line):
+    if not line.startswith(LEGACY_PASSCODE_PREFIX):
+        return None
+    try:
+        value = json.loads(line[len(LEGACY_PASSCODE_PREFIX):])
+        if (isinstance(value, str) and value.isprintable()
+                and 0 < len(value.encode("utf-8")) <= MAX_PASSCODE_BYTES):
+            return value
+    except (ValueError, UnicodeError, RecursionError):
+        pass
+    return None
 
 
 def summarize(action, capture, exit_code, interrupted=False):
@@ -96,6 +112,9 @@ def summarize(action, capture, exit_code, interrupted=False):
             found = re.fullmatch(r"found\s*:\s*([0-9]{4}|[0-9]{6})", line)
             if found and found[1] not in passcodes:
                 passcodes.append(found[1])
+            legacy = _legacy_passcode(line)
+            if legacy is not None and legacy not in passcodes:
+                passcodes.append(legacy)
         if action == "doctor":
             if line.startswith(("Host: ", "Python: ", "USB transport endpoint: ")):
                 add(line)

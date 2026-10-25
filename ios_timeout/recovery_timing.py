@@ -18,6 +18,9 @@ BOOTLOADERS = {
     "ibss": ("iBSS", "iBoot-636.66.33"),
     "ibec": ("iBEC", "iBoot-931.71.16"),
 }
+# 2G's pinned 3.1.3 / 7E18 iBSS has been inspected directly: m68ap,
+# iBoot-636.66.33. That route boots its ramdisk directly from iBSS, without iBEC.
+BOOT_BOARDS = {"iPhone1,1": ("m68ap", 0), "iPhone1,2": ("n82ap", 4)}
 # A newly launched bootloader can take time to present its recovery console.
 # Keep reads and the overall stage bounded, while polling the child process so
 # neither USB initialization nor console startup freezes the countdown.
@@ -32,13 +35,14 @@ class ConsoleReadError(ResetError):
 
 def verify_bootloader_console(model, console, stage="ibss"):
     """Recovery USB identity alone also matches the phone's installed iBoot."""
-    if model != "iPhone1,2" or stage not in BOOTLOADERS:
+    if model not in BOOT_BOARDS or stage not in BOOTLOADERS or (model == "iPhone1,1" and stage != "ibss"):
         raise ResetError("No verified bootloader console profile exists for the selected phone.")
+    board = BOOT_BOARDS[model][0]
     name, version = BOOTLOADERS[stage]
     console = console.replace("\x00", "")
     banners = set(re.findall(r"\b(iBSS|iBEC|iBoot) for ([a-zA-Z0-9]+),", console))
     versions = set(re.findall(r"\bBUILD_TAG:\s*(iBoot-[0-9.]+)(?=\s|$)", console))
-    if banners != {(name, "n82ap")} or versions != {version}:
+    if banners != {(name, board)} or versions != {version}:
         # Only public build/board fields are emitted; console logs can contain
         # unique device identifiers and must not be copied into diagnostics.
         observed = ", ".join(sorted(kind + " for " + board for kind, board in banners))
@@ -46,7 +50,7 @@ def verify_bootloader_console(model, console, stage="ibss"):
         observed = observed[:160] or "no recognizable bootloader banner"
         raise ResetError(f"Recovery mode was detected, but the uploaded {name} was not verified "
                          "(" + observed + "). No ramdisk was uploaded.")
-    return name + " for n82ap / " + version
+    return name + " for " + board + " / " + version
 
 
 def verify_ibss_console(model, console):
@@ -209,6 +213,11 @@ def guide(model, probe, *, emit=progress, clock=time.monotonic, sleep=time.sleep
                     if current:
                         last_readable = current
                     if early_dfu_state(model, current) in ("wtf", "patched"):
+                        if model == "iPhone1,1":
+                            from .physical_usb import require_single_mobile_device
+                            require_single_mobile_device(deadline=deadline)
+                            if clock() >= deadline:
+                                break
                         emit("Phone detected", "Release both buttons now.", 0)
                         output("* USB entry mode detected. Release both buttons now.", flush=True)
                         return
@@ -233,7 +242,9 @@ def _boot_query_state(model, snapshot):
         if key in ("MODE", "CPID", "BDID") and key in fields:
             raise ResetError("Conflicting USB identity fields; recovery cancelled. No ramdisk was uploaded.")
         fields[key] = value
-    for key, expected in (("CPID", 0x8900), ("BDID", 0x04)):
+    if model not in BOOT_BOARDS:
+        raise ResetError("No verified bootloader console profile exists for the selected phone.")
+    for key, expected in (("CPID", 0x8900), ("BDID", BOOT_BOARDS[model][1])):
         if key == "BDID" and fields.get("MODE") == "WTF":
             continue  # The shared WTF endpoint cannot identify the real board.
         try:
@@ -241,7 +252,7 @@ def _boot_query_state(model, snapshot):
         except (KeyError, ValueError):
             continue
         if observed != expected:
-            raise ResetError("The USB chip/board identity does not match the selected iPhone 3G. "
+            raise ResetError("The USB chip/board identity does not match the selected iPhone. "
                              "Recovery cancelled. No ramdisk was uploaded.")
     try:
         state = early_dfu_state(model, snapshot)
@@ -253,7 +264,7 @@ def _boot_query_state(model, snapshot):
 def wait_bootloader(model, probe, *, stage="ibss", timeout=STAGE_WAIT_TIMEOUT, emit=progress,
                     clock=time.monotonic, sleep=time.sleep, output=print):
     """A successful upload is not evidence that the requested stage is running."""
-    if model != "iPhone1,2" or stage not in BOOTLOADERS:
+    if model not in BOOT_BOARDS or stage not in BOOTLOADERS or (model == "iPhone1,1" and stage != "ibss"):
         raise ResetError("No verified bootloader console profile exists for the selected phone.")
     name = BOOTLOADERS[stage][0]
     deadline = clock() + timeout
@@ -271,6 +282,11 @@ def wait_bootloader(model, probe, *, stage="ibss", timeout=STAGE_WAIT_TIMEOUT, e
                     if current:
                         last_readable = current
                     reading_console = _boot_query_state(model, current) == "recovery"
+                    if reading_console and model == "iPhone1,1":
+                        from .physical_usb import require_single_mobile_device
+                        require_single_mobile_device(deadline=deadline)
+                        if clock() >= deadline:
+                            break
             if reading_console:
                 try:
                     console = probe.bootloader_console()
@@ -283,8 +299,8 @@ def wait_bootloader(model, probe, *, stage="ibss", timeout=STAGE_WAIT_TIMEOUT, e
                     # Installed iBoot, the previous iBSS, incomplete text, and
                     # mixed banners remain unverified and may be read again.
                     boards = re.findall(r"\b(?:iBSS|iBEC|iBoot) for ([a-zA-Z0-9]+),", console)
-                    if any(board != "n82ap" for board in boards):
-                        raise ResetError("Recovery console board does not match the selected iPhone 3G. "
+                    if any(board != BOOT_BOARDS[model][0] for board in boards):
+                        raise ResetError("Recovery console board does not match the selected iPhone. "
                                          "No ramdisk was uploaded.")
                     try:
                         identity = verify_bootloader_console(model, console, stage)
@@ -292,12 +308,16 @@ def wait_bootloader(model, probe, *, stage="ibss", timeout=STAGE_WAIT_TIMEOUT, e
                         if console:
                             last_console_error = str(exc)
                     else:
+                        if model == "iPhone1,1":
+                            from .physical_usb import require_single_mobile_device
+                            require_single_mobile_device(deadline=deadline)
                         # No late result can authorize the next upload after
                         # the overall deadline, even if its banner is correct.
                         if clock() >= deadline:
                             break
                         output("[Log] Uploaded bootloader and phone identity verified: " + identity, flush=True)
-                        following = "Loading the second-stage bootloader next." if stage == "ibss" else "Loading the ramdisk next."
+                        following = ("Loading the second-stage bootloader next."
+                                     if stage == "ibss" and model == "iPhone1,2" else "Loading the ramdisk next.")
                         emit("Recovery bootloader detected", name + " is running. " + following, 0)
                         return
             remaining = max(0, math.ceil(deadline - clock()))

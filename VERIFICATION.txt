@@ -1,3 +1,62 @@
+Openup 2.3.18 — blank model picker, hover feedback and original-iPhone recovery
+Verification date: 2026-10-25
+
+The model field starts truly empty (index -1), with no silent 3G fallback.
+Automatic supported-model discovery remains enabled. Native Cocoa popup renders
+showed the hovered row change from #000000 to #365e91 while selection stayed -1;
+opening/dismissing the popup preserves blank selection. GUI boot actions require
+a selected model; downloads and inspection remain available independently.
+
+New iPhone1,1 support is EXPERIMENTAL and limited to installed iPhone OS
+2.2-3.1.3, recognized keychain schema v3, read-only inspection and passcode
+recovery. Timer mutations and timer backups are explicitly rejected for 2G.
+OS 1.x/2.0/2.1 are not implemented. Research consulted the public iPhone 2Gkit
+4e23a7434e8bc5e1d8f9a95bd1c8248a2c2bbc75 and the pinned original Data Protection
+Tools parser; the older one-shot installer/activation routines were not imported.
+
+Pinned Legacy-iOS-Kit 23622f8fe72c09952089d5145a7b008cfcc90d9b builds the m68
+3.1.3/7E18 RAM disk. Singleton physical USB, real patched-DFU chip/board and
+exact m68 iBSS build checks precede uploads. Zero ECID is permitted only for
+selected original-iPhone hardware; later-phone positive-ECID checks remain.
+Stock SSH startup was audited: its restore services contain NAND mount/check
+and NVRAM operations. The 2G adapter replaces rc.boot with its own RAM/USB/SSH
+helper, with no stock restore service, mount.sh, repair or NVRAM invocation.
+The USB owner stays alive while supervising foreground SSH. A random per-boot
+40-byte RAM serial binds the host handoff; the old normal-mode UDID is not
+reused as the RAM endpoint. Both NAND volumes must be read-only, and SQLite
+journals/unknown schemas/generated columns prevent passcode decoding.
+
+The final ARMv6 helper was built twice using the 3.1.3 SDK and pinned legacy
+linker; bytes matched. All 62 imports resolve against actual 7E18 RAM libraries;
+LC_UNIXTHREAD, minimum 3.1, SDK 3.1.3, strict signature verification and primary
+SHA-1/alternate SHA-256 code-page hashes passed. Source hashes and complete source
+ZIP match the helper manifest. Details: third_party/iphone2g-helper/VALIDATION.json.
+
+Real offline image construction executed the adapted pinned device_ramdisk
+function with genuine 2G 3.1.3 firmware and actual xpwntool/hfsplus/bspatch. The
+fixture returns before the USB path and makes any unexpected entry fail.
+All four components were produced. Extracted final helper, reviewed rc.boot and
+synthetic session matched exactly; session metadata was root:root, 0600, 40 bytes.
+The actual image exposed /etc as a symlink, so the helper uses canonical
+/private/etc and checks RAM device numbers before reading its session file.
+
+PHYSICAL SCOPE: no iPhone 2G was booted, mounted, repaired or recovered. A
+read-only MacBook inventory query returned exactly one DFU endpoint (PID 1227).
+That validates the new host inventory against the connected phone, not 2G boot
+or key recovery. No installed app or real backup was changed in this work.
+
+All 562 source tests passed with zero skips (51.039s), using both pinned shell
+fixtures. Desktop self-test, dependency check and pip check passed. Coverage
+includes real pinned shell transition/stage gates, actual portable C SSH-owner
+lifetime, exact normal-to-RAM-session targeting, read-only mounts and rejected
+timer writes, malicious/corrupt SQLite formats and safe result display. Native
+helper imports, signatures, source correspondence and offline image construction
+were verified separately above. Final package/publication results are added
+after clean-source builds. Ignored logs/helpers are under build/release-qa/ with 2318
+suffixes. Firmware, SDKs, images and temporary copies are not release inputs.
+
+----------------------------------------------------------------------
+
 Openup 2.3.17 — iPhone discovery and checked Recovery/DFU entry
 Verification date: 2026-10-25
 

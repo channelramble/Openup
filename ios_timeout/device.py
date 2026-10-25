@@ -19,6 +19,7 @@ from .core import (
 )
 
 BOARD_MODELS = {
+    "m68ap": "iPhone1,1",
     "n82ap": "iPhone1,2",
     "n90ap": "iPhone3,1", "n90bap": "iPhone3,2", "n92ap": "iPhone3,3",
     "n94ap": "iPhone4,1", "n41ap": "iPhone5,1", "n42ap": "iPhone5,2",
@@ -392,11 +393,19 @@ class USBDevice:
         # from the genuine flat layout only; the iOS 4 nested and iOS 5+ LwVM
         # layouts are rejected, and the version gate / HFS-mount checks in
         # inspect() backstop anything that still slips through.
+        if expected == "iPhone1,1":
+            # Flat partitions also occur on the 3G and iPod touch. The selected
+            # menu entry cannot identify a 2G; require the kernel query helper
+            # built into Openup's m68 RAM disk instead.
+            from .iphone2g import probe_identity
+            return probe_identity(self)
         if expected == "iPhone1,2" and self._flat_3g_partition_layout():
             return "iPhone1,2"
         return None
 
-    def inspect(self, mount=False, writable=False, expected_model=None):
+    def inspect(self, mount=False, writable=False, expected_model=None, read_only=False):
+        if writable and read_only:
+            raise ResetError("Cannot request both writable and read-only inspection.")
         model = self._probe_model(expected_model)
         if model not in SUPPORTED:
             if model is None and expected_model is None and self._flat_3g_partition_layout():
@@ -408,6 +417,11 @@ class USBDevice:
             raise ResetError(f"Unsupported or unidentifiable hardware: {model!r}.")
         if expected_model is not None and model != expected_model:
             raise ResetError("Booted device does not match --model; refusing to mount or reset.")
+        if model == "iPhone1,1":
+            if writable:
+                from .core import IPHONE2G_TIMER_UNSUPPORTED
+                raise ResetError(IPHONE2G_TIMER_UNSUPPORTED)
+            read_only = True
         mounts = self.command("/sbin/mount")
         if not re.search(r"^/dev/md\d+ on / \(", mounts, re.MULTILINE):
             raise ResetError("The running root filesystem is not a recognized SSH ramdisk.")
@@ -417,7 +431,7 @@ class USBDevice:
         )
         if re.search(r"(?:^|/|\.|\s)SpringBoard(?:\s|$)", processes):
             raise ResetError("SpringBoard is running. Use an offline SSH ramdisk.")
-        disk_prefix = "/dev/disk0s" if model == "iPhone1,2" else "/dev/disk0s1s"
+        disk_prefix = "/dev/disk0s" if model in ("iPhone1,1", "iPhone1,2") else "/dev/disk0s1s"
         def mounted_volumes(output):
             result = set()
             for number in ("1", "2"):
@@ -430,6 +444,8 @@ class USBDevice:
                         raise ResetError(f"Unexpected volume mounted at /mnt{number}.")
                     if "hfs" not in options:
                         raise ResetError(f"/mnt{number} is not an HFS filesystem.")
+                    if read_only and "read-only" not in options:
+                        raise ResetError("Legacy passcode recovery requires read-only volumes. Restart its RAM disk.")
                     result.add(number)
             return result
 
@@ -444,9 +460,8 @@ class USBDevice:
                     attributes = self.sftp.lstat("/mnt" + number)
                     if not stat.S_ISDIR(attributes.st_mode):
                         raise ResetError(f"/mnt{number} is not a regular mount directory.")
-                    self.command(
-                        f"/sbin/mount_hfs {disk_prefix}{number} /mnt{number}", timeout=60
-                    )
+                    flags = "-o rdonly " if read_only else ""
+                    self.command(f"/sbin/mount_hfs {flags}{disk_prefix}{number} /mnt{number}", timeout=60)
             mounts = self.command("/sbin/mount")
             mounted = len(mounted_volumes(mounts)) == 2
         if not mounted:

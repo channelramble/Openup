@@ -9,12 +9,12 @@ assuming that a historical state still applies.
 
 - Project: **Openup**, a dark-mode desktop application for legacy iPhone recovery.
 - Repository: <https://github.com/channelramble/Openup> (public).
-- Current app version: **2.3.17**, with one-click desktop updates.
+- Current app version: **2.3.18**, with one-click desktop updates.
 - Verified device baseline: **2.3.1**, a prerelease built from
   `d6a5117a25038b850a56cea2c2f89b151930c104`. Version **2.3.12** is the first to
   complete a physical iPhone 3G timer reset (SpringBoard lockout plist committed
   and read-back verified live on the device; see VERIFICATION.txt).
-- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.17>.
+- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.18>.
 - Read `README.md`, the newest section of `VERIFICATION.txt`, `CHANGELOG.md`,
   and `THIRD_PARTY.md` before modifying device operations or packaging.
 - `RESEARCH.md` and older verification sections contain historical hypotheses
@@ -23,7 +23,79 @@ assuming that a historical state still applies.
   artifacts from a clean, committed checkout. Keep experiments in ignored
   `build/`, downloads in `.desktop-cache/`, and distributions in `dist/`.
 
-## Latest continuation (2.3.17)
+## Latest continuation (2.3.18)
+
+All **562 source tests passed, zero skips** (51.039s), with both pinned backend
+fixtures. Desktop self-test, dependency check and pip check passed. The release
+is prepared for clean-source packaging; final publication/package results are
+added to this handoff after those checks complete.
+
+The phone picker now starts at index -1 with genuinely empty display text.
+Detected supported hardware still selects its exact variant. Every popup uses
+an explicit QListView/delegate with mouse tracking and visible hover colors;
+native Cocoa rendering was checked as well as offscreen tests. Do not restore
+the silent first-item fallback. Model selection is required before GUI boot
+operations, while downloads and existing-ramdisk inspection remain available.
+
+The original iPhone **iPhone1,1 / m68ap** is now an experimental **passcode
+recovery/read-only inspection** target for installed **2.2–3.1.3** with an
+evidenced version-3 keychain schema. It is deliberately NOT a timer-reset target:
+`validate_timer_identity` gates planning, application and backup loading, and
+the GUI directs 2G timer selections to passcode recovery. `USBDevice.inspect`
+also rejects writable 2G inspection before mounting, including autodetection.
+OS 1.x and 2.0/2.1 remain unsupported. Do not reuse iOS 4 keybag/payload code or
+invent early lockout-plist semantics.
+
+Research consulted the user's public iPhone2Gkit revision
+`4e23a7434e8bc5e1d8f9a95bd1c8248a2c2bbc75`. Its hardware-proven OS 1.0 one-shot
+installer is a different interface and has NAND/version restrictions. Openup
+uses the existing pinned Legacy-iOS-Kit 3.1.3/7E18 m68 SSH route, with singleton
+physical USB checks, a narrowly scoped zero-ECID exception, actual patched DFU
+board checks and exact `iBSS for m68ap / iBoot-636.66.33` verification. Later
+phones retain their positive-ECID identity checks. Generic WTF is not proof of
+an original-iPhone board and is never auto-selected as one.
+
+`iphone2g.py` dispatches recovery before the iOS 4 upstream payload path. It
+boots the dedicated RAM disk, waits for its fresh random 40-hex USB serial,
+verifies kernel product/board and mounts both known flat HFS volumes read-only.
+The earlier normal-mode UDID is only used for entry. `launch_backend` returns
+the 2G RAM serial; do not fall back to the normal UDID or any unselected device.
+The helper reads the session from canonical `/private/etc/openup-2g-session`
+because stock 3.1.3 `/etc` is a symlink. Its parent directories and file must
+belong to the RAM root; the file is root-owned, mode 0600, exactly 40 hex bytes.
+
+Do not restore ssh_old.tar.gz's original rc.boot. Its stock restore services
+can mount/check NAND and change NVRAM. Openup replaces it with an exec of its
+own helper. The helper checks m68 hardware and /dev/md0 before updating only
+the RAM root, initializes volatile USB/network/watchdog state with a 45-second
+bootstrap deadline, then stays alive as owner while a foreground SSH child
+runs. Returning/exiting that owner early can discard its IOKit connections.
+No stock restored*, mount.sh, filesystem repair or NVRAM command is launched.
+The kit returns after checked boot commands; host code owns the bounded SSH
+handoff instead of the kit's generic iproxy/infinite SSH polling loop.
+
+The read-only host decoder accepts only the exact SpringBoard/DeviceLockPassword
+record, verifies AES-CBC padding and SHA1 integrity, and refuses pending SQLite
+journals, unknown layouts and generated columns. Keys never enter session logs;
+the passcode appears in memory and explicit log exports. Results use a bounded
+JSON line, including printable nonnumeric values without rich-text rendering.
+
+Helper source/build/provenance is under `third_party/iphone2g-helper`; signed
+payload and complete source ZIPs are in `ios_timeout/data`. Build with the
+actual 3.1.3 SDK and pinned ARMv6 linker. Two builds matched; all 62 imports
+resolved against actual 7E18 RAM libraries, and both code-signature page tables
+verified. Offline construction used the actual adapted pinned shell function,
+genuine 2G IPSW, patches and image tools with no USB path reachable. All four
+components and the final helper/startup/session bytes and permissions verified.
+
+Physical 2G boot, USB initialization and passcode recovery remain unverified.
+A read-only MacBook probe counted one DFU endpoint (PID 0x1227), without uploading
+firmware or changing the connected phone. Do not claim this is a 2G hardware test.
+Release validation is recorded in the newest VERIFICATION.txt section. Ignored
+helpers/logs use `build/release-qa/*2318*`; temporary firmware/SDK/images must be
+removed after validation, keeping only the newest published release in dist/.
+
+## Previous continuation (2.3.17)
 
 Version **2.3.17 is published** as a prerelease from clean commit
 `71857b98b9e351e982a7e16f47e1f9d839a62877`; main also includes this later

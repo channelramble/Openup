@@ -343,6 +343,8 @@ def build(target, *, allow_dirty=False):
                 shutil.copyfile(path, package / path.name)
         from ios_timeout.armv6_payloads import read_bundled_payloads
         read_bundled_payloads()
+        from ios_timeout.iphone2g import read_helper
+        read_helper()
         shutil.copytree(ROOT / "ios_timeout/data", package / "data")
         # The desktop's dependency check must match its target's actual wheels,
         # including the older Intel/Monterey compatibility versions.

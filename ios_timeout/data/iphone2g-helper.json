@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "product": "iPhone1,1",
+  "architecture": "armv6",
+  "ramdisk_build": "7E18",
+  "minimum_ios": "3.1",
+  "size": 54560,
+  "sha256": "c7866c057052f49395a89ba7b9c8416f3525c9b043b04c9da22ec493a9ea7a93",
+  "sources": {
+    "openup-iphone2g.c": "07aea952d73e88409daf01f2eb44fbbf5da4a6cb987ab0c5ef4957133c4c206a",
+    "bootstrap.c": "f687c2c2521b8c2bb710831e648d4279e2ada925bca0c9f9c961300befd47ef0",
+    "ssh-owner.c": "b0e974f2478dda748fc7ecf940fdcd0c43727df8140215cabd72fdc981ac462c"
+  },
+  "archive_sha256": "f5880933e701762b138acc269f1a238733dc72670b29e005f6e19c8670ad28f8"
+}

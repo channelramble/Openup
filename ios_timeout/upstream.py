@@ -509,6 +509,9 @@ exit "$bl_ios_main_status"
 
 
 def run_backend(args):
+    if args.model == "iPhone1,1":
+        from .iphone2g import run_recovery
+        return run_recovery(args)
     if not args.apply and not args.install_only:
         print(f"Backend: {REPOSITORY}\nPinned revision: {REVISION}")
         print("Preview only. Add --apply to prepare and boot the upstream passcode-recovery ramdisk.")
