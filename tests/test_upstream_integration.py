@@ -139,8 +139,12 @@ elif tool == "managed-python":
             now[0] += 0.5
         try:
             if after_boot:
+                # Six virtual polls cover these immediate fixture transitions.
+                # Production timing is covered by test_recovery_timing. Using
+                # its 90s default here spawns 180 real query/console pairs on failure
+                # and can exceed the outer subprocess cap under Rosetta/CI.
                 wait_bootloader(model, Probe(), stage="ibec" if args[2] == "--after-ibec" else "ibss",
-                                clock=lambda: now[0], sleep=advance)
+                                timeout=3, clock=lambda: now[0], sleep=advance)
             else:
                 guide(model, Probe(), clock=lambda: now[0], sleep=advance)
         except ResetError as exc:

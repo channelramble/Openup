@@ -48,7 +48,11 @@ Only completed zero-status output within the size limit is accepted. Keep the
 board / build gate, and immediate rejection of a concrete wrong hardware ID.
 Tests include real slow subprocesses, late/partial results, failed/oversized
 output, mixed banners, and cleanup; shell integration uses the same public probe
-contract. Do not restore the prior patch's catch-all identity retry.
+contract. Its fake-clock stage wait explicitly uses `timeout=3`: each fixture
+needs only one successful stage poll, while inheriting the real 90-second
+default spawns 180 real helper processes and exceeds the harness's 30-second
+subprocess cap under Rosetta. Production remains 90 seconds. Do not restore
+the prior patch's catch-all identity retry.
 
 A fresh read-only check in this continuation found a connected 3G reporting
 `iBoot for n82ap / iBoot-931.71.16` in 0.6 seconds, with its console and USB
