@@ -13,14 +13,15 @@ from PySide6.QtCore import QProcess, QProcessEnvironment, QSettings, Qt, QThread
 from PySide6.QtGui import QColor, QDesktopServices, QFont, QIcon, QPalette, QTextCursor
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QCheckBox, QComboBox, QDialog, QDialogButtonBox,
-    QFileDialog, QFormLayout, QFrame, QHBoxLayout, QHeaderView, QLabel, QLineEdit,
+    QFileDialog, QFormLayout, QFrame, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListView,
     QMainWindow, QMessageBox, QPlainTextEdit, QProgressBar, QPushButton, QScrollArea,
-    QSizePolicy, QSpinBox, QSplitter, QStackedWidget, QTableWidget, QTableWidgetItem,
+    QSizePolicy, QSpinBox, QSplitter, QStackedWidget, QStyledItemDelegate, QTableWidget, QTableWidgetItem,
     QVBoxLayout, QWidget,
 )
 
 from . import APP_NAME, __version__
 from .core import ResetError, SUPPORTED
+from .backup_deletion import delete_backup, prepare_backup_deletion
 from .desktop_model import Settings, TerminalText, backup_inventory, operation_arguments
 from .host import state_directory
 from .session_log import SessionLog
@@ -71,7 +72,12 @@ QPushButton#disclosureToggle { text-align: left; color: #b3b3b3; background: tra
 QLineEdit, QComboBox, QSpinBox { background: #000000; border: 1px solid #4a4a4a; border-radius: 6px; padding: 7px; min-height: 20px; }
 QLineEdit:focus, QComboBox:focus, QSpinBox:focus { border: 1px solid #8db5ff; }
 QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled { background: #000000; color: #808080; }
-QComboBox QAbstractItemView { background: #000000; color: #e6e6e6; selection-background-color: #172c4c; }
+QComboBox QAbstractItemView { background: #000000; color: #e6e6e6; border: 1px solid #4a4a4a;
+    outline: 0; selection-background-color: #285fcf; selection-color: #ffffff; }
+QComboBox QAbstractItemView::item { padding: 7px 10px; min-height: 22px; }
+QComboBox QAbstractItemView::item:hover { background: #284a75; color: #ffffff; }
+QComboBox QAbstractItemView::item:selected { background: #285fcf; color: #ffffff; }
+QComboBox QAbstractItemView::item:selected:hover { background: #365e91; color: #ffffff; }
 QCheckBox { spacing: 8px; padding: 4px 0; }
 QTableWidget { background: #000000; border: 1px solid #303030; border-radius: 7px; gridline-color: #262626; selection-background-color: #172c4c; selection-color: #b7d0ff; }
 QHeaderView::section { background: #000000; border: 0; border-bottom: 1px solid #303030; padding: 10px; color: #b3b3b3; font-weight: 600; }
@@ -101,6 +107,17 @@ def label(text, name=None):
     if name:
         item.setObjectName(name)
     return item
+
+
+def combo_box():
+    """Use a Qt list popup so pointer hover stays visible on every host theme."""
+    combo = QComboBox()
+    view = QListView(combo)
+    view.setMouseTracking(True)
+    view.viewport().setMouseTracking(True)
+    combo.setView(view)
+    combo.setItemDelegate(QStyledItemDelegate(view))
+    return combo
 
 
 def card(title, description=""):
@@ -201,6 +218,9 @@ class MainWindow(QMainWindow):
         self.prompt_buttons = []
         self.session_log = SessionLog()
         self.backup_rows = []
+        self.discovered_devices = {}
+        self.discovered_device_count = 0
+        self.selected_discovery_key = ""
         self.operation = ""
         self.operation_apply = False
         self.operation_install_only = False
@@ -283,7 +303,7 @@ class MainWindow(QMainWindow):
         row.setSpacing(16)
         model_column = QVBoxLayout()
         model_column.setSpacing(5)
-        model_column.addWidget(label("Which iPhone is it?", "fieldLabel"))
+        model_column.addWidget(label("Phone model", "fieldLabel"))
         self.phone_model = self.model_combo()
         self.phone_model.setAccessibleName("iPhone model")
         self.phone_model.currentIndexChanged.connect(self.model_changed)
@@ -295,7 +315,7 @@ class MainWindow(QMainWindow):
         usb_column.addWidget(self.connection)
         usb_row = QHBoxLayout()
         usb_row.setSpacing(8)
-        self.device_combo = QComboBox()
+        self.device_combo = combo_box()
         self.device_combo.setAccessibleName("USB phone")
         self.device_combo.addItem("No phone detected on USB", "")
         self.device_combo.currentIndexChanged.connect(self.device_changed)
@@ -304,7 +324,7 @@ class MainWindow(QMainWindow):
         usb_column.addLayout(usb_row)
         row.addLayout(usb_column, 5)
         phone_layout.addLayout(row)
-        self.device_detail = label("A phone in DFU or recovery mode may not appear in this list — that is normal. Pick the model and continue.", "muted")
+        self.device_detail = label("Connect your phone and choose Refresh. Its detected model and mode will appear here.", "muted")
         phone_layout.addWidget(self.device_detail)
         work.addWidget(phone_bar)
 
@@ -399,7 +419,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(workspace, 1)
         self.setCentralWidget(outer)
         self.navigate(0)
-        self.sync_timer_flow()
+        self.model_changed()
 
     def build_guidance(self, parent_layout):
         self.guidance_panel = QWidget()
@@ -497,7 +517,7 @@ class MainWindow(QMainWindow):
             options = [{"label": "I'm ready · continue", "value": ""}]
         if options:
             if len(options) > 3:
-                choices = QComboBox()
+                choices = combo_box()
                 choices.setAccessibleName("Choose the next step")
                 for option in options:
                     choices.addItem(option["label"], option["value"])
@@ -622,11 +642,29 @@ class MainWindow(QMainWindow):
         return widget
 
     def model_combo(self):
-        combo = QComboBox()
+        combo = combo_box()
+        # Variant names follow libimobiledevice/libirecovery's device table.
+        # Keep these display-only: item data remains the exact hardware identifier.
+        variants = {
+            "iPhone3,1": "GSM",
+            "iPhone3,2": "GSM, 2012 revision",
+            "iPhone3,3": "CDMA",
+            "iPhone5,1": "GSM",
+            "iPhone5,2": "Global",
+            "iPhone5,3": "GSM",
+            "iPhone5,4": "Global",
+        }
         for model, (name, low, high) in SUPPORTED.items():
-            combo.addItem(name, model)
-            combo.setItemData(combo.count() - 1, model, Qt.ItemDataRole.ToolTipRole)
-        combo.setCurrentIndex(max(0, combo.findData(self.settings.model)))
+            variant = variants.get(model)
+            title = f"{name} ({variant})" if variant else name
+            text = f"{title} · {model}"
+            combo.addItem(text, model)
+            combo.setItemData(combo.count() - 1, text, Qt.ItemDataRole.ToolTipRole)
+        # The popup must fit the full variant and identifier at the current font size.
+        width = max(combo.fontMetrics().horizontalAdvance(combo.itemText(i))
+                    for i in range(combo.count())) + 48
+        combo.view().setMinimumWidth(width)
+        combo.setCurrentIndex(combo.findData(self.settings.model))
         return combo
 
     def file_row(self, placeholder, directory=False):
@@ -682,6 +720,9 @@ class MainWindow(QMainWindow):
 
     def run_timer_step(self):
         if self.busy:
+            return
+        if self.settings.model == "iPhone1,1":
+            self.navigate(2)
             return
         if self.timer_flow.stage == "review":
             self.start_operation("reset", apply=True)
@@ -749,13 +790,19 @@ class MainWindow(QMainWindow):
                          "Any backup created by this operation is available from Backups.",
                          "View backups", "Start again"),
         }[stage]
+        original_iphone = self.settings.model == "iPhone1,1"
+        if original_iphone:
+            title = "Recover an iPhone 2G passcode"
+            description = "The original iPhone uses an older lockout format. Timer reset is not supported for this model."
+            note = "Passcode recovery is available for iPhone OS 2.2–3.1.3."
+            primary = "Open passcode recovery"
         self.timer_title.setText(title)
         self.timer_description.setText(description)
         self.timer_note.setText(note)
         self.timer_primary.setText(primary)
         self.timer_secondary.setText(secondary)
         self.timer_primary.setEnabled(not self.busy)
-        self.timer_secondary.setEnabled(not self.busy)
+        self.timer_secondary.setEnabled(not self.busy and not original_iphone)
         current = ("prepare", "review", "complete").index(stage)
         for index, step in enumerate(self.timer_steps):
             step.setProperty("active", index == current)
@@ -768,14 +815,35 @@ class MainWindow(QMainWindow):
     def recovery_page(self):
         widget, layout = self.page()
         frame, body = card("Start a recovery session",
-                           "Connect one phone by USB and start recovery. Follow the DFU instructions here; recovery then runs automatically on the phone.")
-        body.addWidget(label("1  Connect your phone     →     2  Follow the DFU steps     →     3  Read the passcode on your iPhone", "muted"))
+                           "Connect one phone by USB. From normal mode, Openup enters recovery mode, then guides you through the DFU button steps.")
+        body.addWidget(label("1  Connect your phone     →     2  Follow the DFU steps     →     3  View the recovery result", "muted"))
         self.armv6_notice = label("iPhone 3G tools are included. No separate tools folder is needed.", "notice")
         body.addWidget(self.armv6_notice)
+        self.iphone2g_notice = label(
+            "iPhone 2G: experimental support for iPhone OS 2.2–3.1.3. "
+            "The passcode appears here in Openup. OS 1.x is not supported yet; "
+            "timer reset is unavailable. This recovery path still needs testing on a physical 2G.", "warning")
+        body.addWidget(self.iphone2g_notice)
+        self.a5_notice = label(
+            "<b>iPhone 4S and iPad 2: checkm8-A5 required</b><br>"
+            "Use checkm8-A5 with the required external hardware to enter pwned DFU mode before recovery.<br>"
+            '<a href="https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/checkm8-a5" '
+            'style="color: #8db5ff;">Open the checkm8-A5 guide ↗</a><br>'
+            "iPad 2 recovery is not currently supported in Openup.", "warning")
+        self.a5_notice.setTextFormat(Qt.TextFormat.RichText)
+        self.a5_notice.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        self.a5_notice.setOpenExternalLinks(True)
+        body.addWidget(self.a5_notice)
         self.recovery_start = self.button("Start recovery", lambda: self.start_operation("recover", apply=True), primary=True)
         body.addWidget(self.recovery_start, 0, Qt.AlignmentFlag.AlignLeft)
-        body.addWidget(label("The first run downloads the recovery backend and boot files. The final passcode appears on the iPhone automatically. No Show password menu or terminal input is needed.", "muted"))
+        body.addWidget(label("The first run downloads the recovery backend and boot files. Results appear on the phone or in Openup, depending on the model. No terminal input is needed.", "muted"))
         layout.addWidget(frame)
+        exit_frame, exit_body = card("Leave recovery mode",
+                                    "Restart a phone showing the cable/computer recovery screen. This does not restore or erase it.")
+        self.exit_recovery_button = self.button("Exit recovery mode", lambda: self.start_operation("exit-recovery"))
+        exit_body.addWidget(self.exit_recovery_button, 0, Qt.AlignmentFlag.AlignLeft)
+        exit_body.addWidget(label("Connect only one phone. The first use may download recovery tools. For a black DFU screen, hold Home and Power until the Apple logo appears.", "muted"))
+        layout.addWidget(exit_frame)
         self.recovery_advanced = Disclosure("Advanced options")
         advanced = self.recovery_advanced.body
         advanced.addWidget(label("Custom iPhone 3G tools (optional)", "eyebrow"))
@@ -811,6 +879,9 @@ class MainWindow(QMainWindow):
         self.restore_button = self.button("Restore selected backup…", lambda: self.recover_backup("restore"), primary=True)
         actions.addWidget(self.restore_button)
         body.addLayout(actions)
+        self.delete_backup_button = self.button("Delete selected backup…", self.delete_selected_backup)
+        self.delete_backup_button.setObjectName("danger")
+        body.addWidget(self.delete_backup_button, 0, Qt.AlignmentFlag.AlignLeft)
         self.backup_note = label("", "muted")
         body.addWidget(self.backup_note)
         layout.addWidget(frame)
@@ -886,7 +957,7 @@ class MainWindow(QMainWindow):
         descriptions = ["Choose the task that matches your situation.",
                         "Prepare your phone, review the changes, then reset.",
                         "Follow the on-screen steps to prepare your phone and view the result.",
-                        "Restore original files or finish an interrupted operation.",
+                        "Restore original files, finish interrupted cleanup, or delete a saved backup.",
                         "Keep the app and its included tools up to date.",
                         "Check this computer and adjust connection settings."]
         self.pages.setCurrentIndex(index)
@@ -895,19 +966,41 @@ class MainWindow(QMainWindow):
         self.subtitle.setText(descriptions[index])
 
     def model_changed(self):
-        model = self.phone_model.currentData()
+        model = self.phone_model.currentData() or ""
         self.settings.model = model
         self.invalidate_timer_flow()
         self.armv6_notice.setVisible(model == "iPhone1,2")
+        self.iphone2g_notice.setVisible(model == "iPhone1,1")
         self.ipsw_edit.setEnabled(not self.busy and model == "iPhone1,2")
         if model != "iPhone1,2":
             self.ipsw_edit.clear()
 
     def device_changed(self):
-        selected = self.device_combo.currentData() or ""
-        if selected != self.settings.udid:
+        key = self.device_combo.currentData() or ""
+        device = self.discovered_devices.get(key, {})
+        # Recovery USB identifiers are not usbmux UDIDs and must never reach
+        # the normal-mode kick or the later SSH connection as one.
+        selected = device.get("udid", "")
+        if key != self.selected_discovery_key or selected != self.settings.udid:
+            self.selected_discovery_key = key
             self.settings.udid = selected
             self.invalidate_timer_flow()
+        model = device.get("model")
+        index = self.phone_model.findData(model) if model else -1
+        if index >= 0:
+            self.phone_model.setCurrentIndex(index)
+        if device:
+            mode = str(device.get("mode", "")).lower()
+            name = SUPPORTED.get(model, (model or "USB phone",))[0]
+            shown_mode = {"normal": "Normal mode", "dfu": "DFU mode", "recovery": "Recovery mode"}.get(mode, "USB connected")
+            self.connection.setText(f"{name} · {shown_mode}")
+            if mode == "normal":
+                version = "iOS " + device["version"] + ". " if device.get("version") else ""
+                self.device_detail.setText(version + "Start recovery to enter recovery mode, then follow the DFU button walkthrough.")
+            elif mode in {"dfu", "recovery"}:
+                self.device_detail.setText("The detected hardware variant is selected. Start recovery to continue from this mode.")
+            else:
+                self.device_detail.setText("USB phone detected; its details are unavailable. Choose its model, then start recovery for guided steps.")
 
     def options_dialog(self):
         if self.busy:
@@ -961,6 +1054,7 @@ class MainWindow(QMainWindow):
         valid_backup = 0 <= row < len(self.backup_rows) and self.backup_rows[row]["valid"]
         self.restore_button.setEnabled(not self.busy and valid_backup)
         self.finalize_button.setEnabled(not self.busy and valid_backup)
+        self.delete_backup_button.setEnabled(not self.busy and 0 <= row < len(self.backup_rows))
         self.sync_timer_flow()
 
     def set_busy(self, busy, message="Ready"):
@@ -1008,6 +1102,12 @@ class MainWindow(QMainWindow):
     def start_operation(self, action, *, apply=False, backup=None, install_only=False):
         if self.busy:
             return
+        if (action in {"prepare", "exit-recovery"} or (action == "recover" and apply)) and self.discovered_device_count > 1:
+            QMessageBox.information(self, "Connect one phone",
+                                    "Disconnect the other phones, then choose Refresh before starting recovery or ramdisk preparation.")
+            return
+        if action == "exit-recovery":
+            self.timer_flow.invalidate()
         if action == "reset" and apply and not self.timer_flow.can_apply:
             QMessageBox.information(self, "Inspect the phone first",
                                     "Prepare or inspect this phone, then review the proposed changes before resetting.")
@@ -1179,7 +1279,7 @@ class MainWindow(QMainWindow):
         copy = action_copy(self.operation, apply=self.operation_apply, install_only=self.operation_install_only)
         self.set_busy(False, "Task stopped" if self.interrupted else copy.success if code == 0 else copy.failure)
         self.session_hint.setText("Read the result below. Save log includes the full diagnostic session." if self.operation != "devices" else
-                                  "Choose a task above. A phone in DFU may not appear in the USB list.")
+                                  "Choose a task above. Refresh after connecting or changing your phone’s mode.")
         if self.operation != "devices" or code != 0:
             self.show_result(code)
         if self.process:
@@ -1188,24 +1288,37 @@ class MainWindow(QMainWindow):
         self.refresh_backups()
 
     def populate_devices(self, devices):
-        selected = self.settings.udid
+        selected = self.device_combo.currentData() or self.settings.udid
         self.device_combo.blockSignals(True)
         self.device_combo.clear()
+        self.discovered_devices = {}
+        self.discovered_device_count = len(devices)
         if not devices:
-            self.device_combo.addItem("No USB phone listed", "")
+            self.device_combo.addItem("No USB phone detected", "")
         elif len(devices) > 1:
             self.device_combo.addItem("Choose a connected phone", "")
         for device in devices:
-            udid = device["udid"]
-            self.device_combo.addItem("USB phone · …" + udid[-8:], udid)
-            self.device_combo.setItemData(self.device_combo.count() - 1, udid, Qt.ItemDataRole.ToolTipRole)
+            udid = device.get("udid", "")
+            key = device.get("selection_id") or udid
+            if not key or key in self.discovered_devices:
+                continue
+            self.discovered_devices[key] = dict(device)
+            model = device.get("model")
+            name = SUPPORTED.get(model, (model or "USB phone",))[0]
+            mode = str(device.get("mode", "")).lower()
+            shown_mode = {"normal": "Normal", "dfu": "DFU", "recovery": "Recovery"}.get(mode, "USB")
+            suffix = " · …" + udid[-8:] if udid else ""
+            self.device_combo.addItem(f"{name} · {shown_mode}{suffix}", key)
+            self.device_combo.setItemData(self.device_combo.count() - 1,
+                                         " · ".join(str(value) for value in (model, device.get("board"), udid) if value),
+                                         Qt.ItemDataRole.ToolTipRole)
         if selected and self.device_combo.findData(selected) >= 0:
             self.device_combo.setCurrentIndex(self.device_combo.findData(selected))
         self.device_combo.blockSignals(False)
+        self.connection.setText(f"{len(devices)} USB phone{'s' if len(devices) != 1 else ''} detected" if devices else "No USB phone detected")
+        self.device_detail.setText("Choose a phone above. Connect only one phone for recovery or ramdisk preparation." if devices else
+                                   "Connect your phone and choose Refresh. You can also start recovery for a guided connection check.")
         self.device_changed()
-        self.connection.setText(f"{len(devices)} USB phone{'s' if len(devices) != 1 else ''} listed" if devices else "No USB phone listed")
-        self.device_detail.setText("Choose the matching model. Inspecting the phone reads its installed iOS and lockout state." if devices else
-                                   "A phone in DFU may still be connected. Choose its model above and start a task.")
 
     def send_input(self):
         if self.process is not None and self.busy and self.manual_input.isChecked():
@@ -1292,6 +1405,61 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Choose a valid backup", "Select a verified transaction or choose its folder.")
             return
         self.start_operation(action, apply=True, backup=self.backup_rows[row]["path"])
+
+    def backup_delete_dialog(self, title, text, confirm=None):
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle(title)
+        dialog.setIcon(QMessageBox.Icon.Warning)
+        dialog.setTextFormat(Qt.TextFormat.PlainText)
+        dialog.setText(title)
+        dialog.setInformativeText(text)
+        if confirm:
+            dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel)
+            dialog.button(QMessageBox.StandardButton.Yes).setText(confirm)
+            dialog.setDefaultButton(QMessageBox.StandardButton.Cancel)
+            dialog.setEscapeButton(QMessageBox.StandardButton.Cancel)
+        else:
+            dialog.setStandardButtons(QMessageBox.StandardButton.Ok)
+        return dialog.exec() == QMessageBox.StandardButton.Yes
+
+    def delete_selected_backup(self):
+        if self.busy:
+            return
+        row = self.backup_table.currentRow()
+        if not 0 <= row < len(self.backup_rows):
+            return
+        state = state_directory()
+        path = self.backup_rows[row]["path"]
+        try:
+            snapshot = prepare_backup_deletion(path, state)
+        except (ResetError, OSError) as exc:
+            self.refresh_backups()
+            self.backup_delete_dialog("Could not delete backup", str(exc))
+            return
+        consequence = ("This permanently removes the local recovery copy needed to restore the original files "
+                       "or finish an interrupted transaction. It cannot be undone. Your phone is not changed.")
+        if not snapshot.valid:
+            consequence += "\n\nThis backup is invalid; deleting it also removes any files that might still be recoverable."
+        elif snapshot.status not in {"committed", "restored", "rolled_back", "not_started"}:
+            consequence += "\n\nThis transaction is unfinished. Deleting its backup may prevent restoration or interrupted cleanup."
+        details = f"Folder:\n{snapshot.path}\n\nStatus: {snapshot.status}\n\n{consequence}"
+        if not self.backup_delete_dialog("Delete selected backup?", details, "Continue") or self.busy:
+            return
+        if not self.backup_delete_dialog("Permanently delete this backup?", details, "Delete permanently") or self.busy:
+            return
+        self.set_busy(True, "Deleting backup…")
+        error = None
+        try:
+            delete_backup(snapshot, state)
+        except (ResetError, OSError) as exc:
+            error = str(exc)
+        finally:
+            self.set_busy(False, "Backup deletion needs attention" if error else "Backup deleted")
+            self.refresh_backups()
+        if error:
+            self.backup_delete_dialog("Backup deletion did not finish", error)
+        else:
+            self.backup_note.setText(f"Deleted backup: {snapshot.path}")
 
     def open_backups(self):
         folder = state_directory() / "backups"

@@ -34,21 +34,36 @@ SYSTEM_VERSION = "/mnt1/System/Library/CoreServices/SystemVersion.plist"
 ALLOWED_PATHS = (PREFS, JOURNAL)
 MAX_FILE = 8 * 1024 * 1024
 SUPPORTED = {
+    "iPhone1,1": ("iPhone 2G", (2, 2, 0), (3, 1, 3)),
     "iPhone1,2": ("iPhone 3G", (4, 0, 0), (4, 2, 1)),
     "iPhone3,1": ("iPhone 4", (6, 0, 0), (7, 1, 2)),
     "iPhone3,2": ("iPhone 4", (6, 0, 0), (7, 1, 2)),
     "iPhone3,3": ("iPhone 4", (6, 0, 0), (7, 1, 2)),
     "iPhone4,1": ("iPhone 4S", (6, 0, 0), (9, 3, 6)),
-    "iPhone5,1": ("iPhone 5", (6, 0, 0), (10, 3, 4)),
-    "iPhone5,2": ("iPhone 5", (6, 0, 0), (10, 3, 4)),
-    "iPhone5,3": ("iPhone 5c", (7, 0, 0), (10, 3, 3)),
-    "iPhone5,4": ("iPhone 5c", (7, 0, 0), (10, 3, 3)),
+    "iPhone5,1": ("iPhone 5", (6, 0, 0), (10, 2, 1)),
+    "iPhone5,2": ("iPhone 5", (6, 0, 0), (10, 2, 1)),
+    "iPhone5,3": ("iPhone 5c", (7, 0, 0), (10, 2, 1)),
+    "iPhone5,4": ("iPhone 5c", (7, 0, 0), (10, 2, 1)),
 }
+APFS_UNSUPPORTED = (
+    "APFS volumes (iOS 10.3 and later) are not supported for timer reset. "
+    "This release requires legacy HFS system/data volumes."
+)
 REMOVE_KEYS = (
     "SBDeviceLockBlockTimeIntervalSinceReferenceDate",
     "SBDeviceLockBlockStateGeneration",
     "SBDeviceLockCachedVCCaps",
 )
+IPHONE2G_TIMER_UNSUPPORTED = (
+    "iPhone 2G supports passcode recovery and read-only inspection. "
+    "Timer reset is not supported for its older lockout format."
+)
+
+
+def validate_timer_identity(identity):
+    identity.validate()
+    if identity.model == "iPhone1,1":
+        raise ResetError(IPHONE2G_TIMER_UNSUPPORTED)
 
 
 def digest(data):
@@ -70,7 +85,7 @@ def plist(data, label):
 def compatible(model, version):
     if not isinstance(model, str) or model not in SUPPORTED:
         raise ResetError(
-            f"{model!r} is unsupported. Timer reset accepts iPhone 3G/4/4S/5/5c "
+            f"{model!r} is unsupported. This release recognizes iPhone 2G/3G/4/4S/5/5c "
             "only; iPhone 5s and newer are excluded."
         )
     if not isinstance(version, str) or not re.fullmatch(r"[0-9]{1,2}\.[0-9]{1,2}(?:\.[0-9]{1,2})?", version):
@@ -78,6 +93,8 @@ def compatible(model, version):
     parts = tuple(int(x) for x in version.split("."))
     parts += (0,) * (3 - len(parts))
     name, low, high = SUPPORTED[model]
+    if model.startswith("iPhone5,") and parts >= (10, 3, 0):
+        raise ResetError(APFS_UNSUPPORTED)
     if not low <= parts <= high:
         raise ResetError(f"{name} on iOS {version} is outside this release's range.")
     return name
@@ -138,7 +155,7 @@ def patch_preferences(original):
 
 
 def make_plan(device, identity):
-    identity.validate()
+    validate_timer_identity(identity)
     original, metadata = device.read(PREFS)
     after, before_normal, values = patch_preferences(original)
     notes = [
@@ -279,7 +296,7 @@ def restore_files(device, manifest, originals):
 
 
 def apply_plan(device, plan, backup_root, on_backup=None):
-    plan.identity.validate()
+    validate_timer_identity(plan.identity)
     if not plan.changes:
         return None
     folder, manifest = make_backup(plan, backup_root)
@@ -382,7 +399,7 @@ def load_backup(folder):
         if not re.fullmatch(r"[a-f0-9]{32}", token):
             raise ValueError("invalid transaction identifier")
         identity = Identity(**manifest["identity"])
-        identity.validate()
+        validate_timer_identity(identity)
         entries = manifest["files"]
         if not isinstance(entries, list) or not 1 <= len(entries) <= 2:
             raise ValueError("invalid file list")

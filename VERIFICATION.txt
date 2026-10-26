@@ -1,3 +1,548 @@
+Openup 2.3.20 — clearer phone variants and Exit recovery mode
+Verification date: 2026-10-25
+
+Includes the GSM/CDMA/Global/2012-revision picker labels with visible identifiers,
+and a GUI action to request normal boot from recovery without restoring or erasing.
+All existing bundled Python 2 runtimes are retained unchanged.
+Published from clean source `83f812ffbd8056b2488111396f3b5d3e5ca5fe01`.
+All 580 source tests passed (55.526s,
+zero skips); the actual Apple Silicon app passed all 580 tests (101.841s),
+launcher, strict signatures before/after execution and inventory checks.
+Both Mac archives passed architecture/deployment checks and strict signatures;
+the complete Intel app was not executed in this release validation.
+All five archives, four updater install/rollback/reactivation cycles, and ten
+uploaded asset size/hash comparisons passed.
+
+All four CI jobs passed for the release source:
+https://github.com/channelramble/Openup/actions/runs/40244694543
+macOS/Python 3.13: 580 passed, zero skips; macOS/Python 3.9: 522 passed,
+58 dependency skips; Linux: 577 passed, 3 platform skips; Windows: 448 passed,
+132 platform skips. All-platform CI packaging also passed.
+
+Public updater metadata selects 2.3.20 for all four platforms with matching
+hashes. The first immediate anonymous lookup briefly returned GitHub's cached
+2.3.19 listing; the unmodified updater selected 2.3.20 on retry.
+The actual public native download passed app-owned Python 2 startup with PATH
+limited to system tools, launcher/self-test, strict signatures, installation,
+rollback and reactivation in temporary state.
+Physical exit-recovery and successful normal boot remain unverified. No phone,
+installed app or real backup was changed during release validation.
+Old local 2.3.19 archives and temporary test fixtures were deleted; dist/ keeps
+only 2.3.20. Small QA logs and helpers remain under build/release-qa/.
+
+---- Previous release ----
+
+Openup 2.3.19 — bundled Python 2 for desktop backends
+Verification date: 2026-10-25
+
+Every desktop download includes CPython 2.7.18 at python2-runtime. Apple Silicon
+and Intel packages use native Mac builds; Linux and Windows/WSL use the Linux
+x86_64 runtime. Both recovery and ramdisk preparation receive a child PATH that
+selects its absolute app-owned wrapper. Desktop mode never falls back to an
+external interpreter. Preflight checks version, pointer width, relocated prefix
+and ctypes/hashlib/struct/zlib imports; missing/damaged runtimes stop before the
+backend launches. Runtime/bin directory links and leaf links are rejected.
+
+The recipes use pinned official CPython source. Mac compatibility patches are
+pinned to pyenv 0effba62c4bbf8f8ca2ad8f0eabbfd8221cc7bc6. Both Mac runtimes passed
+actual execution, relocation into paths with spaces, hostile Python settings,
+ctypes callbacks, hashlib/zlib/bz2 and 64-bit checks. All 93 Mach-O images in each
+runtime target the intended architecture and deployment target (arm64 14.0,
+x86_64 12.0), with only system-library load paths. Linux runtime execution and
+relocation passed on Ubuntu 22.04, using bundled libffi/bzip2/zlib dependencies.
+Runtime source hashes, files, archive hashes, licenses and build provenance are
+recorded in packaging/python2/manifest.json and third_party/python2-runtime.
+
+Native Intel build and smoke check:
+https://github.com/channelramble/Openup/actions/runs/40219392588
+Linux artifact build and smoke check:
+https://github.com/channelramble/Openup/actions/runs/40219260421
+The MacBook was unreachable; the Intel check ran on a native Intel CI Mac.
+
+All 573 source tests passed with both pinned backend fixtures and zero skips
+(51.719s). New cases cover automatic runtime selection, no external desktop
+fallback, preservation of the Python 3 parent environment, wrong interpreter
+identity, bounded startup failures, symlink redirection, WSL flag forwarding,
+archive corruption/traversal, and actual native relocation. Linux CI also checks
+that non-glibc ELF dependencies resolve inside the relocated runtime.
+
+This release changes host runtime packaging. No phone was booted or otherwise
+operated on, and no new physical recovery success is claimed. The existing
+pinned backend remains in use; the separate unfinished Python 3/native-loader
+experiment was preserved outside this isolated release worktree.
+PUBLISHED PACKAGE VALIDATION, clean revision
+dc2cde869ae8f6f4750fe5c38d27e411edd9b428:
+- The actual Apple Silicon application passed all 573 tests with zero skips
+  (104.413s), bundled launcher, strict signatures before/after execution and
+  complete inventory checks. Parent and shell children imported packaged code.
+- Both Mac apps passed architecture/deployment/system-dependency checks for all
+  318 Mach-O images and strict signing. The Intel Python 2 runtime was executed
+  on native Intel CI; the complete Intel app was not rerun on the unreachable
+  MacBook during this continuation.
+- All five archive inventory/hash/mode/provenance checks passed, including exact
+  Python 2 inputs and source recipes, all 839 Mac runtime files, all 918 Linux/WSL
+  runtime files and retained 2G helper/source correspondence.
+- All four updater install, rollback and reactivation cycles passed. All ten
+  uploaded asset sizes and SHA-256 digests matched the verified local files.
+- All four public update selections matched 2.3.19. The actual native public
+  download passed app-owned Python 2 startup with a system-only PATH, app launch,
+  strict signatures, rollback and reactivation in temporary state.
+- All four CI jobs and all-platform packaging passed:
+  https://github.com/channelramble/Openup/actions/runs/40220138527
+  macOS/Python 3.13: 573 passed, 0 skipped (50.192s).
+  macOS/Python 3.9: 516 passed, 57 desktop-dependency skips (62.509s).
+  Ubuntu/Python 3.13: 570 passed, 3 Darwin-header skips (55.513s).
+  Windows/Python 3.13: 441 passed, 132 platform-specific skips (27.651s).
+  Real bundled-runtime relocation and ambient-environment isolation passed on
+  macOS and Linux; Linux verified all non-glibc ELF dependencies resolve inside
+  the relocated runtime. Mock backend fixtures isolate preflight, while the
+  dedicated runtime tests retain actual interpreter execution.
+
+The release tag points to the clean source revision above. Temporary compiler
+trees, copied fixtures and obsolete 2.3.18 archives were removed. Only current
+2.3.19 distributions remain in the release worktree; small logs/helpers are in
+build/release-qa/. The unrelated unfinished worktree/cache were preserved.
+
+----------------------------------------------------------------------
+
+Openup 2.3.18 — blank model picker, hover feedback and original-iPhone recovery
+Verification date: 2026-10-25
+
+The model field starts truly empty (index -1), with no silent 3G fallback.
+Automatic supported-model discovery remains enabled. Native Cocoa popup renders
+showed the hovered row change from #000000 to #365e91 while selection stayed -1;
+opening/dismissing the popup preserves blank selection. GUI boot actions require
+a selected model; downloads and inspection remain available independently.
+
+New iPhone1,1 support is EXPERIMENTAL and limited to installed iPhone OS
+2.2-3.1.3, recognized keychain schema v3, read-only inspection and passcode
+recovery. Timer mutations and timer backups are explicitly rejected for 2G.
+OS 1.x/2.0/2.1 are not implemented. Research consulted the public iPhone 2Gkit
+4e23a7434e8bc5e1d8f9a95bd1c8248a2c2bbc75 and the pinned original Data Protection
+Tools parser; the older one-shot installer/activation routines were not imported.
+
+Pinned Legacy-iOS-Kit 23622f8fe72c09952089d5145a7b008cfcc90d9b builds the m68
+3.1.3/7E18 RAM disk. Singleton physical USB, real patched-DFU chip/board and
+exact m68 iBSS build checks precede uploads. Zero ECID is permitted only for
+selected original-iPhone hardware; later-phone positive-ECID checks remain.
+Stock SSH startup was audited: its restore services contain NAND mount/check
+and NVRAM operations. The 2G adapter replaces rc.boot with its own RAM/USB/SSH
+helper, with no stock restore service, mount.sh, repair or NVRAM invocation.
+The USB owner stays alive while supervising foreground SSH. A random per-boot
+40-byte RAM serial binds the host handoff; the old normal-mode UDID is not
+reused as the RAM endpoint. Both NAND volumes must be read-only, and SQLite
+journals/unknown schemas/generated columns prevent passcode decoding.
+
+The final ARMv6 helper was built twice using the 3.1.3 SDK and pinned legacy
+linker; bytes matched. All 62 imports resolve against actual 7E18 RAM libraries;
+LC_UNIXTHREAD, minimum 3.1, SDK 3.1.3, strict signature verification and primary
+SHA-1/alternate SHA-256 code-page hashes passed. Source hashes and complete source
+ZIP match the helper manifest. Details: third_party/iphone2g-helper/VALIDATION.json.
+
+Real offline image construction executed the adapted pinned device_ramdisk
+function with genuine 2G 3.1.3 firmware and actual xpwntool/hfsplus/bspatch. The
+fixture returns before the USB path and makes any unexpected entry fail.
+All four components were produced. Extracted final helper, reviewed rc.boot and
+synthetic session matched exactly; session metadata was root:root, 0600, 40 bytes.
+The actual image exposed /etc as a symlink, so the helper uses canonical
+/private/etc and checks RAM device numbers before reading its session file.
+
+PHYSICAL SCOPE: no iPhone 2G was booted, mounted, repaired or recovered. A
+read-only MacBook inventory query returned exactly one DFU endpoint (PID 1227).
+That validates the new host inventory against the connected phone, not 2G boot
+or key recovery. No installed app or real backup was changed in this work.
+
+All 562 source tests passed with zero skips (53.430s), using both pinned shell
+fixtures. Desktop self-test, dependency check and pip check passed. Coverage
+includes real pinned shell transition/stage gates, actual portable C SSH-owner
+lifetime, exact normal-to-RAM-session targeting, read-only mounts and rejected
+timer writes, malicious/corrupt SQLite formats and safe result display. Native
+helper imports, signatures, source correspondence and offline image construction
+were verified separately above.
+
+PUBLISHED PACKAGE VALIDATION, clean revision
+6edf1a5a398a3610cc8df7da552077dd0825a5a6:
+- Both actual Mac packages passed 562 tests with zero skips: native arm64
+  (98.673s) and x86_64 under Rosetta on the MacBook (166.343s). Parent and shell
+  child imports used the packaged modules. Launchers, strict code signatures
+  before/after execution and complete bundle inventories passed.
+- All five source/desktop archive checks passed, including clean provenance,
+  modes, content hashes and exact 2G helper/startup/source correspondence.
+- All four updater install, rollback and reactivation cycles passed. All ten
+  uploaded asset sizes and SHA-256 digests matched the local verified files.
+- All four public update selections matched 2.3.18. The native public download
+  passed install, launch, signature checks, rollback and reactivation in temporary
+  state. The release tag points to the exact clean revision above.
+- GitHub CI passed all four jobs and desktop packaging:
+  https://github.com/channelramble/Openup/actions/runs/40172698603
+  macOS/Python 3.13: 562 passed, 0 skipped (53.356s).
+  macOS/Python 3.9: 505 passed, 57 desktop-dependency skips (68.751s).
+  Ubuntu/Python 3.13: 559 passed, 3 Darwin-header skips (37.940s).
+  Windows/Python 3.13: 431 passed, 131 platform-specific skips (24.844s).
+  Test fixtures isolate cancellation from subprocess cleanup and represent
+  Linux USB interface names without creating invalid NTFS paths. Phone startup
+  shell fixtures run on POSIX; Windows uses the WSL backend in production.
+
+Ignored logs/helpers are under build/release-qa/ with 2318 suffixes. Temporary
+firmware, SDKs, images, desktop cache and MacBook copies were removed; the small
+offline report remains as 2g-offline-verification-2318.json. Obsolete 2.3.17
+archives were removed; dist/ retains only the published 2.3.18 release. No
+installed app or real user backup was changed. Physical 2G validation remains
+outstanding as explicitly stated above.
+
+----------------------------------------------------------------------
+
+Openup 2.3.17 — iPhone discovery and checked Recovery/DFU entry
+Verification date: 2026-10-25
+
+The supplied 2.3.16 log detected iPhone5,1 in DFU and stopped because the GUI
+selected iPhone5,2. It did not establish a DFU transport failure. Both variants
+previously shared the same visible name. The GUI now distinguishes variants
+and automatically selects a detected supported model. Exact hardware rejection
+remains enabled; recovery identifiers are never passed as normal-mode UDIDs.
+
+Normal USB rows remain visible when locked-device metadata cannot be read.
+Read-only unpaired lockdownd queries enrich available model/board/iOS details.
+On macOS, a bounded native USB inventory supplements usbmuxd with recognized
+Recovery/DFU phones. Both current and older system_profiler schemas are handled.
+Discovery only supplies UI hints; the recovery backend independently verifies
+identity before a mode transition or firmware upload.
+
+Both pinned backend adapters preserve the selected normal USB serial, try
+simple and paired identity reads, check the single recovery-entry command, and
+verify model/board/ECID continuity while waiting for Recovery and guided DFU.
+Unreadable normal identity offers manual Recovery instructions. A failed or
+timed-out entry request is not repeated or treated as successful entry.
+The separate 3G firmware-stage checks and timer transaction rules remain.
+
+PHYSICAL OBSERVATION:
+- The updated discovery code was run read-only on the MacBook with the user's
+  connected iPhone 5. It returned iPhone5,1 / n41ap / DFU. No private identifier
+  is included in this record. The GUI selected iPhone5,1 from that inventory.
+- After the user confirmed the current DFU connection, discovery passed again.
+  The new backend helper also queried the phone through the cached native
+  irecovery tool: iPhone5,1 / DFU was accepted and iPhone5,2 was rejected on
+  chip/board identity. Both checks were read-only; no firmware was uploaded.
+- No normal-mode reboot, firmware upload, ramdisk startup, passcode recovery
+  or timer reset was performed in this continuation. Normal → Recovery → DFU
+  still needs a physical test with the user available for the button steps.
+- No installed app was replaced and no real user backup was deleted.
+
+All 473 source tests passed with both pinned backend fixtures and zero skips
+under Python 3.13.16 (43.835s). Desktop self-test and dependency checks passed.
+Coverage includes both actual pinned shell entry paths for both iPhone 5
+variants, absent USB gaps, selected serials, failed/timeout entry requests,
+changed device identity, stale/late observations, bounded query output, Stop
+cleanup, GUI variant selection and read-only discovery protocol framing.
+The old isolated 3G identity fixture explicitly stubs the new entry hook so
+it cannot query host USB; the shared entry path has separate pinned-shell tests.
+
+PUBLISHED PACKAGE VALIDATION, clean revision
+71857b98b9e351e982a7e16f47e1f9d839a62877:
+- 473 tests passed with zero skips in each Mac package: native arm64 (91.805s)
+  and x86_64 under Rosetta on the MacBook (139.968s). Parent and shell-fixture
+  child interpreters were checked to import the packaged modules. The temporary
+  test-source customization did not modify the signed application.
+- Both bundled launchers, strict ad-hoc signatures before/after execution,
+  final exact inventories and architecture/deployment checks passed.
+- All four updater install/rollback/reactivation cycles and all five archive
+  inventory, mode, payload, hash and clean-provenance checks passed. The source
+  ZIP has exactly 181 inventoried files with no duplicate or unlisted entries.
+- All ten GitHub asset sizes and SHA-256 digests matched local builds. Public
+  platform selections matched 2.3.17 on all four targets. An actual public
+  native download passed install, launch/self-test, rollback and reactivation
+  in temporary state; no installed app was replaced.
+- GitHub CI passed all four jobs, including native Windows tests, Python 3.9
+  compatibility and all-platform packaging:
+  https://github.com/channelramble/Openup/actions/runs/40170261473
+- Logs/helpers remain in ignored build/release-qa/ with -2317 suffixes.
+  Build caches, private probe captures, obsolete 2.3.16 archives and temporary
+  MacBook extractions were removed; dist/ retains only this release. The user's
+  supplied log was not copied into the repository or deleted.
+- This is a documentation-only follow-up to the release source commit.
+  Rosetta does not establish native Intel/Monterey USB behavior. Existing
+  physical-device and native Windows/Linux desktop-launch limits remain.
+
+Historical records follow.
+============================================================
+Openup 2.3.16 — confirmed backup deletion and GUI button guidance
+Verification date: 2026-10-25
+
+Includes the GUI deletion, Stop/Continue guidance and checkm8-A5 warning
+prepared in the unpublished 2.3.14/2.3.15 drafts below. The 2.3.15 Windows CI
+job caught deletion rejecting unchanged files because a descriptor-based file
+snapshot was compared to path-based stat metadata. This release reopens the
+current regular file and compares descriptor metadata and content hashes
+consistently. Directory identity stays path-based on Windows. Both explicit
+confirmations, link/reparse rejection, exact file scope and host locking remain.
+
+All 416 source tests passed with both pinned backend fixtures and zero skips
+under Python 3.13.16 (34.174s). The 20 deletion tests include two Windows-path
+regressions: a descriptor/path metadata difference still permits the confirmed
+backup deletion, and changed bytes with identical metadata stop before unlink.
+The previously checked Qt dialogs and guidance are unchanged by this fix.
+
+PUBLISHED PACKAGE VALIDATION, clean revision
+ff3a64168fd8589937a29031a3011cd59202d086:
+- 416 tests passed with zero skips inside each Mac package: native arm64
+  (77.849s) and x86_64 under Rosetta on the MacBook (118.192s).
+- Both bundled launchers, strict ad-hoc signatures before/after execution and
+  final exact file inventories passed.
+- All four updater install/rollback/reactivation cycles and all five archive
+  inventory, file-mode, payload, hash and clean-provenance checks passed.
+- All ten GitHub asset sizes and SHA-256 digests matched local builds. All four
+  public platform selections matched 2.3.16. The native public download passed
+  actual install, launch/self-test, rollback and reactivation in temporary state.
+  GitHub's public release feed briefly returned 2.3.13 immediately after
+  publication; the normal updater request returned 2.3.16 on retry.
+- GitHub CI passed all four jobs, including native Windows deletion tests and
+  all-platform packaging: https://github.com/channelramble/Openup/actions/runs/40165713950
+- Superseded unpublished drafts 2.3.14/2.3.15 were removed. Only current 2.3.16
+  distribution files are retained locally. Build caches and temporary local/
+  MacBook extractions were removed. No installed app or real user backup was
+  replaced/deleted during validation; no phone recovery operation was run.
+- This record is a docs-only follow-up to the release commit. Rosetta is not
+  native Intel/Monterey or physical Intel USB verification. Existing physical
+  device and native Windows/Linux desktop-launch limits remain unchanged.
+
+Historical records follow.
+============================================================
+Openup 2.3.15 (unpublished draft) — GUI backup deletion and desktop cancellation guidance
+Verification date: 2026-10-25
+
+The Backups page offers deletion of the selected local transaction after two
+separate confirmation dialogs. Each cancellation path preserves the backup.
+The dialogs identify the exact folder and explain permanent removal of the
+saved restore/recovery copy. No phone files are changed by deletion.
+
+Desktop prompt/progress guidance uses the GUI's Stop and Continue controls.
+Raw diagnostic output and CLI instructions retain their original text; the
+reply and graceful-interruption protocol is unchanged.
+
+Includes the iPhone 4S / iPad 2 checkm8-A5 warning and linked setup guide that
+were prepared for 2.3.14. That draft was superseded before publication.
+No additional hardware recovery or timer-clearance validation is claimed.
+
+All 414 source tests passed with both pinned backend fixtures and zero skips
+under Python 3.13.16 (35.244s). This includes 18 new backup-deletion tests and
+five new session/CLI-guidance regressions. Coverage includes cancellation at
+either dialog, stale contents, host-lock contention, unrelated files, links,
+renamed external backups, damaged journal-only backups, and partial deletion.
+The guidance checks preserve prompt identity, delayed-duplicate suppression,
+path-entry defaults, original CLI text, and exactly one graceful interrupt.
+
+Real Qt verification used disposable fake backups at the minimum 940x680 window
+size. The Delete control is reachable in the scrollable Backups page. Both
+visible questions, exact folder, Cancel defaults and Escape handling were
+checked; the folder survived the first click and was removed only after the
+second, with a sibling folder preserved. Questions are in QMessageBox text,
+not only the window title that macOS omits. No real user backup was deleted.
+
+Historical records follow.
+============================================================
+Openup 2.3.14 (unpublished draft) — checkm8-A5 recovery warning and guide
+Verification date: 2026-10-25
+
+The recovery page shows a visible iPhone 4S / iPad 2 checkm8-A5 prerequisite
+warning immediately before Start recovery, with the user-requested guide:
+https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/checkm8-a5
+The warning explains the external-hardware/pwned-DFU preparation and states
+that iPad 2 recovery is not currently supported in Openup. CLI doctor and
+README include the same resource. Device gates and recovery code are unchanged.
+
+All 391 source tests passed with both pinned backend fixtures and zero skips.
+UI verification: all 49 existing GUI/workflow tests passed. Rendered the recovery
+page at the minimum 940×680 window size with iPhone 4S selected; the notice and
+Start recovery remained visible. Rich text and keyboard-accessible external
+links are enabled. A real Qt mouse click on the guide dispatched the exact
+requested URL to an intercepted QDesktopServices handler; no browser or device
+operation was started by that check.
+
+The linked Legacy iOS Kit guide was read: it identifies iPhone 4S and iPad 2 as
+A5 devices and documents the external hardware required for pwned DFU. This
+release adds guidance; it does not claim new hardware recovery validation.
+
+Historical records follow.
+============================================================
+Openup 2.3.13 — bounded recovery-console waits and corrected HFS compatibility
+Verification date: 2026-10-25
+
+The supplied Openup Chat 2 recovery log verified the 3.1.3 iBSS, then failed
+at "Recovery console verification timed out" after sending the 4.2.1 iBEC.
+No ramdisk was sent. This is separate from v2.3.12's verified timer reset.
+The previous chat's inconsistent console observations do not prove hub data
+corruption or successful iBEC startup. In particular, SRTG=N?A in a summary
+is the existing diagnostic sanitizer replacing the slash in N/A.
+
+Changes:
+- Console reads use a polled subprocess with a 30-second per-read allowance
+  and a 90-second overall stage deadline. Countdown updates continue while a
+  read is pending. Timeout, failed and oversized reads cannot authorize an
+  upload; pending children and private temporary files are cleaned up.
+- Missing/malformed observations and unverified console banners may be retried.
+  A concrete different chip/board or conflicting USB identity stops immediately.
+  Only the exact expected stage + n82ap + build is accepted; installed iBoot,
+  mixed banners and output arriving after the deadline remain rejected.
+- iPhone 5/5c timer-reset gates stop at iOS 10.2.1. iOS 10.3 APFS is outside
+  the HFS-only implementation; mounted APFS reports an explicit unsupported
+  error. Known selected/connected model mismatch stops before mounting.
+
+Live read-only check on the Apple Silicon MacBook through the USB-C hub:
+- The connected 3G exposed the expected S5L8900 / board 04 Recovery endpoint.
+- A console read completed in 0.6 seconds and reported iBoot for n82ap /
+  iBoot-931.71.16. Its device identifier matched the USB query (identifiers
+  deliberately omitted here). That is NOT a verified iBEC handoff.
+- The patched read-only verifier rejected the unverified endpoint at a
+  three-second test deadline (3.02 seconds observed), emitted progress, and
+  cleaned up its child. This is a rejection test, not a successful boot test.
+- No firmware was uploaded and no phone files were changed in these checks.
+
+All 391 source tests pass with both pinned script fixtures under Python 3.13.16,
+with no skips. This includes 28 recovery-timing tests and 41 upstream shell
+integration tests. The packaged Intel test exposed an overly long fake-clock
+fixture, now limited to a three-second simulated stage wait; the production
+90-second deadline remains unchanged. Independent code review found no blocking
+defect. Desktop self-test and dependency checks also pass.
+
+PUBLISHED PACKAGE VALIDATION, clean revision
+8f90c0be7952b51b0e7bfe57a305651d1ef1635a:
+- All 391 tests passed with zero skips inside each Mac package: native arm64
+  (83.062s) and x86_64 under Rosetta on the MacBook (125.368s).
+- Both bundled native launchers and strict ad-hoc signatures passed before
+  and after execution; final file inventories were unchanged.
+- Four desktop ZIPs and source ZIP passed inventory, mode, hash and clean
+  provenance checks. All four updater install/rollback/reactivation cycles
+  passed in isolated temporary state. Ten uploaded asset digests matched.
+- The published native package passed actual download, verification,
+  installation, launcher self-test, rollback and reactivation. All four public
+  platform asset selections matched the release and expected checksums.
+- GitHub CI completed successfully for all four jobs, including packaging:
+  https://github.com/channelramble/Openup/actions/runs/40164046885
+- This verification record is a docs-only follow-up to the release commit.
+  Rosetta and CI success do not establish the physical device limits below.
+
+Model verification scope:
+- 3G / iOS 4.2.1: v2.3.12 timer plist commit, read-back and restore were
+  physically verified. Visible clearance after reboot and a recovered passcode
+  remain unverified. This release's fresh full recovery boot remains pending.
+- 4 / 4S: shared HFS and pinned adapter tests; no physical model-specific proof.
+  A5 pwnDFU on the 4S still requires the documented external setup.
+- 5 / 5c: boundary coverage for all four products and shared SSH fixtures
+  (full transaction fixture uses iPhone5,2 / iOS 9.3.5), not physical validation.
+- Windows/Linux device access, WSL USB forwarding, Intel-Mac USB recovery,
+  and native Monterey execution remain unverified by this work.
+
+Historical records follow.
+============================================================
+Openup 2.3.12 — missing ramdisk binaries; FIRST physical iPhone 3G reset
+Verification date: 2026-10-25
+
+Driven by a physical session log (2.3.11) on an Apple Silicon Mac (M4 Pro) that
+got the whole way to the reset write and then failed with
+"Error: Ramdisk command failed (127): /bin/sync". The Legacy iOS Kit 3.1.3 SSH
+ramdisk is a minimal environment: PATH=/usr/bin:/bin:/usr/sbin:/sbin, and it ships
+NO sync and NO cp (confirmed by listing its /bin, /sbin, /usr/bin, /usr/sbin live
+over usbmux). It does have mv, rm, ln, mkdir, dd, tar, cat, chmod, chown,
+launchctl, mount, mount_hfs, fsck_hfs, reboot_bak. The device transaction had
+assumed a fuller Darwin toolset.
+
+Fixes (no transaction ordering, backup, identity, or boot logic changed):
+1. device.sync(): resolve a sync binary (/bin, /sbin, /usr/bin, /usr/sbin, PATH)
+   and run it where one exists, so a genuine sync failure still raises and rolls
+   the transaction back (unchanged for full iOS / the 4.x recovery ramdisk); when
+   none exists, no-op. Durability is then completed by the clean reboot (reboot(2)
+   flushes mounted volumes) and crash-recovery is state-based via the manifest,
+   not sync-dependent. The ramdisk's OpenSSH 5.2 has no SFTP fsync and its dd is
+   BSD (no conv=fsync), so there is no in-session flush to substitute.
+2. device.stage(): create the staged replacement directly over SFTP instead of
+   `/bin/cp -p`. The copied bytes were truncated and overwritten anyway, and the
+   commit still archives the untouched original by renaming the live file aside,
+   so the stage file only needs the new contents plus the original's metadata
+   (reapplied via SFTP chown/chmod). This also unblocks restore/finalize, which
+   called the same missing /bin/sync.
+
+PHYSICAL VERIFICATION (first ever for a completed reset). On the Apple Silicon
+Mac with the connected iPhone 3G (iPhone1,2 / iOS 4.2.1 / build 8C148) booted in
+the 3.1.3 SSH ramdisk over a USB-C hub, with this release's device code:
+  * inspect previewed the plan (model identified from the partition scheme; no
+    sysctl/uname on the ramdisk) and wrote nothing.
+  * restore recovered the interrupted transaction left by the 2.3.11 failure
+    (released the device lock, removed the stage file; originals verified).
+  * reset --apply committed the SpringBoard lockout edit and read-back verified
+    it; a separate independent SFTP read of the live plist confirmed
+    SBDeviceLockBlocked=false, SBDeviceLockFailedAttempts=0, the cached timer
+    keys (BlockTime.../BlockStateGeneration/CachedVCCaps) absent, no SBDeviceWipe,
+    and all unrelated preferences preserved.
+No device identifiers are recorded here. On-screen timer clearance is confirmed
+only after the phone reboots; that boot was not performed during this work.
+Native Windows/Linux execution and WSL USB passthrough remain unverified.
+
+All 378 source tests pass with both pinned script fixtures, including new checks
+that the full commit->restore succeeds with no sync binary (staging over SFTP,
+sync degraded to a no-op) and that sync() is a no-op rather than a failure when
+no sync binary exists.
+
+Historical records follow.
+============================================================
+Openup 2.3.11 — iPhone 3G hardware ID on the bare ramdisk; USB-C dock/hub support
+Verification date: 2026-10-24
+
+Two fixes, driven by a physical Intel-Mac session log (Openup 2.3.9) that this
+release reproduces and root-causes. No device-operation, transaction, boot, or
+backend-script logic changed.
+
+1. "Unsupported or unidentifiable hardware: None" on the 3G timer flow (the
+logged failure). The log showed the Legacy iOS Kit 3.1.3 SSH ramdisk boot and a
+successful USB SSH connection ("USB SSH fingerprint: ..." printed), then an
+immediate stop. device.inspect() read the model only with sysctl -n hw.machine/
+hw.model at /usr/sbin and /sbin; the minimal 3.1.3 restore ramdisk serves no
+sysctl (and no uname), so every probe failed, model became None, and the error
+was raised before the mount step. Fix: _probe_model() also tries sysctl on PATH
+and in /usr/bin and tries uname -m, then, when no kernel query is served, uses
+the live partition scheme to CONFIRM an already-expected iPhone 3G rather than to
+guess a model. The project's own ramdisk sources (mount_partitions.sh, util.c
+mountDataPartition) define three disk0 schemes: iOS 5+ LwVM (disk0s1s1 /
+disk0s1s2), iOS 4 nested (disk0s1 / disk0s2s1, with disk0s2 as a block
+container), and the flat iPhone 3G scheme (disk0s1 / disk0s2). The confirmation
+matches ONLY the flat scheme: disk0s1 and disk0s2 present AND disk0s1s1,
+disk0s1s2 and disk0s2s1 all absent — so the nested and LwVM layouts are not
+mistaken for a 3G (a bare `test -b /dev/disk0s2` is insufficient: the nested
+scheme also has that container node). An adversarial review flagged that the flat
+scheme is not unique to the 3G (an iPod touch 2G shares it), so the fallback fires
+only when the caller expects iPhone1,2: --model on inspect/reset/prepare (the GUI
+passes the selected model), the saved transaction identity on restore/finalize,
+and, on prepare, the kit DFU/iBSS boot has independently verified n82ap / S5L8900.
+With no expected 3G it fails closed. inspect() mounts exactly those flat slices,
+and the iOS-version gate (core.compatible) and the HFS-mount checks backstop it.
+Verified (real Paramiko SSH over a socketpair against a bare-ramdisk fixture that
+serves no kernel query and models each scheme's actual block nodes): with
+expected iPhone1,2, inspect() returns iPhone1,2 / iOS 4.2.1 and completes a
+preview -> commit -> restore on the flat layout; the iOS 4 nested (disk0s2s1) and
+iOS 5+ LwVM layouts, a non-3G expected model, and the flat layout with no expected
+model all raise rather than being taken for a 3G.
+
+2. USB-C dock/hub support on Apple Silicon (requested refinement). A 30-pin phone
+reaches an Apple Silicon Mac only through an adapter/dock, which re-enumerates
+the phone routinely: the USB serial is stable but usbmuxd's numeric DeviceID is
+reassigned. usbmux.tunnel() compared the DeviceID and raised "USB device changed
+during connection" on that benign event. Fix: identity is keyed on the serial;
+tunnel() re-resolves the current DeviceID for the selected serial and follows it,
+while a different or absent serial is still rejected (the pinned ramdisk SSH host
+key is the cryptographic anti-swap backstop). USBDevice retries the usbmux
+connection for ~8s, re-resolving each time, so a single handshake-time
+re-enumeration bounce does not fail the operation; the post-boot wait is 30s for
+slower docks. Verified: tunnel() reconnects to a new DeviceID for the same serial
+and sends it; a changed/absent serial still raises and closes the socket; the
+handshake retry recovers from one transient usbmux drop.
+
+All 377 source tests pass with both pinned script fixtures (suite ~79s). Not
+verified here: physical iPhone 3G recovery, a real 3.1.3 ramdisk, and real Apple
+Silicon + USB-C dock behavior — no phone was attached (the reachable Mac's USB
+inventory contained no iPhone). Packaging and test success do not establish those
+results.
+
+Historical records follow.
+============================================================
 Openup 2.3.10 — bug-hunt fixes for the 2.3.9 changes
 Verification date: 2026-10-21
 
@@ -34,8 +579,6 @@ confirmation starts no device write.
 
 All 370 source tests pass with both pinned fixtures (suite time dropped from ~49s
 to ~29s with the slow test fixed). No phone operation was performed.
-
-Historical records follow.
 ============================================================
 Openup 2.3.9 — post-boot USB wait, typed reset confirmation, UI cleanup
 Verification date: 2026-10-21

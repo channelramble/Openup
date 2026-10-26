@@ -15,13 +15,14 @@ VALUE_FLAGS = PATH_FLAGS | {"--model", "--port", "--udid"}
 
 
 def desktop_wsl_environment():
-    """Carry only the protocol opt-in through Windows' documented WSLENV path."""
+    """Carry desktop runtime requirements and protocol opt-in into WSL."""
     environment = os.environ.copy()
-    if environment.get("BL_IOS_UI_PROTOCOL") == "1":
-        values = [item for item in environment.get("WSLENV", "").split(":")
-                  if item and item.split("/", 1)[0] != "BL_IOS_UI_PROTOCOL"]
-        # /u passes the scalar from Win32 to WSL, without path translation.
-        environment["WSLENV"] = ":".join(values + ["BL_IOS_UI_PROTOCOL/u"])
+    for key in ("BL_IOS_UI_PROTOCOL", "BL_IOS_DESKTOP"):
+        if environment.get(key) == "1":
+            values = [item for item in environment.get("WSLENV", "").split(":")
+                      if item and item.split("/", 1)[0] != key]
+            # /u passes the scalar from Win32 to WSL, without path translation.
+            environment["WSLENV"] = ":".join(values + [key + "/u"])
     return environment
 
 

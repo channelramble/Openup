@@ -1,5 +1,71 @@
 # Changes
 
+## 2.3.20
+
+- Add **Exit recovery mode** to the recovery page. It requests normal boot through the pinned kit's recovery tool without restoring or erasing, checks the connected phone before sending, and explains how to leave DFU manually. Windows routes through WSL.
+
+- Explain phone-picker variants as GSM, CDMA, Global, or GSM 2012 revision. Keep every hardware identifier visible, including single-variant phones, and size the popup to fit the complete labels.
+
+## 2.3.19
+
+- Include an app-owned CPython 2.7.18 runtime in every desktop distribution: native Apple Silicon and Intel on macOS, Linux x86_64, and the same Linux runtime for the Windows WSL backend.
+- Select bundled Python 2 automatically for recovery and ramdisk-preparation child processes. Check its version, architecture, prefix and required imports before launching the backend; a missing or damaged desktop runtime prompts reinstallation instead of using an external Python.
+- Isolate the legacy interpreter from ambient Python configuration and retain the bundled Python 3 GUI/runtime. Runtime archives, file inventories, source hashes, macOS compatibility patches and licenses accompany the build recipe.
+
+This release changes host dependency packaging; it does not claim a new physical phone recovery result. See `VERIFICATION.txt` for completed validation.
+
+## 2.3.18
+
+- Start with a blank phone-model field. Selecting or detecting a phone fills it; an unknown setting cannot silently fall back to iPhone 3G. Boot operations require a selected model. Dropdown popups highlight the hovered row on macOS without changing the selection.
+- Add experimental original iPhone 2G passcode recovery for installed iPhone OS 2.2–3.1.3 with a recognized version-3 keychain. A dedicated ARMv6 helper runs in the pinned 3.1.3 m68 SSH ramdisk, verifies kernel hardware and RAM root, and supplies the legacy hardware-key query. Host recovery reads only the passcode record from read-only volumes and verifies padding/integrity before displaying it. Keys are not logged; passcodes remain in the session and explicit exports.
+- Require a complete physical USB singleton inventory for zero-ECID legacy hardware, exact patched DFU board identity, and the m68 iBSS build before uploading the ramdisk. Keep the positive-ECID and exact model checks for later phones. Recognize the 2G's zero-ECID DFU descriptor in macOS discovery without interpreting generic WTF as a physical 2G.
+- Block 2G timer transactions and direct users to passcode recovery. OS 1.x and 2.0/2.1 remain unsupported because their storage formats are not verified. The 2G route does not reuse the 3G's iOS 4 payloads or the OS 1.0 kit's installer/activation routines.
+
+All 562 source tests passed with zero skips. The 2G helper passed reproducible-build, signature and actual 3.1.3 RAM-library import checks. The real pinned ramdisk image pipeline built all four m68 components offline and retained the exact helper bytes and reviewed startup. Physical iPhone 2G boot and recovery remain unverified; see `VERIFICATION.txt` for release checks.
+
+## 2.3.17
+
+- Correct the phone-selection gap exposed by a log that detected `iPhone5,1` / `n41ap` in DFU while the selected model was `iPhone5,2`. Refresh now selects an available detected model, same-named variants have distinct picker labels, and mismatch results explain which model to choose. The existing hardware mismatch gate remains in place.
+- Discover normal-mode identity through bounded, read-only USB queries without pairing. Keep the USB row when details are locked, unavailable or inconsistent. On macOS, also list recognized DFU/Recovery phones from the native USB inventory, including when usbmuxd has no normal-mode phone. Exclude network devices and keep recovery selection identifiers separate from normal USB serials.
+- Carry the selected normal-mode serial into both pinned backend entry flows. Try simple and ordinary information queries, check the selected phone again before requesting Recovery, and offer manual Recovery entry when identity or automatic entry is unavailable. Check chip, board, mode and device identity across Recovery/DFU transitions before accepting the next step; a failed or timed-out reboot request cannot authorize an upload.
+- Refuse recovery or ramdisk preparation while multiple phones are discovered. A change in the selected phone invalidates the timer-reset review, including two DFU phones with the same model and no normal-mode USB serial. Preserve the existing iPhone 3G WTF/bootloader checks and on-phone result workflow.
+- Add regression coverage for normal-mode query failures, contradictory model/board information, USB deadlines, native DFU discovery, exact variant and serial propagation, ambiguous phone lists, and checked backend entry with simulated devices.
+
+Read-only discovery was checked against a connected `iPhone5,1` / `n41ap` in DFU. Actual native backend queries accepted that identity and rejected the wrong `iPhone5,2` variant. The new normal-mode → Recovery → DFU sequence and a full iPhone 5 recovery boot have not been physically verified. This release does not claim a recovered passcode or a running ramdisk from discovery or host-side tests.
+
+## 2.3.16
+
+- Delete a selected backup from the GUI after two separate confirmations. Cancellation at either dialog leaves it untouched. The dialogs identify the local folder and explain that deletion cannot be undone. File checks preserve unrelated contents and prevent deletion during an active operation.
+- Show GUI cancellation guidance using the Stop button instead of asking desktop users to press Ctrl+C. Continue prompts refer to the Continue button. CLI instructions, path-entry defaults and graceful interruption are preserved.
+- Show an iPhone 4S / iPad 2 checkm8-A5 prerequisite warning directly above Start recovery, with a clickable link to the Legacy iOS Kit guide.
+- Include the guide in CLI diagnostics and the README, and state that iPad 2 recovery is not currently supported in Openup.
+
+## 2.3.13
+
+- Give the 3G recovery-console handoff a bounded retry window for slow or temporarily unavailable replies, while preserving exact iBSS/iBEC stage, board, and build verification. Keep countdown updates responsive during console reads, and stop pending reads at the deadline or cancellation. A timed-out or failed read cannot authorize the next upload.
+- Correct the iPhone 5/5c timer-reset range to iOS 10.2.1 and report APFS as unsupported. The HFS-only adapter previously advertised iOS 10.3 even though it could not inspect its APFS volumes.
+- Reject a known mismatch between the connected and selected model before mounting partitions.
+- Update the shared development handoff and remove stale README instructions to exit a menu that the pinned backend now skips automatically.
+
+All 391 source tests pass with both pinned backend fixtures, with no skips. The patched read-only verifier was also exercised against the connected 3G and stopped without authorizing an upload.
+
+This release does not establish physical recovery success on every advertised model. The new boot wait still needs a fresh iPhone 3G session; the previously verified v2.3.12 timer reset is a separate operation.
+
+## 2.3.12
+
+- Fix the iPhone 3G timer reset failing at `Error: Ramdisk command failed (127): /bin/sync`. The Legacy iOS Kit 3.1.3 SSH ramdisk is a minimal environment (`PATH=/usr/bin:/bin:/usr/sbin:/sbin`) that ships **no `sync` and no `cp`** — the device transaction had assumed a fuller Darwin toolset. `device.sync()` now resolves a `sync` binary and runs it where one exists (full iOS, the 4.x recovery ramdisk), so a genuine sync failure still rolls the transaction back, and degrades to a no-op when none exists — durability is then completed by the clean reboot (`reboot(2)` flushes mounted volumes) and crash-recovery stays state-based via the transaction manifest. `device.stage()` now writes the staged replacement directly over SFTP instead of shelling out to `cp` (the copied bytes were overwritten anyway, and the commit still archives the untouched original by renaming the live file aside). This also unblocks restore/finalize, which hit the same missing `/bin/sync`.
+- **Verified on a physical iPhone 3G for the first time.** On an Apple Silicon Mac (M4 Pro) reaching the 30-pin phone through a USB-C hub, the full timer-reset flow — prepare → the Legacy iOS Kit 3.1.3 ramdisk → reset — completed: the SpringBoard lockout plist was committed and read-back verified, and an independent read confirmed `SBDeviceLockBlocked=false`, `SBDeviceLockFailedAttempts=0`, the cached timer-state keys removed, no wipe flags, and every other preference preserved. The matching recovery path (restore of an interrupted transaction) was exercised on the device too. On-screen timer clearance is confirmed only after the phone reboots.
+
+All 378 source tests pass with both pinned script fixtures. No transaction ordering, backup, identity-check, or boot logic changed; only the two missing-binary assumptions were removed.
+
+## 2.3.11
+
+- Fix the logged "Unsupported or unidentifiable hardware: None" failure on the iPhone 3G timer flow. After the Legacy iOS Kit 3.1.3 SSH ramdisk booted and Openup connected over USB SSH (the fingerprint printed), `device.inspect()` tried to read the model with `sysctl -n hw.machine`/`hw.model`, but that minimal restore ramdisk serves no `sysctl` (or `uname`), so every probe returned nothing and the model resolved to `None`, stopping the reset before it began. Detection now also tries `sysctl` on `PATH` and in `/usr/bin`, tries `uname -m`, and — when the ramdisk answers no kernel query at all — uses the live partition scheme to *confirm* an expected iPhone 3G. It matches *only* the genuine flat iPhone 3G layout (`/dev/disk0s1` + `/dev/disk0s2`, with `/dev/disk0s1s1`, `/dev/disk0s1s2` and `/dev/disk0s2s1` all absent), so the iOS 4 nested scheme (data at `/dev/disk0s2s1`, where `/dev/disk0s2` is only a container) and the iOS 5+ LwVM scheme are not mistaken for a 3G. Because that flat scheme is not unique to the 3G, the fallback fires only when the caller expects an iPhone 3G — `--model` on inspect/reset/prepare (the desktop passes the selected model), the saved transaction identity on restore/finalize, and on prepare the kit DFU/iBSS boot has already verified the real board and chip (`n82ap` / S5L8900); otherwise it fails closed. `inspect()` is the on-ramdisk gate, backed by the iOS-version gate and the HFS-mount checks.
+- Make USB device handling work through USB-C docks and hubs on Apple Silicon Macs, where a 30-pin iPhone can only reach the port through an adapter. Such setups re-enumerate the phone routinely, which keeps its USB serial but reassigns usbmuxd's numeric DeviceID; the connection treated that as a device swap and failed with "USB device changed during connection". Device identity is now keyed on the stable serial — a changed DeviceID for the same serial follows the phone to its new DeviceID, while a different or missing serial is still rejected (the pinned ramdisk SSH host key remains the cryptographic anti-swap backstop). A brief re-enumeration drop during the SSH handshake is retried for a few seconds instead of failing, and the post-boot re-enumeration wait gets more headroom (30s) for slower docks.
+- Tests: new checks reproduce the 3.1.3-ramdisk model failure and confirm recovery, confirm that a ramdisk with no kernel query and a non-3G layout still fails closed, cover hub re-enumeration reconnecting to the new DeviceID (and a genuine serial change still being rejected and the socket closed), and cover the handshake-time connection retry.
+
+All 377 source tests pass with both pinned script fixtures. No transaction, boot-sequence, payload, or backend-script logic changed. The physical iPhone-3G-on-3.1.3-ramdisk recovery and real Apple Silicon + USB-C dock behavior were root-caused from the device log and are covered by tests, but were not re-run on hardware here (no phone was attached).
+
 ## 2.3.10
 
 - Fix a 20-second stall introduced in 2.3.9. The post-boot USB wait was applied to every device action, but only "prepare" boots a ramdisk and needs to wait for the phone to re-register with usbmuxd. On inspect/reset/restore/finalize a genuinely absent phone now fails immediately again (as before 2.3.9) instead of polling for the full timeout — and no longer holds Apple's device agents paused during that wait. Only "prepare" still waits (up to 20s) after its boot.

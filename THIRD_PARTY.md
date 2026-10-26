@@ -6,6 +6,16 @@ Their license files and distribution metadata remain in the bundled runtime.
 The complete versions, original artifact URLs, and SHA-256 checksums are recorded
 in `desktop-build-lock.json`.
 
+The additional local-helper **CPython 2.7.18** runtime is recorded separately in
+`packaging/python2/manifest.json`, with full per-file hashes and archive hashes.
+Its [official source](https://www.python.org/downloads/release/python-2718/) and
+build recipes are pinned under `third_party/python2-runtime`. Both Mac builds
+apply the included, hash-pinned pyenv compatibility patches; their MIT license
+and Python's license ship inside the runtime. Mac builds use system libraries;
+Linux/WSL packages bundle libffi, bzip2 and zlib with their copyright notices.
+This interpreter supplies local legacy helpers and omits optional TLS, database,
+readline and GUI extensions. Python 3 supplies the app's networking and GUI.
+
 - CPython and its runtime libraries: [python-build-standalone](https://github.com/astral-sh/python-build-standalone/releases/tag/20261013), Python 3.13.16. Python's license and bundled-library notices are retained in the runtime. [Python source](https://www.python.org/downloads/source/).
 - Qt for Python / PySide6 Essentials and Shiboken: 6.9.3 on both Mac targets, 6.12.0 on Windows/Linux. LGPLv3/GPLv3 or commercial licensing; this application uses the LGPL distribution. The shared libraries remain replaceable; reverse engineering for debugging modifications to these libraries is permitted. The Mac packages omit unused Qt SQL driver plugins that require external database libraries. [Qt 6.9 platform support](https://doc.qt.io/archives/qt-6.9/supported-platforms.html), [Qt 6.9.3 source](https://download.qt.io/archive/qt/6.9/6.9.3/), [Qt 6.12.0 source](https://download.qt.io/official_releases/qt/6.12/6.12.0/), [PySide 6.9.3 source](https://code.qt.io/cgit/pyside/pyside-setup.git/tag/?h=v6.9.3), [PySide 6.12.0 source](https://code.qt.io/cgit/pyside/pyside-setup.git/tag/?h=v6.12.0), [LGPLv3](https://www.gnu.org/licenses/lgpl-3.0.html).
 - Paramiko, bcrypt, cffi, cryptography, Invoke, PyNaCl, pycparser, typing_extensions, and certifi: their original `*.dist-info` metadata and license files are included in the runtime's `site-packages`. The Intel Mac compatibility build pins [cryptography 48.0.1](https://pypi.org/project/cryptography/48.0.1/#files); other targets use 50.0.2. Each target's exact wheel inventory is recorded in the build lock.
@@ -51,3 +61,16 @@ the app and replace the corresponding files under `runtime`. The update verifier
 rejects modified update installations; use an independently extracted development
 copy with `--original` instead. Application source, native launcher source, and the
 build recipe are included in the project's source release.
+
+The original iPhone 2G uses a separate Openup helper built for the 3.1.3 RAM
+disk. Its source, recipe, notices and actual-library validation are under
+`third_party/iphone2g-helper`, also bundled as `ios_timeout/data/iphone2g-source.zip`.
+`iphone2g-helper.zip` preserves its signatures; the adjacent JSON is checked
+before extraction. The helper's fixed IOAES key835 interface follows the
+documented iPhone Data Protection Tools protocol. The host's independent
+legacy-keychain decoder follows the same pinned project's version-3 format,
+retaining attribution in `legacy_keychain.py`. It uses the already bundled
+cryptography library. Apple SDKs, firmware and proprietary libraries are not
+redistributed. Research also consulted the user's MIT-licensed
+[iPhone2Gkit](https://github.com/channelramble/iPhone2Gkit/tree/4e23a7434e8bc5e1d8f9a95bd1c8248a2c2bbc75);
+its installer, activation and filesystem-repair routines are not included.

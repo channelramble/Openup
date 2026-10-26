@@ -1,3 +1,4 @@
+import json
 import unittest
 
 from ios_timeout.core import JOURNAL, PREFS
@@ -20,6 +21,24 @@ Preview only. No lockout files were changed.
 
 
 class DesktopResultTests(unittest.TestCase):
+    def test_detected_variant_mismatch_is_actionable_without_terminal(self):
+        result = summarize("recover", """
+* Device: iPhone 5/5C (iPhone5,1)
+* Mode: DFU
+Connected device is iPhone5,1, but --model selects iPhone5,2.
+[Error] Device identity verification failed.
+Error: Upstream backend stopped with status 1.
+""", 1)
+        self.assertEqual(result["title"], "Phone model does not match")
+        self.assertIn("iPhone5,1", result["message"])
+        self.assertIn("Phone model", result["message"])
+        self.assertIn("iPhone5,2", "\n".join(result["details"]))
+        normal = summarize("recover", "[Error] Connected device is iPhone5,1, but --model selects iPhone5,2.", 2)
+        self.assertEqual(normal["title"], "Phone model does not match")
+        self.assertIn("iPhone5,1", normal["message"])
+        interrupted = summarize("recover", "Connected device is iPhone5,1, but --model selects iPhone5,2.", 1, interrupted=True)
+        self.assertIn("Stopped at your request", interrupted["message"])
+
     def test_inspection_lists_actual_changes_and_preserves_relevant_notice(self):
         result = summarize("inspect", INSPECTION, 0)
         joined = "\n".join(result["details"])
@@ -114,6 +133,36 @@ random debug command with fixture-secret
         self.assertEqual(summarize("inspect", output, 0)["details"], [])
         self.assertNotIn("passcode", summarize("inspect", output, 0))
         self.assertIn("No passcode was reported", summarize("recover", "Booting...\n", 0)["message"])
+
+    def test_legacy_json_results_preserve_exact_complex_value_only_in_recovery(self):
+        for value in ('0042', 'aB-42!', ' 0427 ', 'é123', '<b>literal</b>', 'a"b\\c'):
+            output = "Legacy passcode: " + json.dumps(value)
+            with self.subTest(value=value):
+                result = summarize("recover", output, None)
+                self.assertEqual(result["passcode"], value)
+                self.assertEqual(result["details"], ["Reported passcode: " + value])
+                self.assertNotIn(value, result["message"])
+                for action in ("inspect", "reset", "doctor", "prepare", "devices"):
+                    self.assertNotIn("passcode", summarize(action, output, 0))
+
+    def test_legacy_results_reject_malformed_oversized_and_control_values(self):
+        for encoded in ('null', '42', 'true', '{}', '["1234"]', '""', '"1234" trailing',
+                        '"\\ud800"', '"1234\\n"', '"\\u001b[31m"', '"12\\u000034"',
+                        json.dumps('a' * 257), json.dumps('é' * 129)):
+            with self.subTest(encoded=encoded[:24]):
+                result = summarize("recover", "Legacy passcode: " + encoded, 0)
+                self.assertNotIn("passcode", result)
+                self.assertEqual(result["details"], [])
+        self.assertNotIn("passcode", summarize("recover", 'echo Legacy passcode: "1234"', 0))
+
+    def test_legacy_and_existing_results_share_session_bound_and_latest_value(self):
+        output = 'found: 0012\n' + "\n".join(
+            "Legacy passcode: " + json.dumps("synthetic" + str(n)) for n in range(6))
+        result = summarize("recover", output, 0)
+        self.assertEqual(result["passcode"], "synthetic5")
+        self.assertEqual(len(result["details"]), 4)
+        self.assertEqual(result["details"][0], "Reported passcode: synthetic2")
+        self.assertNotIn("passcode", summarize("recover", "new session", 0))
 
     def test_patcher_probe_failures_are_not_operation_errors(self):
         result = summarize("prepare", """

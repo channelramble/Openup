@@ -23,6 +23,9 @@ class GuiTests(unittest.TestCase):
     def setUp(self):
         from ios_timeout.gui import MainWindow
         self.window = MainWindow(auto_scan=False)
+        # These interaction fixtures choose their target explicitly. Blank
+        # startup and model-selection guards have dedicated coverage.
+        self.window.phone_model.setCurrentIndex(self.window.phone_model.findData("iPhone1,2"))
 
     def tearDown(self):
         # A failed assertion must not leave a fake operation blocking close().

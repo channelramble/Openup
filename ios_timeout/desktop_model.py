@@ -9,7 +9,7 @@ from .core import ResetError, load_backup
 @dataclass
 class Settings:
     udid: str = ""
-    model: str = "iPhone1,2"
+    model: str = ""
     port: int = 22
     mount: bool = True
     ask_password: bool = False
@@ -23,8 +23,12 @@ class Settings:
 
 
 def operation_arguments(action, settings, *, apply=False, backup=None, install_only=False):
-    if action not in {"doctor", "devices", "inspect", "reset", "prepare", "restore", "finalize", "recover"}:
+    if action not in {"doctor", "devices", "inspect", "reset", "prepare", "restore", "finalize", "recover", "exit-recovery"}:
         raise ResetError("Unknown desktop operation.")
+    if not settings.model and (action == "prepare" or (action == "recover" and apply)):
+        raise ResetError("Choose the connected phone's model above, or use Refresh to detect it, before starting.")
+    if settings.model == "iPhone1,1" and action in {"prepare", "reset"}:
+        raise ResetError("For iPhone 2G, choose Recover a passcode. Timer reset is not supported for this model.")
     args = [action]
     if action in {"restore", "finalize"}:
         if not backup:
@@ -42,13 +46,24 @@ def operation_arguments(action, settings, *, apply=False, backup=None, install_o
             args.append("--apply")
             if settings.reboot:
                 args.append("--reboot")
-    if action == "prepare":
-        if settings.model:
+        # Pass the selected model so inspect/reset can confirm an iPhone 3G in a
+        # bare SSH ramdisk that serves no sysctl. restore/finalize derive the
+        # model from the saved transaction instead.
+        if settings.model and action in {"inspect", "reset", "prepare"}:
             args += ["--model", settings.model]
+    if action == "exit-recovery":
+        for value, flag in ((settings.model, "--model"), (settings.kit, "--kit")):
+            if value:
+                args += [flag, value]
+        if settings.wsl:
+            args.append("--wsl")
+    if action == "prepare":
         for value, flag in ((settings.ipsw, "--ipsw"), (settings.kit, "--kit")):
             if value:
                 args += [flag, value]
     if action == "recover":
+        if settings.udid:
+            args += ["--udid", settings.udid]
         if install_only and apply:
             raise ResetError("Choose either download or run.")
         if apply and settings.model == "iPhone1,2" and not settings.armv6_tools:

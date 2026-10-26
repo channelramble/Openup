@@ -1,0 +1,298 @@
+{
+  "hardware_validation": "pending; no physical iPhone 2G operation performed",
+  "firmware": {
+    "model": "iPhone1,1",
+    "version": "3.1.3",
+    "build": "7E18",
+    "sha256": "ae27cb853cb57ba679f576400bee71ffe689ccd55763383ec8b9c6f422874e4e",
+    "ramdisk": "018-6494-014.dmg",
+    "ramdisk_raw_sha256": "89774071260936bd0abbadcbdd629ce72abd3262ae9bd66b046edf0d994478ea"
+  },
+  "payload": {
+    "sha256": "c7866c057052f49395a89ba7b9c8416f3525c9b043b04c9da22ec493a9ea7a93",
+    "size": 54560,
+    "architecture": "armv6",
+    "minimum_ios": "3.1",
+    "sdk": "3.1.3",
+    "entry": "LC_UNIXTHREAD",
+    "reproducible_builds": 2,
+    "signatures": [
+      {
+        "slot": 0,
+        "hash": "sha1",
+        "pages": 14
+      },
+      {
+        "slot": 4096,
+        "hash": "sha256",
+        "pages": 14
+      }
+    ],
+    "imports": [
+      {
+        "library": "CoreFoundation",
+        "symbol": "_CFDictionaryCreateMutable"
+      },
+      {
+        "library": "CoreFoundation",
+        "symbol": "_CFDictionarySetValue"
+      },
+      {
+        "library": "CoreFoundation",
+        "symbol": "_CFNumberCreate"
+      },
+      {
+        "library": "CoreFoundation",
+        "symbol": "_CFRelease"
+      },
+      {
+        "library": "CoreFoundation",
+        "symbol": "_CFStringCreateWithCString"
+      },
+      {
+        "library": "CoreFoundation",
+        "symbol": "_CFUUIDGetConstantUUIDWithBytes"
+      },
+      {
+        "library": "CoreFoundation",
+        "symbol": "_CFUUIDGetUUIDBytes"
+      },
+      {
+        "library": "IOKit",
+        "symbol": "_IOConnectCallStructMethod"
+      },
+      {
+        "library": "IOKit",
+        "symbol": "_IOCreatePlugInInterfaceForService"
+      },
+      {
+        "library": "IOKit",
+        "symbol": "_IODestroyPlugInInterface"
+      },
+      {
+        "library": "IOKit",
+        "symbol": "_IOObjectRelease"
+      },
+      {
+        "library": "IOKit",
+        "symbol": "_IORegistryEntrySetCFProperties"
+      },
+      {
+        "library": "IOKit",
+        "symbol": "_IOServiceClose"
+      },
+      {
+        "library": "IOKit",
+        "symbol": "_IOServiceGetMatchingService"
+      },
+      {
+        "library": "IOKit",
+        "symbol": "_IOServiceMatching"
+      },
+      {
+        "library": "IOKit",
+        "symbol": "_IOServiceOpen"
+      },
+      {
+        "library": "IOKit",
+        "symbol": "_IOUSBDeviceControllerCreate"
+      },
+      {
+        "library": "IOKit",
+        "symbol": "_IOUSBDeviceControllerSetDescription"
+      },
+      {
+        "library": "IOKit",
+        "symbol": "_IOUSBDeviceDescriptionCreateFromDefaults"
+      },
+      {
+        "library": "IOKit",
+        "symbol": "_IOUSBDeviceDescriptionSetSerialString"
+      },
+      {
+        "library": "CoreFoundation",
+        "symbol": "___CFConstantStringClassReference"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "___error"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "___stack_chk_fail"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "___stack_chk_guard"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "___stderrp"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "__exit"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_alarm"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_close"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_execv"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_exit"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_fork"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_fputs"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_free"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_fstat"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_ioctl"
+      },
+      {
+        "library": "CoreFoundation",
+        "symbol": "_kCFAllocatorDefault"
+      },
+      {
+        "library": "CoreFoundation",
+        "symbol": "_kCFTypeDictionaryKeyCallBacks"
+      },
+      {
+        "library": "CoreFoundation",
+        "symbol": "_kCFTypeDictionaryValueCallBacks"
+      },
+      {
+        "library": "IOKit",
+        "symbol": "_kIOMasterPortDefault"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_kill"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_lstat"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_mach_task_self_"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_memcmp"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_memset"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_mount"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_open"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_printf"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_putchar"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_puts"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_read"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_sigaction"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_sigprocmask"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_sleep"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_socket"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_stat"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_statfs"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_strcasecmp"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_strcmp"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_sysctlbyname"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_valloc"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "_waitpid"
+      },
+      {
+        "library": "libSystem",
+        "symbol": "dyld_stub_binder"
+      }
+    ]
+  },
+  "sources": {
+    "openup-iphone2g.c": "07aea952d73e88409daf01f2eb44fbbf5da4a6cb987ab0c5ef4957133c4c206a",
+    "bootstrap.c": "f687c2c2521b8c2bb710831e648d4279e2ada925bca0c9f9c961300befd47ef0",
+    "ssh-owner.c": "b0e974f2478dda748fc7ecf940fdcd0c43727df8140215cabd72fdc981ac462c"
+  },
+  "libraries": {
+    "libSystem": {
+      "sha256": "98f54e73d3ddf15535594fb84106fd16fc94173f0bb36b22dc01abb1a268913b"
+    },
+    "IOKit": {
+      "sha256": "66511bb7042e6b0450527a9ef23cdc628b2440843011c686618b38a6d7dac194"
+    },
+    "CoreFoundation": {
+      "sha256": "0961b7e2514612c97a81ad29e94edcdfb867df0b30146753f387c72b717bf7bd"
+    }
+  }
+}

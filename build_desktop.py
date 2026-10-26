@@ -159,6 +159,44 @@ def unpack_runtime(archive, destination):
             path.chmod(0o755 if member.mode & 0o111 or relative.startswith("bin/python") else 0o644)
 
 
+def install_python2(target, destination):
+    """Include the checked legacy runtime in every desktop archive."""
+    target = "linux-x86_64" if target == "windows-x86_64" else target
+    directory = ROOT / "packaging/python2"
+    manifest = json.loads((directory / "manifest.json").read_text())
+    if manifest.get("schema") != 1 or manifest.get("version") != "2.7.18":
+        raise ValueError("Invalid bundled Python 2 manifest.")
+    expected = manifest["targets"][target]
+    archive = directory / ("python2-2.7.18-" + target + ".zip")
+    if (archive.stat().st_size != expected["archive_size"]
+            or file_hash(archive) != expected["archive_sha256"]):
+        raise ValueError("Bundled Python 2 archive checksum mismatch.")
+    destination.mkdir()
+    with zipfile.ZipFile(archive) as package:
+        members = package.infolist()
+        if (len(members) != len(expected["files"])
+                or {item.filename for item in members} != set(expected["files"])):
+            raise ValueError("Unexpected bundled Python 2 inventory.")
+        for member in members:
+            parts = safe_relative(member.filename)
+            item = expected["files"][member.filename]
+            if (stat.S_IFMT(member.external_attr >> 16) != stat.S_IFREG
+                    or member.file_size != item["size"] or member.flag_bits & 1
+                    or item["mode"] not in (0o644, 0o755)):
+                raise ValueError("Invalid bundled Python 2 member.")
+            data = package.read(member)
+            if hashlib.sha256(data).hexdigest() != item["sha256"]:
+                raise ValueError("Bundled Python 2 file checksum mismatch.")
+            path = destination.joinpath(*parts)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open("xb") as output:
+                output.write(data)
+            path.chmod(item["mode"])
+    for name in ("bin/python2", "bin/python2.7", "LICENSE.Python"):
+        if name not in expected["files"]:
+            raise ValueError("Incomplete bundled Python 2 runtime.")
+
+
 def install_wheel(wheel, site_packages):
     with zipfile.ZipFile(wheel) as package:
         for item in package.infolist():
@@ -310,6 +348,7 @@ def build(target, *, allow_dirty=False):
         code.mkdir(parents=True)
         print("Assembling " + target, flush=True)
         unpack_runtime(runtime_archive, code / "runtime")
+        install_python2(target, code / "python2-runtime")
         site = code / "runtime" / ("Lib/site-packages" if target.startswith("windows") else "lib/python3.13/site-packages")
         site.mkdir(parents=True, exist_ok=True)
         for wheel in wheels:
@@ -343,6 +382,8 @@ def build(target, *, allow_dirty=False):
                 shutil.copyfile(path, package / path.name)
         from ios_timeout.armv6_payloads import read_bundled_payloads
         read_bundled_payloads()
+        from ios_timeout.iphone2g import read_helper
+        read_helper()
         shutil.copytree(ROOT / "ios_timeout/data", package / "data")
         # The desktop's dependency check must match its target's actual wheels,
         # including the older Intel/Monterey compatibility versions.

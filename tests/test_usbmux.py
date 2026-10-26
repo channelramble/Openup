@@ -117,18 +117,32 @@ class USBMuxTests(unittest.TestCase):
             with self.assertRaises(ResetError):
                 usbmux.tunnel(1, port)
 
-    def test_device_replacement_before_connect_is_rejected(self):
-        with patch.object(usbmux, "list_devices", return_value=[{"udid": "a" * 40, "device_id": 9}]), \
+    def test_hub_reenumeration_reconnects_to_the_new_device_id(self):
+        # A USB-C hub/dock re-enumeration keeps the phone's serial and only
+        # reassigns usbmuxd's DeviceID. The tunnel must follow the serial to the
+        # new DeviceID instead of rejecting it as a swapped device.
+        sock = Socket(response({"Number": 0}))
+        with patch.object(usbmux, "connect_socket", return_value=sock), \
+             patch.object(usbmux, "list_devices", return_value=[{"udid": "a" * 40, "device_id": 9}]):
+            self.assertIs(usbmux.tunnel(8, expected_udid="a" * 40), sock)
+        self.assertEqual(plistlib.loads(sock.sent[16:])["DeviceID"], 9)
+        self.assertFalse(sock.closed)
+
+    def test_absent_serial_before_connect_is_rejected(self):
+        # A different (or missing) serial is a genuine swap: reject before connecting.
+        with patch.object(usbmux, "list_devices", return_value=[{"udid": "b" * 40, "device_id": 9}]), \
              patch.object(usbmux, "connect_socket") as connection, self.assertRaises(ResetError):
             usbmux.tunnel(8, expected_udid="a" * 40)
         connection.assert_not_called()
 
-    def test_device_replacement_during_connect_closes_tunnel(self):
+    def test_serial_change_during_connect_closes_tunnel(self):
+        # The selected serial disappears while connecting: the post-connect
+        # serial check must fail and close the socket.
         sock = Socket(response({"Number": 0}))
         with patch.object(usbmux, "connect_socket", return_value=sock), \
              patch.object(usbmux, "list_devices", side_effect=[
                  [{"udid": "a" * 40, "device_id": 9}],
-                 [{"udid": "a" * 40, "device_id": 10}],
+                 [{"udid": "b" * 40, "device_id": 9}],
              ]), self.assertRaises(ResetError):
             usbmux.tunnel(9, expected_udid="a" * 40)
         self.assertTrue(sock.closed)

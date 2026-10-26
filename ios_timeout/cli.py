@@ -3,10 +3,12 @@ import getpass
 import json
 import os
 import platform
+import secrets
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from contextlib import nullcontext
 from dataclasses import asdict
 from pathlib import Path
@@ -42,9 +44,15 @@ def parser():
     )
     result.add_argument("--version", action="version", version=__version__)
     commands = result.add_subparsers(dest="action", required=True)
-    devices_command = commands.add_parser("devices", help="List USB devices exposed by usbmuxd (read-only).")
+    devices_command = commands.add_parser("devices", help="Discover normal-mode and recovery/DFU phones (read-only).")
     devices_command.add_argument("--wsl", action="store_true", help="Windows: list devices inside WSL.")
     devices_command.add_argument("--wsl-distro")
+    exit_command = commands.add_parser("exit-recovery", help="Request a normal boot from recovery mode without restoring or erasing.")
+    exit_command.add_argument("--model", choices=sorted(PHONES))
+    exit_command.add_argument("--kit", type=Path)
+    exit_command.add_argument("--state-dir", type=Path, default=DEFAULT_STATE)
+    exit_command.add_argument("--wsl", action="store_true")
+    exit_command.add_argument("--wsl-distro")
     commands.add_parser("doctor", help="Check this computer and show platform requirements.")
     commands.add_parser("wizard", help="Interactive menu, also used by Launch.command.")
     update = commands.add_parser("update", help="Check/install a verified GitHub release, or roll back.")
@@ -58,6 +66,7 @@ def parser():
     recover.add_argument("--install-only", action="store_true", help="Download and check the backend without device access.")
     recover.add_argument("--backend-dir", type=Path)
     recover.add_argument("--state-dir", type=Path, default=DEFAULT_STATE)
+    recover.add_argument("--udid", help="Select the normal-mode USB phone before recovery entry.")
     recover.add_argument("--model", choices=sorted(PHONES))
     recover.add_argument("--armv6-tools", type=Path, help="Optional custom ARMv6 tools folder; bundled iPhone 3G tools are used by default.")
     recover.add_argument("--wsl-distro", help="Windows: select a WSL 2 distribution.")
@@ -70,6 +79,9 @@ def parser():
     ):
         item = commands.add_parser(name, help=help_text)
         item.add_argument("--udid", help="Select a specific USB device.")
+        item.add_argument("--model", choices=sorted(SUPPORTED),
+                          help="Expected hardware model; confirms an iPhone 3G (iPhone1,2) in a "
+                               "bare SSH ramdisk that reports no sysctl. 3G is iPhone1,2.")
         item.add_argument("--port", type=port_number, default=22, help="Device SSH port (default 22).")
         item.add_argument("--mount", action="store_true", help="Mount known legacy HFS volumes if needed.")
         item.add_argument("--ask-password", action="store_true",
@@ -88,8 +100,7 @@ def parser():
         if name == "prepare":
             item.add_argument("--kit", type=Path,
                               help="Legacy-iOS-Kit directory; a pinned copy is downloaded if absent.")
-            item.add_argument("--model", choices=sorted(SUPPORTED), help="Explicit firmware target; 3G is iPhone1,2.")
-            item.add_argument("--ipsw", type=Path, help="Optional local iPhone 3G 3.1.3/7E18 boot IPSW.")
+            item.add_argument("--ipsw", type=Path, help="Optional local original-iPhone/3G 3.1.3/7E18 boot IPSW.")
         if name in ("restore", "finalize"):
             item.add_argument("backup", type=Path, help="Transaction directory containing manifest.json.")
     return result
@@ -117,8 +128,11 @@ def doctor():
     print("\nTimer-reset model/version gates (hardware validation still required):")
     for model, (name, low, high) in SUPPORTED.items():
         print(f"  {model:10} {name:10} iOS {'.'.join(map(str, low))}–{'.'.join(map(str, high))}")
-    print("\niPhone 4S pwnDFU requires external A5 hardware or a suitable existing kDFU setup.")
-    print("This release has not been validated on a physical phone.")
+    print("\niPhone 4S and iPad 2 recovery requires checkm8-A5 preparation with external hardware.")
+    print("Guide: https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/checkm8-a5")
+    print("iPad 2 recovery is not currently supported in Openup.")
+    print("Timer reset requires legacy HFS volumes; APFS (iOS 10.3+) is unsupported.")
+    print("Hardware validation varies by model and workflow; see VERIFICATION.txt.")
 
 
 def describe(plan):
@@ -135,10 +149,9 @@ def describe(plan):
         print(f"  original SHA-256: {digest(change.before)}")
 
 
-def launch_backend(args):
-    if platform.system() not in ("Darwin", "Linux"):
-        raise ResetError("Use WSL 2 for Windows ramdisk preparation.")
-    kit = (args.kit or args.state_dir / "backends/Legacy-iOS-Kit").expanduser().resolve()
+def ensure_kit(kit, state_dir, *, require_pinned=False):
+    """Install/validate the backend on the host without opening a phone."""
+    kit = (kit or state_dir / "backends/Legacy-iOS-Kit").expanduser().resolve()
     if not kit.exists():
         if not shutil.which("git"):
             raise ResetError("git is required to download Legacy iOS Kit; alternatively supply --kit.")
@@ -164,12 +177,23 @@ def launch_backend(args):
     script = kit / "restore.sh"
     if not script.is_file() or not (kit / "resources").is_dir():
         raise ResetError("--kit must point to an extracted Legacy iOS Kit directory.")
+    if require_pinned:
+        from .legacy_kit import _require_pinned
+        _require_pinned(script.read_bytes())
+    return kit
+
+
+def launch_backend(args):
+    if platform.system() not in ("Darwin", "Linux"):
+        raise ResetError("Use WSL 2 for Windows ramdisk preparation.")
+    kit = ensure_kit(args.kit, args.state_dir, require_pinned=args.model == "iPhone1,1")
+    script = kit / "restore.sh"
     if args.ipsw:
-        if args.model != "iPhone1,2":
-            raise ResetError("--ipsw currently requires --model iPhone1,2 and the 3.1.3/7E18 boot IPSW.")
+        if args.model not in ("iPhone1,1", "iPhone1,2"):
+            raise ResetError("--ipsw requires an original-iPhone/3G model and its 3.1.3/7E18 boot IPSW.")
         from .firmware import validate_ipsw
         validate_ipsw(args.ipsw, args.model, "7E18")
-        destination = kit / "iPhone1,2_3.1.3_7E18_Restore.ipsw"
+        destination = kit / (args.model + "_3.1.3_7E18_Restore.ipsw")
         source = args.ipsw.expanduser().resolve()
         if destination.exists():
             validate_ipsw(destination, args.model, "7E18")
@@ -199,16 +223,22 @@ def launch_backend(args):
         seed_3g_url(kit, managed=args.kit is None)
         extra.append("--build-id=7E18")
         print("3G target: iPhone1,2 / n82ap; 3.1.3 boot ramdisk. Installed iOS is unchanged.", flush=True)
+    elif args.model == "iPhone1,1":
+        from .legacy_kit import seed_2g_url
+        seed_2g_url(kit, managed=args.kit is None)
+        extra.append("--build-id=7E18")
+        print("Original iPhone target: iPhone1,1 / m68ap; 3.1.3 SSH boot ramdisk. Installed iOS is unchanged.", flush=True)
+        print("This preparation route is experimental and has not been verified on a physical iPhone 2G.", flush=True)
     print("\nOpening Legacy iOS Kit's SSH-ramdisk workflow.", flush=True)
     print("Follow its on-screen DFU/ramdisk steps. The SSH Ramdisk Menu is left automatically.", flush=True)
-    print("Connect only one phone for this backend step; --udid selects the phone after boot.", flush=True)
-    print("The phone stays in the ramdisk; the reset tool resumes when the backend exits.", flush=True)
+    print("Connect only one phone for ramdisk preparation. Follow the recovery and DFU steps on screen.", flush=True)
+    print("The phone stays in the ramdisk; Openup resumes when the backend exits.", flush=True)
     print(f"Backend: {script}\nSHA-256: {digest(script.read_bytes())}", flush=True)
     original = script.read_bytes()
     from .legacy_kit import prepared_script, prepared_menu_script, script_is_pinned
-    if args.model == "iPhone1,2":
-        # Full 3G adaptation: identity checks plus shared GUI prompt/menu handling.
-        prepared = prepared_script(kit, original)
+    if args.model in ("iPhone1,1", "iPhone1,2"):
+        # Both early models require their own exact identity/upload profile.
+        prepared = prepared_script(kit, original, args.model)
     elif script_is_pinned(original):
         # Other supported models: keep the whole timer workflow in the GUI by
         # applying the shared prompt hooks and non-interactive ramdisk menu,
@@ -217,17 +247,35 @@ def launch_backend(args):
     else:
         # A user-supplied, non-pinned checkout is run unchanged.
         prepared = nullcontext(script)
-    with prepared as running_script:
-        env = {**os.environ, "BL_IOS_PYTHON": sys.executable,
+    helper_directory = (tempfile.TemporaryDirectory(prefix=".openup-2g-helper-")
+                        if args.model == "iPhone1,1" else nullcontext(None))
+    boot_serial = None
+    with prepared as running_script, helper_directory as operation:
+        from .bundled_python2 import environment as python2_environment
+        env = {**python2_environment(), "BL_IOS_PYTHON": sys.executable,
+               "BL_IOS_MODEL": args.model or "",
+               "BL_IOS_UDID": getattr(args, "udid", None) or "",
                # Boot the ramdisk and return without the interactive SSH Ramdisk
                # Menu; Openup's own reset step resumes once the backend exits.
                "BL_IOS_SSHRD_AUTOEXIT": "1",
                "PYTHONPATH": str(Path(__file__).resolve().parent.parent) +
                (os.pathsep + os.environ["PYTHONPATH"] if os.environ.get("PYTHONPATH") else "")}
+        if args.model == "iPhone1,1":
+            from importlib import resources
+            from .iphone2g import _resource, extract_helper
+            from .core import secure_write
+            env["BL_IOS_2G_HELPER"] = str(extract_helper(Path(operation) / "openup-iphone2g"))
+            startup = Path(operation) / "rc.boot"
+            secure_write(startup, _resource(resources.files("ios_timeout").joinpath("data").joinpath("iphone2g-rc.boot"), 65536))
+            env["BL_IOS_2G_STARTUP"] = str(startup)
+            boot_serial = secrets.token_hex(20)
+            session = Path(operation) / "openup-2g-session"
+            secure_write(session, boot_serial.encode("ascii"))
+            env["BL_IOS_2G_SESSION"] = str(session)
         if running_script != script:
             subprocess.run(["bash", "-n", str(running_script)], check=True, timeout=30)
-            note = ("Applied reviewed 3G identity checks and GUI menu handling"
-                    if args.model == "iPhone1,2"
+            note = ("Applied reviewed early-iPhone identity checks and GUI menu handling"
+                    if args.model in ("iPhone1,1", "iPhone1,2")
                     else "Applied reviewed GUI menu handling")
             print(note + "; original backend files are unchanged.", flush=True)
         completed = subprocess.run(
@@ -237,6 +285,7 @@ def launch_backend(args):
     if completed.returncode:
         raise ResetError(f"Legacy iOS Kit exited with status {completed.returncode}. No reset was attempted.")
     args.mount = True
+    return boot_serial
 
 
 def wizard():
@@ -284,6 +333,21 @@ def wizard():
     return main(command)
 
 
+def discover_devices():
+    """Keep normal USB rows even when locked, and include native recovery USB."""
+    from .normal_device import enrich_devices
+    from .usb_modes import list_devices as recovery_devices
+    normal_error = None
+    try:
+        normal = enrich_devices(usbmux.list_devices(deadline=time.monotonic() + 3.0))
+    except (ResetError, OSError) as exc:
+        normal, normal_error = [], exc
+    recovery = recovery_devices()
+    if normal_error is not None and not recovery:
+        raise normal_error
+    return normal + recovery
+
+
 def run(args):
     if args.action == "update":
         from .updates import run as update
@@ -292,11 +356,17 @@ def run(args):
         doctor()
         return 0
     if args.action == "devices":
-        devices = usbmux.list_devices()
+        devices = discover_devices()
         print(json.dumps(devices, indent=2))
         if not devices:
-            print("DFU/recovery devices are not listed by usbmuxd; boot the SSH ramdisk first.")
+            print("No USB phone was detected. Check the cable and USB service, then refresh. "
+                  "You can also start recovery for a guided connection check.")
         return 0
+    if args.action == "exit-recovery":
+        from .exit_recovery import exit_recovery
+        args.state_dir = args.state_dir.expanduser().absolute()
+        with host_lock(args.state_dir):
+            return exit_recovery(args)
     if args.action == "wizard":
         return wizard()
     if args.action == "recover":
@@ -306,11 +376,19 @@ def run(args):
             return run_backend(args)
     if getattr(args, "reboot", False) and not args.apply:
         raise ResetError("--reboot requires --apply.")
+    if (getattr(args, "model", None) == "iPhone1,1"
+            and (args.action == "reset" or (args.action == "prepare" and args.apply))):
+        raise ResetError("iPhone 2G timer reset is not supported. Use recover for passcode recovery, "
+                         "or prepare without --apply for read-only inspection.")
     if args.action in ("restore", "finalize"):
         # Validate every local backup before opening a device connection.
         _, saved, identity, _ = load_backup(args.backup)
         if args.udid is None:
             args.udid = identity.udid
+        # The saved transaction already recorded the verified model; use it to
+        # confirm identity on a bare ramdisk that reports no sysctl.
+        if getattr(args, "model", None) is None:
+            args.model = identity.model
     state = args.state_dir.expanduser().absolute()
     args.state_dir = state
     if args.action in ("reset", "prepare") and args.backups is None:
@@ -334,14 +412,18 @@ def run(args):
                      "Waiting for the phone to appear on USB after boot…", None)
 
     with host_lock(state), recovery_agents():
+        boot_serial = None
         if args.action == "prepare":
-            launch_backend(args)
+            boot_serial = launch_backend(args)
         # Only "prepare" just booted a ramdisk, so only it needs to wait for the
         # phone to re-register with usbmuxd. For the other actions the device is
         # already enumerated, so a missing phone should fail immediately (as it
         # did before 2.3.9) rather than stalling and holding the Mac agents paused.
-        wait_timeout = 20.0 if args.action == "prepare" else 0.0
-        selected = usbmux.wait_for_device(args.udid, timeout=wait_timeout, on_wait=_announce_usb_wait)
+        # Re-enumeration through a USB-C dock or hub (the only way to reach a
+        # 30-pin phone from an Apple Silicon Mac) is slower than a direct port,
+        # so allow extra headroom for the just-booted ramdisk to reappear.
+        wait_timeout = (45.0 if boot_serial else 30.0) if args.action == "prepare" else 0.0
+        selected = usbmux.wait_for_device(boot_serial or args.udid, timeout=wait_timeout, on_wait=_announce_usb_wait)
         if args.ask_password and os.environ.get("BL_IOS_UI_PROTOCOL") == "1":
             from .desktop_protocol import prompt
             prompt("password", "Ramdisk SSH password", "Ramdisk SSH root password: ")
@@ -349,9 +431,18 @@ def run(args):
                     if args.ask_password else "alpine")
         with USBDevice(selected, state, password, args.port, args.trust_new_key) as device:
             print(f"USB SSH fingerprint: {device.fingerprint}")
-            identity = device.inspect(mount=args.mount, writable=getattr(args, "apply", False))
+            inspect_options = {"mount": args.mount, "writable": getattr(args, "apply", False),
+                               "expected_model": getattr(args, "model", None)}
+            if getattr(args, "model", None) == "iPhone1,1":
+                inspect_options["read_only"] = True
+            identity = device.inspect(**inspect_options)
             if getattr(args, "model", None) and args.model != identity.model:
                 raise ResetError("Booted device does not match --model; no reset was attempted.")
+            if identity.model == "iPhone1,1" and args.action in ("inspect", "prepare"):
+                print(f"Original iPhone: {identity.model} / iPhone OS {identity.version}")
+                print("Read-only iPhone 2G inspection complete. Use recover for passcode recovery; "
+                      "timer reset is not supported.")
+                return 0
             if args.action in ("restore", "finalize"):
                 if asdict(identity) != saved["identity"]:
                     raise ResetError("Backup identity does not match the connected phone.")
@@ -398,7 +489,7 @@ def main(argv=None):
             return dispatched
         options = parser().parse_args(arguments)
         if sys.platform == "win32" and (
-            options.action in ("prepare", "recover")
+            options.action in ("prepare", "recover", "exit-recovery")
             or getattr(options, "wsl", False) or getattr(options, "wsl_distro", None)
         ):
             from .wsl import run_in_wsl

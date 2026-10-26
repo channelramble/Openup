@@ -42,6 +42,15 @@ class CompatibilityTests(unittest.TestCase):
             with self.assertRaises(ResetError):
                 compatible("iPhone1,2", version)
 
+    def test_5_and_5c_timer_gate_ends_before_apfs(self):
+        for model in ("iPhone5,1", "iPhone5,2", "iPhone5,3", "iPhone5,4"):
+            with self.subTest(model=model, version="10.2.1"):
+                compatible(model, "10.2.1")
+            for version in ("10.3", "10.3.0", "10.3.3", "10.3.4"):
+                with self.subTest(model=model, version=version), \
+                     self.assertRaisesRegex(ResetError, "APFS.*not supported"):
+                    compatible(model, version)
+
     def test_armv7_payloads_are_rejected_for_3g(self):
         with tempfile.TemporaryDirectory() as folder:
             data = struct.pack("<IIIIIII", 0xFEEDFACE, 12, 9, 2, 0, 0, 0)

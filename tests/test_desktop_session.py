@@ -91,6 +91,61 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(self.sent, [b"\n", b"\n"])
         self.assertIsNone(self.bridge.pending)
 
+    def test_desktop_continue_and_stop_guidance_preserves_prompt_identity_and_interrupt(self):
+        text = "Press Enter/Return to continue (or press Ctrl+C to cancel)"
+        question = {"type": "prompt", "kind": "continue", "title": "Ready?", "message": text}
+        self.bridge.output(marker(question))
+        prompt_id = self.bridge.pending["id"]
+        self.assertEqual(self.bridge.pending["message"], "Click Continue when ready (or click Stop to cancel)")
+        self.bridge.output("[Input] " + text + "\n")
+        self.assertEqual(self.bridge.pending["id"], prompt_id)
+        self.bridge.input(encode_reply(prompt_id, ""))
+        self.bridge.output(text)
+        self.settle()
+        self.assertIsNone(self.bridge.pending)
+        self.assertEqual(self.sent, [b"\n"])
+        # A new explicit request can be stopped through the same GUI control.
+        self.bridge.output(marker(question))
+        self.bridge.input(encode_interrupt())
+        self.bridge.input(encode_interrupt())
+        self.assertEqual(self.sent, [b"\n", b"\x03"])
+        self.assertIsNone(self.bridge.pending)
+        # Exported/raw diagnostics retain the backend's original wording.
+        transcript = "".join(e.get("text", "") for e in self.events)
+        self.assertIn(text, transcript)
+
+    def test_fallback_continue_prompt_uses_buttons_across_split_output(self):
+        text = "[Input] Press Enter to continue (Ctrl-C to quit)\n"
+        for index in range(0, len(text), 3):
+            self.bridge.output(text[index:index + 3])
+        question = self.bridge.pending
+        self.assertEqual(question["kind"], "continue")
+        self.assertEqual(question["message"], "Click Continue when ready (click Stop to cancel)")
+        self.assertEqual(question["options"], [{"label": "Continue", "value": ""}])
+        self.assertEqual(self.sent, [])
+
+    def test_desktop_progress_uses_stop_and_never_requests_terminal_close(self):
+        for key in ("Ctrl+C", "Ctrl-C", "Control + C", "^C"):
+            with self.subTest(key=key):
+                self.bridge.output(marker({"type": "progress", "title": "Working",
+                    "message": "To stop and exit, just press " + key + " or close the terminal window."}))
+                event = self.events[-1]
+                self.assertEqual(event["message"], "To stop this operation, click Stop.")
+        self.bridge.output("Downloading IPSW... (Press Ctrl+C to cancel)\n")
+        self.assertEqual(self.events[-1]["type"], "progress")
+        self.assertEqual(self.events[-1]["message"], "Downloading IPSW... (Click Stop to cancel)")
+        self.assertEqual(self.sent, [])
+
+    def test_path_prompt_keeps_enter_default_and_response_kind(self):
+        text = "Path to IPSW file (or press Enter/Return or Ctrl+C to cancel): "
+        self.bridge.output(marker({"type": "prompt", "kind": "auto", "message": text}))
+        question = self.bridge.pending
+        self.assertEqual(question["kind"], "text")
+        self.assertIn("press Enter/Return or click Stop to cancel", question["message"])
+        self.assertNotIn("Continue", question["message"])
+        self.bridge.input(encode_reply(question["id"], "/tmp/ctrl-c.ipsw"))
+        self.assertEqual(self.sent, [b"/tmp/ctrl-c.ipsw\n"])
+
     def test_instrumented_menu_is_not_replaced_by_shell_select_text(self):
         question = {"type": "prompt", "kind": "choice", "title": "Ramdisk ready",
                     "message": "Choose Exit to continue inspection.",
@@ -182,7 +237,7 @@ class ProtocolTests(unittest.TestCase):
 
     def test_wsl_protocol_flag_preserves_existing_environment_entries(self):
         from ios_timeout.wsl import desktop_wsl_environment
-        with patch.dict(os.environ, {"BL_IOS_UI_PROTOCOL": "1", "WSLENV": "EXISTING/p:BL_IOS_UI_PROTOCOL/l:OTHER/u"}):
+        with patch.dict(os.environ, {"BL_IOS_UI_PROTOCOL": "1", "WSLENV": "EXISTING/p:BL_IOS_UI_PROTOCOL/l:OTHER/u"}, clear=True):
             environment = desktop_wsl_environment()
         self.assertEqual(environment["WSLENV"], "EXISTING/p:OTHER/u:BL_IOS_UI_PROTOCOL/u")
         self.assertEqual(environment["BL_IOS_UI_PROTOCOL"], "1")

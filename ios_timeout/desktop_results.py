@@ -5,15 +5,18 @@ data; in particular it does not save or export reported recovery passcodes.
 """
 
 from collections import deque
+import json
 import re
 
 from .core import JOURNAL, PREFS, SUPPORTED
 from .backend_ui import RECOVERY_HANDOFF_LINE, RECOVERY_HANDOFF_TITLE, RECOVERY_HANDOFF_MESSAGE
+from .legacy_keychain import MAX_PASSCODE_BYTES
 
 
 MAX_CAPTURE_CHARS = 1024 * 1024
 MAX_DETAIL_CHARS = 400
 MAX_DETAILS = 16
+LEGACY_PASSCODE_PREFIX = "Legacy passcode: "
 
 _IDENTITY = re.compile(
     r"^(iPhone [^·]{1,32}) · (iPhone\d+,\d+) · iOS ([0-9.]{3,12}) "
@@ -49,6 +52,19 @@ def _bounded(value):
     return value if len(value) <= MAX_DETAIL_CHARS else value[:MAX_DETAIL_CHARS - 1] + "…"
 
 
+def _legacy_passcode(line):
+    if not line.startswith(LEGACY_PASSCODE_PREFIX):
+        return None
+    try:
+        value = json.loads(line[len(LEGACY_PASSCODE_PREFIX):])
+        if (isinstance(value, str) and value.isprintable()
+                and 0 < len(value.encode("utf-8")) <= MAX_PASSCODE_BYTES):
+            return value
+    except (ValueError, UnicodeError, RecursionError):
+        pass
+    return None
+
+
 def summarize(action, capture, exit_code, interrupted=False):
     """Return ``{title, message, details}``; ``None`` exit means still running.
 
@@ -63,6 +79,7 @@ def summarize(action, capture, exit_code, interrupted=False):
     no_changes = reset_verified = restore_verified = cleanup_verified = False
     preview = False
     phone_handoff = False
+    model_mismatch = None
 
     def add(value):
         value = _bounded(value)
@@ -78,6 +95,11 @@ def summarize(action, capture, exit_code, interrupted=False):
         if len(raw) > 4096:
             continue
         line = raw.strip()
+        mismatch = re.fullmatch(r"(?:\[Error\] )?Connected device is (iPhone[0-9]+,[0-9]+), but --model selects (iPhone[0-9]+,[0-9]+)\.", line)
+        if mismatch:
+            model_mismatch = mismatch.groups()
+            errors.append(line)
+            continue
         error = _ERROR.fullmatch(line)
         if error:
             value = _bounded(error[1])
@@ -90,6 +112,9 @@ def summarize(action, capture, exit_code, interrupted=False):
             found = re.fullmatch(r"found\s*:\s*([0-9]{4}|[0-9]{6})", line)
             if found and found[1] not in passcodes:
                 passcodes.append(found[1])
+            legacy = _legacy_passcode(line)
+            if legacy is not None and legacy not in passcodes:
+                passcodes.append(legacy)
         if action == "doctor":
             if line.startswith(("Host: ", "Python: ", "USB transport endpoint: ")):
                 add(line)
@@ -160,6 +185,7 @@ def summarize(action, capture, exit_code, interrupted=False):
     details = details[:MAX_DETAILS]
     titles = {
         "doctor": "Computer checks", "devices": "Phone connection",
+        "exit-recovery": "Exit recovery mode",
         "prepare": "Phone preparation", "inspect": "Timer inspection",
         "reset": "Timer reset", "restore": "Restore originals",
         "finalize": "Transaction cleanup", "recover": "Passcode recovery",
@@ -167,6 +193,13 @@ def summarize(action, capture, exit_code, interrupted=False):
     title = titles.get(action, "Operation result")
     if interrupted:
         message = "Stopped at your request. Review any reported result before continuing."
+    elif exit_code not in (None, 0) and model_mismatch:
+        title = "Phone model does not match"
+        actual, _selected = model_mismatch
+        if actual in SUPPORTED:
+            message = f"Choose {SUPPORTED[actual][0]} ({actual}) under Phone model, then start again."
+        else:
+            message = "The connected model is not supported by this workflow. Connect the intended phone and refresh."
     elif exit_code not in (None, 0):
         message = "The operation stopped before completion."
         if not errors:
@@ -174,6 +207,9 @@ def summarize(action, capture, exit_code, interrupted=False):
     elif exit_code is None:
         message = ("The backend reported a passcode. Verify it on the phone."
                    if passcodes else "The operation is still running.")
+    elif action == "exit-recovery":
+        message = ("Normal boot requested. Check the phone screen, then choose Refresh. "
+                   "If it returns to recovery, its installed system may need repair. No restore or erase was performed.")
     elif action in {"prepare", "inspect"} or (action == "reset" and preview):
         message = ("Inspection finished. No file changes are needed." if no_changes else
                    "Inspection finished. Review the proposed changes before applying a reset.")
