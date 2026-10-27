@@ -16,6 +16,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from ios_timeout import backend_entry as entry
+from ios_timeout.backend_support import PHONES
 from ios_timeout.core import ResetError
 from ios_timeout import legacy_kit, upstream
 from ios_timeout.entry_adapter import HOOK
@@ -204,7 +205,8 @@ class PinnedNormalEntryTests(unittest.TestCase):
             trace = root / "trace"
             state = root / "state"
             queries = root / "queries"
-            product = {**VALUES, "ProductType": model, "HardwareModel": "N41AP" if model == "iPhone5,1" else "N42AP"}
+            board, chip_id, board_id = PHONES[model]
+            product = {**VALUES, "ProductType": model, "HardwareModel": board.upper() + "AP"}
             program = root / "tool.py"
             program.write_text('''import json,os,plistlib,sys
 from pathlib import Path
@@ -225,7 +227,7 @@ elif name=='irecovery':
  mode=modes[min(n,len(modes)-1)]
  if mode is None:sys.exit(1)
  print('MODE: '+mode)
- print('CPID: 8950\\nBDID: '+os.environ['BDID']+'\\nECID: 7b')
+ print('CPID: '+os.environ['CPID']+'\\nBDID: '+os.environ['BDID']+'\\nECID: 7b')
 elif name=='managed-python':
  from ios_timeout import backend_entry as entry
  entry._devices=lambda **kwargs: [] if state.exists() else [{'udid':os.environ['SERIAL'],'device_id':1,'product_id':4776}]
@@ -273,7 +275,7 @@ printf 'ENTRY_DONE:%s:%s:%s\n' "$device_type" "$device_mode" "$device_ecid"
                    "PROJECT_ROOT": str(root), "BL_IOS_PYTHON": str(tools / "managed-python"),
                    "BL_IOS_MODEL": selected, "BL_IOS_UDID": SERIAL, "TRACE": str(trace),
                    "STATE": str(state), "QUERIES": str(queries), "VALUES": json.dumps(product),
-                   "SERIAL": SERIAL, "BDID": "00" if model == "iPhone5,1" else "02", "KICKOFF": str(kickoff)}
+                   "SERIAL": SERIAL, "CPID": format(chip_id, "04x"), "BDID": format(board_id, "02x"), "KICKOFF": str(kickoff)}
             result = subprocess.run([shutil.which("bash"), str(script)], input="\n", text=True,
                                     capture_output=True, env=env, cwd=root, timeout=15)
             events = [json.loads(line) for line in trace.read_text().splitlines()]
@@ -292,6 +294,21 @@ printf 'ENTRY_DONE:%s:%s:%s\n' "$device_type" "$device_mode" "$device_ecid"
                     self.assertEqual(helper_actions, ["detect", "recovery", "dfu"])
                     self.assertTrue(all(args[1] == SERIAL for name,args in events if name == "ideviceinfo"))
                     self.assertGreaterEqual(sum(name == "irecovery" for name,args in events), 6)
+
+    def test_other_phone_variants_follow_the_checked_entry_sequence(self):
+        # No device or boot command is invoked: these are the real pinned shell
+        # entry functions calling fake USB tools and the actual identity helper.
+        models = ("iPhone2,1", "iPhone3,1", "iPhone3,2", "iPhone3,3",
+                  "iPhone4,1", "iPhone5,3", "iPhone5,4")
+        for backend in ("recover", "legacy"):
+            for model in models:
+                with self.subTest(backend=backend, model=model):
+                    result, events = self.run_entry(backend, model=model, selected=model)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertIn("ENTRY_DONE:" + model + ":DFU:123", result.stdout)
+                    self.assertEqual([args for name, args in events if name == "ideviceenterrecovery"], [[SERIAL]])
+                    self.assertEqual([args[2] for name, args in events if name == "managed-python"],
+                                     ["detect", "recovery", "dfu"])
 
     def test_failed_kick_never_enters_dfu_without_verified_recovery(self):
         for backend in ("recover", "legacy"):
@@ -312,3 +329,17 @@ printf 'ENTRY_DONE:%s:%s:%s\n' "$device_type" "$device_mode" "$device_ecid"
                 self.assertNotIn("ENTRY_DONE", result.stdout)
                 self.assertFalse(any(name == "ideviceenterrecovery" for name,args in events))
                 self.assertIn("iPhone5,1, but --model selects iPhone5,2", result.stderr)
+
+    def test_wrong_model_on_other_phones_never_requests_recovery(self):
+        pairs = (("iPhone2,1", "iPhone3,1"), ("iPhone3,1", "iPhone3,2"),
+                 ("iPhone3,3", "iPhone4,1"), ("iPhone4,1", "iPhone5,3"),
+                 ("iPhone5,3", "iPhone5,4"))
+        for backend in ("recover", "legacy"):
+            for actual, selected in pairs:
+                with self.subTest(backend=backend, actual=actual, selected=selected):
+                    result, events = self.run_entry(backend, model=actual, selected=selected)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertNotIn("ENTRY_DONE", result.stdout)
+                    self.assertFalse(any(name in ("ideviceenterrecovery", "irecovery")
+                                         for name, _ in events))
+                    self.assertIn(actual + ", but --model selects " + selected, result.stderr)

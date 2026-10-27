@@ -5,6 +5,8 @@ from pathlib import Path
 
 from .core import ResetError, load_backup
 
+RECOVERY_ONLY = {"iPhone2,1": "iPhone 3GS"}
+
 
 @dataclass
 class Settings:
@@ -29,6 +31,8 @@ def operation_arguments(action, settings, *, apply=False, backup=None, install_o
         raise ResetError("Choose the connected phone's model above, or use Refresh to detect it, before starting.")
     if settings.model == "iPhone1,1" and action in {"prepare", "reset"}:
         raise ResetError("For iPhone 2G, choose Recover a passcode. Timer reset is not supported for this model.")
+    if settings.model in RECOVERY_ONLY and action in {"prepare", "inspect", "reset"}:
+        raise ResetError("iPhone 3GS is available for experimental passcode recovery only; timer reset has not been validated.")
     args = [action]
     if action in {"restore", "finalize"}:
         if not backup:

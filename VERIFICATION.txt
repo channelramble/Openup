@@ -1,3 +1,32 @@
+Openup 2.3.21 — simpler navigation and simulated phone-path audit
+Verification date: 2026-10-27
+
+The desktop now opens directly on recovery with a single row of task tabs.
+Uncommon firmware, recovery, backup and updater controls are grouped under
+Help and tools; Exit recovery is there too. Terminal and manual input stay closed
+by default. A5 hardware guidance appears only when iPhone 4S is selected.
+
+The iPhone 3GS is exposed as an experimental recovery-only GUI choice. The
+pinned backend selects its 6.1.6 / 10B500 ramdisk. Its three exact pinned Git
+blobs were fetched to a temporary directory, hash-checked and verified ARMv7;
+the app's payload checks accepted them for 3GS, 4, 4S and 5c variants. No
+firmware was downloaded or sent for this check. Timer prepare, inspect and reset
+remain blocked in the GUI for 3GS. Physical 3GS recovery remains unverified.
+
+All 589 source tests passed with both hash-pinned backend fixtures. The extended
+entry matrix exercises actual adapted shell functions and identity checks with
+fake USB processes for 3GS, all three 4 variants, 4S and both 5c variants on
+both recovery and timer backend entry paths. Wrong selected models stop before
+Recovery requests. Failed exploit checks and a stale fallback state stop before
+ramdisk uploads. A5's unconfirmed external pwn state stops before iBSS upload.
+These are simulated control-flow checks and do not verify USB timing, real
+bootloader execution, ramdisk compatibility or a recovered passcode. The user
+reports that their iPhone 5 and 3G seem to work; no physical phone was accessed
+for this revision. Package, CI and public-update checks are recorded with the
+2.3.21 release.
+
+---- Previous release ----
+
 Openup 2.3.20 — clearer phone variants and Exit recovery mode
 Verification date: 2026-10-25
 

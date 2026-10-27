@@ -326,6 +326,10 @@ def adapt_script(original):
             warn "ssh_old.tar not found! Trying standard ssh.tar (might fail)..."''')
     replace('    mv iBSS iBEC DeviceTree.dec Kernelcache.dec Ramdisk.dmg $ramdisk_path 2>/dev/null',
             '    mv iBSS iBEC DeviceTree.dec Kernelcache.dec Ramdisk.dmg $ramdisk_path || error "Could not publish all ramdisk components; boot cancelled."')
+    # Reject a stale fallback state even if it was supplied directly to the
+    # boot function. The ordinary failed-exploit path is rejected below.
+    replace('''        warn "Entering fallback mode: sending ramdisk without pwndfu"''',
+            '''        error "Unverified recovery state; no ramdisk was sent. Retry device preparation."''')
     for name in ("bruteforce", "device_infos", "restored_external"):
         source = source.replace(f"$PROJECT_ROOT/resources/{name}",
                                 f"${{BL_IOS_PAYLOADS:-$PROJECT_ROOT/resources}}/{name}")

@@ -2,19 +2,19 @@
 
 This file applies to the whole repository. Keep it current when architecture,
 release procedures, or verified hardware behavior changes. The snapshot below
-is dated **2026-10-26**; inspect the checkout and connected devices before
+is dated **2026-10-27**; inspect the checkout and connected devices before
 assuming that a historical state still applies.
 
 ## Start here
 
 - Project: **Openup**, a dark-mode desktop application for legacy iPhone recovery.
 - Repository: <https://github.com/channelramble/Openup> (public).
-- Current app version: **2.3.20**, with one-click desktop updates.
+- Current app version: **2.3.21**, with one-click desktop updates.
 - Verified device baseline: **2.3.1**, a prerelease built from
   `d6a5117a25038b850a56cea2c2f89b151930c104`. Version **2.3.12** is the first to
   complete a physical iPhone 3G timer reset (SpringBoard lockout plist committed
   and read-back verified live on the device; see VERIFICATION.txt).
-- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.20>.
+- Release: <https://github.com/channelramble/Openup/releases/tag/v2.3.21>.
 - Read `README.md`, the newest section of `VERIFICATION.txt`, `CHANGELOG.md`,
   and `THIRD_PARTY.md` before modifying device operations or packaging.
 - `RESEARCH.md` and older verification sections contain historical hypotheses
@@ -22,6 +22,27 @@ assuming that a historical state still applies.
 - Check `git status --short` and preserve existing user changes. Build release
   artifacts from a clean, committed checkout. Keep experiments in ignored
   `build/`, downloads in `.desktop-cache/`, and distributions in `dist/`.
+
+## UI and phone-path audit (2.3.21)
+
+The desktop opens on passcode recovery with one horizontal row of task tabs.
+Timer reset, backups, updates and Help and tools have separate direct destinations;
+the old start page is no longer presented. The uncommon firmware, custom
+payload, backup-cleanup and update controls share Help and tools. Exit recovery
+also lives there. Keep terminal and manual input hidden by default. The 4S A5
+hardware notice is shown only for that selected model.
+
+The GUI now offers `iPhone2,1` / iPhone 3GS as experimental recovery-only. Its
+pinned backend selects 6.1.6 / 10B500 and its actual three pinned payloads are
+ARMv7. Timer prepare, inspect and reset are blocked for this model by the GUI
+planner; do not infer timer compatibility from the recovery backend. Physical
+3GS validation is pending. The source audit uses the pinned entry functions,
+fake USB tools and real identity helpers for 3GS, all 4 variants, 4S and 5c,
+including wrong-model refusal. The existing failed-pwn check is retained; a
+separate guard rejects a stale fallback state before any ramdisk upload.
+All 589 source tests passed with both pinned fixtures. These simulations do not
+prove physical boot or recovery; no phone operation was performed. Release and
+platform-package verification is recorded with the 2.3.21 release.
 
 ## Source synchronization (2026-10-26)
 
@@ -797,7 +818,7 @@ interrupted 2.3.11 transaction, and reset --apply committed the lockout plist
 and read-back verified it (independent SFTP read confirmed
 SBDeviceLockBlocked=false, SBDeviceLockFailedAttempts=0, cached timer keys gone,
 other prefs preserved). On-screen timer clearance after reboot and the separate
-passcode-recovery (4.x bruteforce) flow remain unverified.
+passcode-recovery (4.x) flow remain unverified.
 For 2.3.3, 344 tests passed in source and the native Apple Silicon package;
 all-platform updater installation/rollback and a public download check passed.
 The MacBook was unreachable, so that release was not run under Rosetta there.
@@ -921,7 +942,7 @@ As of 2.3.12 the **iPhone 3G timer reset is physically verified**: the 3.1.3
 ramdisk boot, USB SSH, mount, plist commit + read-back, and restore recovery all
 completed on a connected iPhone1,2 / iOS 4.2.1 over a USB-C hub on an Apple
 Silicon Mac. Still outstanding: **visible on-screen timer/lockout clearance after
-the phone reboots, the separate passcode-recovery (4.x bruteforce) flow, physical
+the phone reboots, the separate passcode-recovery (4.x) flow, physical
 Intel-Mac USB, execution on Monterey hardware, native Windows/Linux execution,
 and WSL USB forwarding**. Packaging and Rosetta success do not establish those.
 Preserve the distinction between a verified reset commit and confirmed on-screen

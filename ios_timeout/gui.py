@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 from . import APP_NAME, __version__
 from .core import ResetError, SUPPORTED
 from .backup_deletion import delete_backup, prepare_backup_deletion
-from .desktop_model import Settings, TerminalText, backup_inventory, operation_arguments
+from .desktop_model import RECOVERY_ONLY, Settings, TerminalText, backup_inventory, operation_arguments
 from .host import state_directory
 from .session_log import SessionLog
 from .gui_flow import TimerFlow, action_copy
@@ -33,7 +33,7 @@ from .desktop_results import summarize
 STYLE = """
 QWidget { color: #e6e6e6; font-size: 13px; }
 QMainWindow, #workspace { background: #000000; }
-#sidebar { background: #000000; border-right: 1px solid #303030; }
+#sidebar { background: #000000; border-bottom: 1px solid #303030; }
 #sidebar #brand { color: #f5f5f5; font-size: 20px; font-weight: 700; }
 #sidebar QLabel { color: #a3a3a3; }
 #sidebar #edition { color: #999999; font-size: 11px; }
@@ -250,34 +250,33 @@ class MainWindow(QMainWindow):
 
     def build_ui(self):
         outer = QWidget()
-        layout = QHBoxLayout(outer)
+        layout = QVBoxLayout(outer)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         sidebar = QFrame()
         sidebar.setObjectName("sidebar")
-        sidebar.setFixedWidth(183)
-        nav = QVBoxLayout(sidebar)
-        nav.setContentsMargins(16, 28, 16, 20)
-        nav.setSpacing(7)
+        nav = QHBoxLayout(sidebar)
+        nav.setContentsMargins(24, 12, 24, 12)
+        nav.setSpacing(6)
         nav.addWidget(label("Openup", "brand"))
-        nav.addWidget(label("Version " + __version__, "edition"))
-        nav.addSpacing(28)
+        nav.addSpacing(20)
         self.nav_group = QButtonGroup(self)
-        # Visual order puts the main task (Recover) first and the lockout-timer
-        # reset below it; the button id stays the page index so navigate() works.
-        for page, title in ((0, "Start"), (2, "Recover passcode"), (1, "Reset timer"),
-                            (3, "Backups"), (4, "Updates"), (5, "Help")):
-            if page == 3:
-                nav.addSpacing(20)
+        # Stable page IDs keep operation and keyboard navigation intact.
+        # The old Start page stays addressable but does not duplicate the tabs.
+        start = QPushButton("Start", self)
+        start.setCheckable(True)
+        start.hide()
+        self.nav_group.addButton(start, 0)
+        for page, title in ((2, "Recover passcode"), (1, "Reset timer"),
+                            (3, "Backups"), (4, "Updates"), (5, "Help and tools")):
             button = QPushButton(title)
             button.setCheckable(True)
             self.nav_group.addButton(button, page)
-            nav.addWidget(button)
+            nav.addWidget(button, 0)
         self.nav_group.idToggled.connect(lambda index, checked: self.navigate(index) if checked else None)
         nav.addStretch()
-        nav.addWidget(label("Legacy iPhone recovery", "edition"))
-        nav.addWidget(self.button("User guide ↗", lambda: QDesktopServices.openUrl(
-            QUrl("https://github.com/channelramble/Openup#readme")), operation=False))
+        nav.addWidget(label("v" + __version__, "edition"))
+        self.update_shortcut = self.nav_group.button(4)
         layout.addWidget(sidebar)
         workspace = QWidget()
         workspace.setObjectName("workspace")
@@ -287,18 +286,16 @@ class MainWindow(QMainWindow):
         self.title = label("What would you like to do?", "pageTitle")
         title_row = QHBoxLayout()
         title_row.addWidget(self.title, 1)
-        self.update_shortcut = self.button(f"v{__version__} · Updates", lambda: self.navigate(4), operation=False)
-        title_row.addWidget(self.update_shortcut)
         work.addLayout(title_row)
         self.subtitle = label("", "subtitle")
         work.addWidget(self.subtitle)
 
-        phone_bar = QFrame()
-        phone_bar.setObjectName("phoneBar")
-        phone_layout = QVBoxLayout(phone_bar)
+        self.phone_bar = QFrame()
+        self.phone_bar.setObjectName("phoneBar")
+        phone_layout = QVBoxLayout(self.phone_bar)
         phone_layout.setContentsMargins(16, 13, 16, 13)
         phone_layout.setSpacing(9)
-        phone_layout.addWidget(label("STEP 1 · CONNECT YOUR PHONE BY USB", "eyebrow"))
+        phone_layout.addWidget(label("YOUR IPHONE · CONNECT BY USB", "eyebrow"))
         row = QHBoxLayout()
         row.setSpacing(16)
         model_column = QVBoxLayout()
@@ -326,7 +323,7 @@ class MainWindow(QMainWindow):
         phone_layout.addLayout(row)
         self.device_detail = label("Connect your phone and choose Refresh. Its detected model and mode will appear here.", "muted")
         phone_layout.addWidget(self.device_detail)
-        work.addWidget(phone_bar)
+        work.addWidget(self.phone_bar)
 
         self.split = QSplitter(Qt.Orientation.Vertical)
         self.split.setChildrenCollapsible(False)
@@ -347,7 +344,7 @@ class MainWindow(QMainWindow):
         status = QVBoxLayout()
         status.setSpacing(3)
         self.session_status = label("Ready when you are", "sessionTitle")
-        self.session_hint = label("Choose a task to get started.", "sessionHint")
+        self.session_hint = label("Connect a phone to get started.", "sessionHint")
         status.addWidget(self.session_status)
         status.addWidget(self.session_hint)
         header.addLayout(status, 1)
@@ -418,7 +415,7 @@ class MainWindow(QMainWindow):
         work.addWidget(self.split, 1)
         layout.addWidget(workspace, 1)
         self.setCentralWidget(outer)
-        self.navigate(0)
+        self.navigate(2)
         self.model_changed()
 
     def build_guidance(self, parent_layout):
@@ -654,7 +651,9 @@ class MainWindow(QMainWindow):
             "iPhone5,3": "GSM",
             "iPhone5,4": "Global",
         }
-        for model, (name, low, high) in SUPPORTED.items():
+        phones = {model: info[0] for model, info in SUPPORTED.items()}
+        phones.update(RECOVERY_ONLY)
+        for model, name in sorted(phones.items()):
             variant = variants.get(model)
             title = f"{name} ({variant})" if variant else name
             text = f"{title} · {model}"
@@ -706,22 +705,21 @@ class MainWindow(QMainWindow):
         actions.addStretch()
         body.addLayout(actions)
         layout.addWidget(frame)
-        self.reset_advanced = Disclosure("Advanced options")
-        advanced = self.reset_advanced.body
+        self.reset_advanced = QWidget()
+        advanced = QVBoxLayout(self.reset_advanced)
+        advanced.setContentsMargins(0, 0, 0, 0)
         advanced.addWidget(label("Use a downloaded firmware file (optional)", "eyebrow"))
         row, self.ipsw_edit = self.file_row("iPhone 3G 3.1.3 / 7E18 IPSW")
         self.ipsw_edit.textChanged.connect(self.invalidate_timer_flow)
         advanced.addLayout(row)
         advanced.addWidget(label("For iPhone 3G only. Leave this empty to download the boot files automatically. The installed iOS version stays in place.", "muted"))
-        advanced.addWidget(self.button("Connection settings…", self.options_dialog), 0, Qt.AlignmentFlag.AlignLeft)
-        layout.addWidget(self.reset_advanced)
         layout.addStretch()
         return widget
 
     def run_timer_step(self):
         if self.busy:
             return
-        if self.settings.model == "iPhone1,1":
+        if self.settings.model == "iPhone1,1" or self.settings.model in RECOVERY_ONLY:
             self.navigate(2)
             return
         if self.timer_flow.stage == "review":
@@ -790,11 +788,14 @@ class MainWindow(QMainWindow):
                          "Any backup created by this operation is available from Backups.",
                          "View backups", "Start again"),
         }[stage]
-        original_iphone = self.settings.model == "iPhone1,1"
-        if original_iphone:
-            title = "Recover an iPhone 2G passcode"
-            description = "The original iPhone uses an older lockout format. Timer reset is not supported for this model."
-            note = "Passcode recovery is available for iPhone OS 2.2–3.1.3."
+        recovery_only = self.settings.model == "iPhone1,1" or self.settings.model in RECOVERY_ONLY
+        if recovery_only:
+            name = "iPhone 2G" if self.settings.model == "iPhone1,1" else RECOVERY_ONLY[self.settings.model]
+            title = "Recover an " + name + " passcode"
+            description = "Timer reset is not supported for this model."
+            note = ("Passcode recovery is experimental; physical testing is still needed."
+                    if self.settings.model in RECOVERY_ONLY else
+                    "Passcode recovery is available for iPhone OS 2.2–3.1.3.")
             primary = "Open passcode recovery"
         self.timer_title.setText(title)
         self.timer_description.setText(description)
@@ -802,7 +803,7 @@ class MainWindow(QMainWindow):
         self.timer_primary.setText(primary)
         self.timer_secondary.setText(secondary)
         self.timer_primary.setEnabled(not self.busy)
-        self.timer_secondary.setEnabled(not self.busy and not original_iphone)
+        self.timer_secondary.setEnabled(not self.busy and not recovery_only)
         current = ("prepare", "review", "complete").index(stage)
         for index, step in enumerate(self.timer_steps):
             step.setProperty("active", index == current)
@@ -815,7 +816,7 @@ class MainWindow(QMainWindow):
     def recovery_page(self):
         widget, layout = self.page()
         frame, body = card("Start a recovery session",
-                           "Connect one phone by USB. From normal mode, Openup enters recovery mode, then guides you through the DFU button steps.")
+                           "Connect one phone by USB. Openup checks it and guides you through Recovery and DFU mode.")
         body.addWidget(label("1  Connect your phone     →     2  Follow the DFU steps     →     3  View the recovery result", "muted"))
         self.armv6_notice = label("iPhone 3G tools are included. No separate tools folder is needed.", "notice")
         body.addWidget(self.armv6_notice)
@@ -824,12 +825,15 @@ class MainWindow(QMainWindow):
             "The passcode appears here in Openup. OS 1.x is not supported yet; "
             "timer reset is unavailable. This recovery path still needs testing on a physical 2G.", "warning")
         body.addWidget(self.iphone2g_notice)
+        self.iphone3gs_notice = label(
+            "iPhone 3GS: experimental passcode recovery. The backend uses a temporary iOS 6.1.6 recovery system; "
+            "this path has not yet been tested on a physical 3GS. Timer reset is unavailable.", "warning")
+        body.addWidget(self.iphone3gs_notice)
         self.a5_notice = label(
-            "<b>iPhone 4S and iPad 2: checkm8-A5 required</b><br>"
+            "<b>iPhone 4S: checkm8-A5 required</b><br>"
             "Use checkm8-A5 with the required external hardware to enter pwned DFU mode before recovery.<br>"
             '<a href="https://github.com/LukeZGD/Legacy-iOS-Kit/wiki/checkm8-a5" '
-            'style="color: #8db5ff;">Open the checkm8-A5 guide ↗</a><br>'
-            "iPad 2 recovery is not currently supported in Openup.", "warning")
+            'style="color: #8db5ff;">Open the checkm8-A5 guide ↗</a>', "warning")
         self.a5_notice.setTextFormat(Qt.TextFormat.RichText)
         self.a5_notice.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
         self.a5_notice.setOpenExternalLinks(True)
@@ -838,24 +842,17 @@ class MainWindow(QMainWindow):
         body.addWidget(self.recovery_start, 0, Qt.AlignmentFlag.AlignLeft)
         body.addWidget(label("The first run downloads the recovery backend and boot files. Results appear on the phone or in Openup, depending on the model. No terminal input is needed.", "muted"))
         layout.addWidget(frame)
-        exit_frame, exit_body = card("Leave recovery mode",
-                                    "Restart a phone showing the cable/computer recovery screen. This does not restore or erase it.")
-        self.exit_recovery_button = self.button("Exit recovery mode", lambda: self.start_operation("exit-recovery"))
-        exit_body.addWidget(self.exit_recovery_button, 0, Qt.AlignmentFlag.AlignLeft)
-        exit_body.addWidget(label("Connect only one phone. The first use may download recovery tools. For a black DFU screen, hold Home and Power until the Apple logo appears.", "muted"))
-        layout.addWidget(exit_frame)
-        self.recovery_advanced = Disclosure("Advanced options")
-        advanced = self.recovery_advanced.body
+        self.recovery_advanced = QWidget()
+        advanced = QVBoxLayout(self.recovery_advanced)
+        advanced.setContentsMargins(0, 0, 0, 0)
         advanced.addWidget(label("Custom iPhone 3G tools (optional)", "eyebrow"))
         row, self.armv6_edit = self.file_row("Custom ARMv6 tools folder", directory=True)
         advanced.addLayout(row)
         advanced.addWidget(label("Leave this empty to use the included tools. Windows recovery uses WSL 2 and USB passthrough.", "muted"))
         actions = QHBoxLayout()
         actions.addWidget(self.button("Download tools only", lambda: self.start_operation("recover", install_only=True)))
-        actions.addWidget(self.button("Connection settings…", self.options_dialog))
         actions.addStretch()
         advanced.addLayout(actions)
-        layout.addWidget(self.recovery_advanced)
         layout.addStretch()
         return widget
 
@@ -885,11 +882,12 @@ class MainWindow(QMainWindow):
         self.backup_note = label("", "muted")
         body.addWidget(self.backup_note)
         layout.addWidget(frame)
-        more = Disclosure("More backup options")
-        more.body.addWidget(self.button("Open backups folder", self.open_backups, operation=False), 0, Qt.AlignmentFlag.AlignLeft)
+        self.backup_tools = QWidget()
+        backup_tools = QVBoxLayout(self.backup_tools)
+        backup_tools.setContentsMargins(0, 0, 0, 0)
+        backup_tools.addWidget(self.button("Open backups folder", self.open_backups, operation=False), 0, Qt.AlignmentFlag.AlignLeft)
         self.finalize_button = self.button("Finish interrupted cleanup…", lambda: self.recover_backup("finalize"))
-        more.body.addWidget(self.finalize_button, 0, Qt.AlignmentFlag.AlignLeft)
-        layout.addWidget(more)
+        backup_tools.addWidget(self.finalize_button, 0, Qt.AlignmentFlag.AlignLeft)
         layout.addStretch()
         return widget
 
@@ -904,8 +902,9 @@ class MainWindow(QMainWindow):
         self.relaunch_button = self.button("Restart to finish update", self.relaunch, primary=True, operation=False)
         self.relaunch_button.hide()
         body.addWidget(self.relaunch_button)
-        self.update_options = Disclosure("Advanced update options")
-        options = self.update_options.body
+        self.update_options = QWidget()
+        options = QVBoxLayout(self.update_options)
+        options.setContentsMargins(0, 0, 0, 0)
         self.prereleases = QCheckBox("Include prereleases")
         self.prereleases.setChecked(True)
         options.addWidget(self.prereleases)
@@ -922,7 +921,6 @@ class MainWindow(QMainWindow):
         self.token_edit.setPlaceholderText("Leave empty for public downloads")
         options.addWidget(self.token_edit)
         options.addWidget(label("Your token stays in memory for this session. It is not saved or passed to device operations.", "muted"))
-        body.addWidget(self.update_options)
         layout.addWidget(frame)
         layout.addWidget(label("Downloads are checksum-verified, staged separately, and activated only after verification. Backups remain in your local workspace.", "muted"))
         layout.addStretch()
@@ -946,14 +944,30 @@ class MainWindow(QMainWindow):
         actions.addStretch()
         body.addLayout(actions)
         layout.addWidget(frame)
-        layout.addWidget(label("Hardware validation is pending. Physical recovery, timer clearance, and Windows/Linux USB workflows have not been verified on a phone.", "warning"))
+        exit_frame, exit_body = card("Exit recovery mode",
+                                    "Restart a phone showing the cable/computer recovery screen without restoring it.")
+        self.exit_recovery_button = self.button("Exit recovery mode", lambda: self.start_operation("exit-recovery"))
+        exit_body.addWidget(self.exit_recovery_button, 0, Qt.AlignmentFlag.AlignLeft)
+        exit_body.addWidget(label("Connect only one phone. For a black DFU screen, hold Home and Power until the Apple logo appears.", "muted"))
+        layout.addWidget(exit_frame)
+        tools, tool_body = card("Extra tools and settings", "Use these only when the guided workflow needs them.")
+        tool_body.addWidget(label("PHONE AND RECOVERY TOOLS", "eyebrow"))
+        tool_body.addWidget(self.reset_advanced)
+        tool_body.addWidget(self.recovery_advanced)
+        tool_body.addWidget(label("BACKUP TOOLS", "eyebrow"))
+        tool_body.addWidget(self.backup_tools)
+        tool_body.addWidget(label("UPDATE OPTIONS", "eyebrow"))
+        tool_body.addWidget(self.update_options)
+        tool_body.addWidget(self.button("User guide ↗", lambda: QDesktopServices.openUrl(
+            QUrl("https://github.com/channelramble/Openup#readme")), operation=False), 0, Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(tools)
         layout.addWidget(label("State and backups: " + str(state_directory()), "muted"))
         layout.addStretch()
         return widget
 
     def navigate(self, index):
         names = ["What would you like to do?", "Reset the lockout timer", "Recover a passcode",
-                 "Backups", "Updates", "Help & connection"]
+                 "Backups", "Updates", "Help and tools"]
         descriptions = ["Choose the task that matches your situation.",
                         "Prepare your phone, review the changes, then reset.",
                         "Follow the on-screen steps to prepare your phone and view the result.",
@@ -962,6 +976,7 @@ class MainWindow(QMainWindow):
                         "Check this computer and adjust connection settings."]
         self.pages.setCurrentIndex(index)
         self.nav_group.button(index).setChecked(True)
+        self.phone_bar.setVisible(index != 4)
         self.title.setText(names[index])
         self.subtitle.setText(descriptions[index])
 
@@ -971,6 +986,8 @@ class MainWindow(QMainWindow):
         self.invalidate_timer_flow()
         self.armv6_notice.setVisible(model == "iPhone1,2")
         self.iphone2g_notice.setVisible(model == "iPhone1,1")
+        self.iphone3gs_notice.setVisible(model in RECOVERY_ONLY)
+        self.a5_notice.setVisible(model == "iPhone4,1")
         self.ipsw_edit.setEnabled(not self.busy and model == "iPhone1,2")
         if model != "iPhone1,2":
             self.ipsw_edit.clear()
@@ -991,7 +1008,7 @@ class MainWindow(QMainWindow):
             self.phone_model.setCurrentIndex(index)
         if device:
             mode = str(device.get("mode", "")).lower()
-            name = SUPPORTED.get(model, (model or "USB phone",))[0]
+            name = RECOVERY_ONLY.get(model) or SUPPORTED.get(model, (model or "USB phone",))[0]
             shown_mode = {"normal": "Normal mode", "dfu": "DFU mode", "recovery": "Recovery mode"}.get(mode, "USB connected")
             self.connection.setText(f"{name} · {shown_mode}")
             if mode == "normal":
@@ -1304,7 +1321,7 @@ class MainWindow(QMainWindow):
                 continue
             self.discovered_devices[key] = dict(device)
             model = device.get("model")
-            name = SUPPORTED.get(model, (model or "USB phone",))[0]
+            name = RECOVERY_ONLY.get(model) or SUPPORTED.get(model, (model or "USB phone",))[0]
             mode = str(device.get("mode", "")).lower()
             shown_mode = {"normal": "Normal", "dfu": "DFU", "recovery": "Recovery"}.get(mode, "USB")
             suffix = " · …" + udid[-8:] if udid else ""

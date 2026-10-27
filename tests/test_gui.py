@@ -92,7 +92,7 @@ class GuiTests(unittest.TestCase):
         self.assertEqual(self.window.pages.count(), 6)
         self.assertEqual(
             [self.window.nav_group.button(index).text() for index in range(6)],
-            ["Start", "Reset timer", "Recover passcode", "Backups", "Updates", "Help"],
+            ["Start", "Reset timer", "Recover passcode", "Backups", "Updates", "Help and tools"],
         )
         for index in range(6):
             # Accessibility activates checkable buttons through their checked state.
@@ -104,16 +104,16 @@ class GuiTests(unittest.TestCase):
         self.window.populate_devices([])
         self.assertEqual(self.window.settings.udid, "")
 
-    def test_details_and_advanced_options_start_collapsed(self):
+    def test_terminal_is_hidden_and_extra_tools_have_one_location(self):
         self.assertTrue(self.window.details_panel.isHidden())
         self.assertFalse(self.window.details_toggle.isChecked())
         self.assertTrue(self.window.reply_row.isHidden())
-        for disclosure in (self.window.reset_advanced, self.window.recovery_advanced):
-            self.assertFalse(disclosure.toggle.isChecked())
-            self.assertTrue(disclosure.content.isHidden())
-            disclosure.toggle.click()
-            self.assertTrue(disclosure.toggle.isChecked())
-            self.assertFalse(disclosure.content.isHidden())
+        self.assertEqual(self.window.pages.currentIndex(), 2)
+        self.assertFalse(self.window.reset_advanced.isVisibleTo(self.window.pages))
+        self.window.navigate(5)
+        for panel in (self.window.reset_advanced, self.window.recovery_advanced,
+                      self.window.backup_tools, self.window.update_options):
+            self.assertTrue(panel.isVisibleTo(self.window.pages))
         self.window.details_toggle.click()
         self.assertFalse(self.window.details_panel.isHidden())
         self.window.set_details_visible(False)
@@ -571,7 +571,7 @@ class GuiTests(unittest.TestCase):
         self.assertIn(__version__, self.window.windowTitle())
         self.window.update_shortcut.click()
         self.assertEqual(self.window.pages.currentIndex(), 4)
-        self.assertTrue(self.window.update_options.content.isHidden())
+        self.assertFalse(self.window.update_options.isVisibleTo(self.window.pages))
         self.assertFalse(self.window.update_now_button.isHidden())
         self.assertFalse(self.window.local_update_button.isVisibleTo(self.window.pages))
         self.window.token_edit.setText("fixture-private-token")

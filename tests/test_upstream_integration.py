@@ -339,6 +339,16 @@ mv() {
             text=True, capture_output=True, timeout=30)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_3gs_selects_its_reviewed_temporary_ramdisk(self):
+        script = (self.function("select_ramdisk_version") +
+                  "\nprint() { printf '%s\\n' \"$*\"; }\n"
+                  "device_type=iPhone2,1\nselect_ramdisk_version\n"
+                  "printf 'SELECTED:%s\\n' \"$device_target_build\"\n")
+        result = subprocess.run([BASH, "--noprofile", "--norc", "-c", script],
+                                capture_output=True, text=True, timeout=5)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("SELECTED:10B500", result.stdout)
+
     def run_main(self, model="iPhone1,2", *, enabled=True, reply="", failure="", menu=False):
         # Exercise the real main control flow with fake device operations.
         # Remove only its host-UID guard so fixtures also work in root CI jobs.
@@ -511,6 +521,37 @@ trap clean EXIT
         self.assertEqual(len(uploads), 1)
         self.assertTrue(uploads[0]["args"][1].endswith(
             "WTF.s5l8900xall.RELEASE.dfu.patched"))
+
+    def test_other_phones_stop_when_the_pwn_check_never_succeeds(self):
+        for model, proc in (("iPhone2,1", 3), ("iPhone3,1", 4), ("iPhone5,3", 6)):
+            with self.subTest(model=model):
+                (self.backend / "resources/ipwndfu").mkdir(exist_ok=True)
+                platform = "macos" if proc == 6 else "linux"
+                invocation = (f'device_type={model}\ndevice_proc={proc}\nplatform={platform}\n'
+                              'primepwn=:; ipwnder=:; setup_ipwndfu() { :; }\n'
+                              'python2() { :; }\nenter_pwndfu')
+                result = self.run_functions(("enter_pwndfu",), invocation,
+                                            BL_TEST_RECOVERY="MODE: DFU\n")
+                self.assert_stopped(result, "pwnDFU verification failed")
+                self.assertFalse(any(entry["args"][:1] == ["-f"]
+                                     for entry in self.trace_entries() if entry["tool"] == "irecovery"))
+
+    def test_stale_fallback_state_cannot_send_a_ramdisk(self):
+        result = self.run_functions(("bl_ios_send", "bl_ios_command", "boot_sshrd"),
+                                    'device_type=iPhone3,1\ndevice_pwnd=fallback\nboot_sshrd')
+        self.assert_stopped(result, "Unverified recovery state")
+        self.assertFalse(any(entry["args"][:1] == ["-f"]
+                             for entry in self.trace_entries() if entry["tool"] == "irecovery"))
+
+    def test_4s_stops_before_ibss_if_external_pwn_is_unconfirmed(self):
+        result = self.run_functions(("enter_pwndfu",),
+                                    'device_type=iPhone4,1\ndevice_proc=5\n'
+                                    'ipwndfu_send_ibss() { error "Unexpected iBSS upload"; }\n'
+                                    'enter_pwndfu', BL_TEST_RECOVERY="MODE: DFU\n")
+        self.assert_stopped(result, "Device NOT in pwned DFU mode")
+        self.assertNotIn("Unexpected iBSS upload", result.stderr)
+        self.assertFalse(any(entry["args"][:1] == ["-f"]
+                             for entry in self.trace_entries() if entry["tool"] == "irecovery"))
 
     def test_early_wtf_branch_accepts_expected_srtg_fallback(self):
         result = self.run_functions(

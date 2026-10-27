@@ -4,6 +4,8 @@
 
 A desktop app for legacy iPhone recovery, with guided timer reset, a pinned recovery backend, backups, and a built-in updater. Desktop downloads include iPhone 3G ARMv6 tools and Intel Mac support targeting macOS 12 Monterey.
 
+Version **2.3.21** opens directly on passcode recovery and uses one row of task tabs. Uncommon controls are grouped under **Help and tools**. iPhone 3GS is available for experimental passcode recovery; its timer reset remains unavailable and physical 3GS testing is pending.
+
 Version **2.3.20** includes **CPython 2.7.18 inside every desktop download** for legacy backend helpers. Recovery and ramdisk preparation select that app-owned interpreter automatically; users do not install Python 2, pyenv or Homebrew. Windows includes the Linux Python 2 runtime used inside WSL. The GUI continues to use its bundled Python 3 runtime.
 
 Version **2.3.18** leaves the phone model blank until selected or detected, highlights the hovered dropdown row, and adds experimental original **iPhone 2G** passcode recovery for **iPhone OS 2.2–3.1.3**. The 2G uses a dedicated 3.1.3 SSH ramdisk and read-only legacy keychain decoder. OS 1.x and 2G timer reset are not supported, and physical 2G validation remains pending.
@@ -22,7 +24,7 @@ Use **Updates → Update now** to install the latest compatible release, then re
 
 ## Download and open
 
-Get the platform archive from [version 2.3.20](https://github.com/channelramble/Openup/releases/tag/v2.3.20) and extract it completely.
+Get the platform archive from [version 2.3.21](https://github.com/channelramble/Openup/releases/tag/v2.3.21) and extract it completely.
 
 **Already using Openup 2.3.0–2.3.4?** Open **Updates → Check and download directly in the app → Check for updates → Install update**, then restart. Leave the token empty and Include prereleases enabled. This installs the new one-click updater without visiting GitHub.
 
@@ -52,11 +54,11 @@ USB access still depends on the host: macOS's usbmuxd service, Apple Mobile Devi
 ## Use the GUI
 
 1. **Choose your phone:** connect one phone and choose **Refresh**. Available identity selects its exact model automatically; macOS also discovers recognized DFU/Recovery devices. A normal USB phone remains listed when its details cannot be read. In that case, choose its exact model manually. If the host cannot list its current mode, recovery can still guide you through connection and button steps. Disconnect other phones before recovery or ramdisk preparation.
-2. **Choose a task on Start:** if you know the passcode but the phone is locked out, choose timer reset. If you forgot the passcode, choose passcode recovery.
+2. **Choose a task:** use the task tabs at the top. Choose **Reset timer** if you know the passcode but the phone is locked out, or **Recover passcode** if you forgot it.
 3. **Timer reset:** follow **Prepare → Review & reset → Done**. Preparation boots the temporary ramdisk and inspects the phone. The pinned backend returns automatically after ramdisk preparation. Review the proposed changes in the result card, then confirm the reset. If the phone is already prepared, use the inspection shortcut. Changing the selected phone or its settings requires a fresh review. After reboot, use the existing passcode.
 4. **Passcode recovery:** click **Start recovery** once; the app downloads the backend when needed. For a readable normal-mode phone, Openup verifies the selected device and requests Recovery mode, then guides you through the DFU buttons and countdown. If automatic entry is unavailable or cannot be confirmed, follow the manual Recovery steps shown in the GUI. The backend verifies the hardware again before continuing. Results appear on the phone or in Openup, depending on the model. Supported 2G recovery displays the decoded passcode in Openup; later phones show it at the end of the on-phone output and finish in the app with **Check your iPhone**. There is no Show Passcode menu or terminal choice. Sending the recovery system does not confirm a recovered passcode. A temporary masked GUI field still handles any required host password.
-5. **Advanced options:** expand these only when needed, such as for a local 3G IPSW, a custom tools folder, or connection settings. The normal workflow uses the included tools and default settings.
-6. **Backups and updates:** use Backups to restore original files, finish interrupted cleanup, or delete a selected backup. Deletion requires two confirmations and permanently removes that saved local copy; it does not change the phone. Choose **Updates → Update now** to check, download, verify and install the latest release for your computer. Choose **Restart** when ready to use it. No browser, token, file selection or GitHub CLI is required. Prereleases are included by default because Openup currently publishes prereleases. **Advanced update options** contains rollback, a local ZIP/checksum installer, release notes and an optional token kept only in memory. Updates run when requested; the app never restarts during an operation.
+5. **Help and tools:** find exit recovery mode, connection settings, optional local firmware and recovery tools, backup cleanup, and update options in one place. The normal workflow uses the included tools and defaults.
+6. **Backups and updates:** use Backups to restore original files, finish interrupted cleanup, or delete a selected backup. Deletion requires two confirmations and permanently removes that saved local copy; it does not change the phone. Choose **Updates → Update now** to check, download, verify and install the latest release for your computer. Choose **Restart** when ready to use it. No browser, token, file selection or GitHub CLI is required. Prereleases are included by default because Openup currently publishes prereleases. **Help and tools** contains rollback, a local ZIP/checksum installer, release notes and an optional token kept only in memory. Updates run when requested; the app never restarts during an operation.
 
 The **session card** displays the current step, requests a response when needed, and shows the result. The terminal stays closed even on failure. Open **Advanced · terminal** to inspect raw output; **Enable manual input** is a separate opt-in. Closing the terminal disables manual input again. Phone and settings controls are locked while an operation runs.
 
@@ -74,7 +76,7 @@ The `reset` workflow still requires the correct passcode afterward. The separate
 
 ## Source edition and CLI
 
-The unqualified `Openup-2.3.17.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
+The unqualified `Openup-2.3.21.zip` is the source archive for development and existing CLI users. It is different from the platform desktop downloads above. The following commands apply to that source edition.
 
 Download the ZIP from [Releases](https://github.com/channelramble/Openup/releases) and extract the whole folder onto the computer connected to the phone. Python 3.9 or newer is required.
 

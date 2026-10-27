@@ -1,5 +1,14 @@
 # Changes
 
+## 2.3.21
+
+- Replace the repeated start screen and sidebar with direct task tabs. Recovery opens first; timer reset, backups, updates and help each have one place. Move uncommon recovery, backup and update controls to Help and tools, and keep the terminal and manual input hidden by default.
+- Add iPhone 3GS as an experimental passcode-recovery choice. The pinned backend selects its 6.1.6 ramdisk and the bundled upstream ARMv7 payloads; timer reset remains unavailable for 3GS. Show the checkm8-A5 warning only for iPhone 4S.
+- Reject a stale fallback state before ramdisk upload. The existing adapter already stopped a failed pwn check; this adds a separate guard and exercises both paths.
+- Exercise the actual pinned entry shell with simulated 3GS, all iPhone 4 variants, 4S and 5c variants, including wrong-model rejections, and test failed exploit checks without USB hardware.
+
+No phone was connected for this revision. These checks do not verify a physical boot or a recovered passcode; 3GS support remains experimental.
+
 ## 2.3.20
 
 - Add **Exit recovery mode** to the recovery page. It requests normal boot through the pinned kit's recovery tool without restoring or erasing, checks the connected phone before sending, and explains how to leave DFU manually. Windows routes through WSL.

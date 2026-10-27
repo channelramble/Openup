@@ -22,6 +22,14 @@ class ModelPlanningTests(unittest.TestCase):
             with self.subTest(action=action, options=options):
                 self.assertNotIn("--model", operation_arguments(action, Settings(), **options))
 
+    def test_3gs_is_recovery_only_and_cannot_reach_timer_commands(self):
+        settings = Settings(model="iPhone2,1")
+        self.assertEqual(operation_arguments("recover", settings, apply=True),
+                         ["recover", "--model", "iPhone2,1", "--apply"])
+        for action in ("prepare", "inspect", "reset"):
+            with self.subTest(action=action), self.assertRaisesRegex(ResetError, "recovery only"):
+                operation_arguments(action, settings, apply=action == "reset")
+
 
 @unittest.skipUnless(importlib.util.find_spec("PySide6"), "Desktop dependencies are not installed.")
 class ModelSelectionGuiTests(unittest.TestCase):
@@ -94,6 +102,30 @@ class ModelSelectionGuiTests(unittest.TestCase):
                                       "model": "iPhone5,1", "mode": "normal"}])
         self.assertEqual(self.window.phone_model.currentData(), "iPhone5,1")
         self.assertEqual(self.window.settings.model, "iPhone5,1")
+
+    def test_3gs_detection_selects_recovery_and_blocks_timer_reset(self):
+        self.window.populate_devices([{"udid": "b" * 40, "device_id": 1,
+                                      "model": "iPhone2,1", "mode": "normal"}])
+        self.assertEqual(self.window.phone_model.currentData(), "iPhone2,1")
+        self.assertIn("3GS", self.window.connection.text())
+        self.assertFalse(self.window.iphone3gs_notice.isHidden())
+        self.window.navigate(1)
+        self.assertEqual(self.window.timer_primary.text(), "Open passcode recovery")
+        self.assertFalse(self.window.timer_secondary.isEnabled())
+        self.window.timer_primary.click()
+        self.assertEqual(self.window.pages.currentIndex(), 2)
+        with self.fake_worker():
+            self.window.recovery_start.click()
+            args = self.window.process.arguments
+            self.assertEqual(args[args.index("--model") + 1], "iPhone2,1")
+            self.assertIn("--apply", args)
+
+    def test_a5_hardware_warning_only_appears_for_4s(self):
+        for model, visible in (("iPhone4,1", True), ("iPhone3,1", False),
+                               ("iPhone2,1", False), ("iPhone5,3", False)):
+            with self.subTest(model=model):
+                self.window.phone_model.setCurrentIndex(self.window.phone_model.findData(model))
+                self.assertEqual(not self.window.a5_notice.isHidden(), visible)
 
     def test_blank_model_blocks_boot_worker_but_keeps_download_available(self):
         with self.fake_worker(), patch("ios_timeout.gui.QMessageBox.information") as message:
